@@ -25,7 +25,7 @@ def test_prometheus_scrape_config_targets_metrics_endpoint() -> None:
     document = (REPO_ROOT / "ops/monitoring/prometheus/prometheus.yml").read_text()
 
     assert "/metrics" in document
-    assert "aptitude-server" in document
+    assert "aptitude-registry" in document
     assert "127.0.0.1:9090" in document
     assert "job_name: loki" in document
     assert "job_name: otelcol" in document
@@ -41,10 +41,10 @@ def test_grafana_dashboard_covers_key_registry_surfaces() -> None:
     metrics_dashboard = next(
         dashboard
         for dashboard in dashboards
-        if dashboard.name == "aptitude-server-operability.json"
+        if dashboard.name == "aptitude-registry-operability.json"
     )
     logs_dashboard = next(
-        dashboard for dashboard in dashboards if dashboard.name == "aptitude-server-logs.json"
+        dashboard for dashboard in dashboards if dashboard.name == "aptitude-registry-logs.json"
     )
 
     metrics_document = metrics_dashboard.read_text()
@@ -83,7 +83,7 @@ def test_grafana_dashboard_covers_key_registry_surfaces() -> None:
     assert "outcome" in logs_document
     assert "error_code" in logs_document
     assert "service_name" in logs_document
-    assert "aptitude-server" in logs_document
+    assert "aptitude-registry" in logs_document
     assert 'logger=\\"app.main\\"' in logs_document
     assert 'event_type=\\"request.completed\\"' in logs_document
     assert "count_over_time" in logs_document
@@ -119,8 +119,8 @@ def test_grafana_datasources_define_stable_uids() -> None:
 def test_prometheus_alert_rules_cover_log_pipeline_health() -> None:
     document = (REPO_ROOT / "ops/monitoring/prometheus/alerts.yml").read_text()
 
-    assert "AptitudeServerLokiUnavailable" in document
-    assert "AptitudeServerCollectorUnavailable" in document
+    assert "AptitudeRegistryLokiUnavailable" in document
+    assert "AptitudeRegistryCollectorUnavailable" in document
 
 
 @pytest.mark.unit

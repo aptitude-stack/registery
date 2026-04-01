@@ -329,7 +329,7 @@ match through text or tags.
 
 ## Summary
 
-Discovery candidate selection in `aptitude-server` is:
+Discovery candidate selection in `Aptitude Registry` is:
 
 - indexed
 - lexical

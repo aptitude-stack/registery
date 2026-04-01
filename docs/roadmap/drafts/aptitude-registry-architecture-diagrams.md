@@ -1,6 +1,6 @@
-# Aptitude Server Architecture
+# Aptitude Registry Architecture
 
-This diagram set shows the current `aptitude-server` shape and the planned
+This diagram set shows the current `Aptitude Registry` shape and the planned
 post-launch discovery extension from Plan 15.
 
 ## 1. Server System View
@@ -24,7 +24,7 @@ flowchart LR
     Resolver["aptitude-resolver / MCP / CLI<br/>prompt interpretation<br/>reranking + final selection<br/>dependency solving + lock generation"]
     Ops["Ops / observability<br/>health probes<br/>metrics scrape<br/>logs + runbooks"]
 
-    subgraph Server["aptitude-server"]
+    subgraph Server["Aptitude Registry"]
         direction TB
 
         Main["app/main.py<br/>composition root"]

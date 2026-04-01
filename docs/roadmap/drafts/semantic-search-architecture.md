@@ -2,10 +2,10 @@
 
 > Status: draft/future-looking context only.
 > This file is not the current source of truth for the live server contract.
-> Use [docs/README.md](../README.md), [docs/project/api-contract.md](../project/api-contract.md),
-> and [docs/project/scope.md](../project/scope.md) for the live baseline.
+> Use [`../../README.md`](../../README.md), [`../../reference/api-contract.md`](../../reference/api-contract.md),
+> and [`../../architecture/server-resolver-boundary.md`](../../architecture/server-resolver-boundary.md) for the live baseline.
 
-This draft proposes an additive semantic-search design for `aptitude-server`.
+This draft proposes an additive semantic-search design for `Aptitude Registry`.
 
 The intent is to improve discovery recall for paraphrases, synonym-heavy queries,
 and sparse metadata without changing the core Aptitude boundary:
@@ -59,7 +59,7 @@ Current limitations:
 
 ## 4. Non-Goals
 
-- Moving final selection or runtime reranking into `aptitude-server`
+- Moving final selection or runtime reranking into `Aptitude Registry`
 - Replacing lexical search entirely
 - Embedding raw markdown bodies by default
 - Introducing personalized ranking or user-specific retrieval

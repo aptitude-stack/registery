@@ -1,13 +1,12 @@
-# Aptitude Server PRD
+# Aptitude Registry PRD
 
-> Status: current product requirements for `aptitude-server`.
-> Use [docs/project/api-contract.md](project/api-contract.md) for the canonical
-> HTTP contract and [docs/README.md](README.md) for the full docs map.
+> Status: current product requirements for `Aptitude Registry`.
+> Use [`../reference/api-contract.md`](../reference/api-contract.md) for the canonical HTTP contract.
 
 ## 1. Executive Summary
 
 - **Problem Statement**: Platform teams need a governed registry for publishing, discovering, and retrieving skills, but the server becomes harder to scale, cache, and reason about when it also owns prompt interpretation, dependency solving, or runtime planning. The registry must stay focused on fast data-local operations over immutable artifacts and searchable metadata.
-- **Proposed Solution**: Define `aptitude-server` as a package-registry-style service responsible for publish, discovery, public resolution, exact fetch, governance, and audit contracts. Keep PostgreSQL authoritative for registry metadata, digest mappings, and immutable artifact payloads, using split tables for metadata and content, and treat Git only as optional authoring provenance rather than a runtime storage backend.
+- **Proposed Solution**: Define `Aptitude Registry` as a package-registry-style service responsible for publish, discovery, public resolution, exact fetch, governance, and audit contracts. Keep PostgreSQL authoritative for registry metadata, digest mappings, and immutable artifact payloads, using split tables for metadata and content, and treat Git only as optional authoring provenance rather than a runtime storage backend.
 - **Success Criteria**:
   - 100% of artifact and metadata writes happen through server APIs.
   - Immutable overwrite attempts for existing `(slug, version)` are rejected 100% of the time.
@@ -78,7 +77,7 @@
 ## 3. AI System Requirements (If Applicable)
 
 - **Tool Requirements**:
-  - Not applicable for the server control plane. `aptitude-server` performs indexed retrieval and policy enforcement, not model inference or agent orchestration.
+  - Not applicable for the server control plane. `Aptitude Registry` performs indexed retrieval and policy enforcement, not model inference or agent orchestration.
   - Required service primitives remain standard registry capabilities: publish, discovery, public resolution, exact fetch, governance, and audit endpoints.
 
 - **Evaluation Strategy**:
@@ -101,7 +100,7 @@
   - `Discovery API` -> `Metadata + Description Indexes` -> `Stable Candidate Response`
   - `Exact Fetch API` -> `Immutable Version Record` -> `Digest-Addressed Artifact Row`
   - `Relationship Read API` -> `Exact Version Coordinates` -> `Direct Authored Selectors`
-  - Aptitude Server is authoritative for published metadata, digest mappings, artifact payloads, lifecycle state, and audit events in PostgreSQL. Optional Git provenance is captured only as publish metadata. The server is not authoritative for runtime selection or dependency resolution outcomes.
+  - Aptitude Registry is authoritative for published metadata, digest mappings, artifact payloads, lifecycle state, and audit events in PostgreSQL. Optional Git provenance is captured only as publish metadata. The server is not authoritative for runtime selection or dependency resolution outcomes.
 
 ```mermaid
 flowchart LR

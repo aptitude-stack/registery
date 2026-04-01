@@ -2,7 +2,7 @@
 
 HTTP API routers for the service.
 
-Use [docs/project/api-contract.md](../../../docs/project/api-contract.md) as the
+Use [docs/reference/api-contract.md](../../../docs/reference/api-contract.md) as the
 canonical HTTP contract for route semantics.
 
 ## Purpose

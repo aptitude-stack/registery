@@ -3,7 +3,7 @@
 Pure ranking, normalization, and metadata helper functions.
 
 This package stays execution-agnostic and inside the server boundary described
-in [docs/project/scope.md](../../docs/project/scope.md).
+in [docs/architecture/server-resolver-boundary.md](../../docs/architecture/server-resolver-boundary.md).
 
 ## Purpose
 

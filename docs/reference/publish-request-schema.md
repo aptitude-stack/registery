@@ -1,6 +1,6 @@
 # Publish Endpoint Schema
 
-Live publish contract for `aptitude-server`.
+Live publish contract for `Aptitude Registry`.
 
 This document describes the live publish request shape used by the repository's server code. It is based on the current route and DTOs, not older historical variants.
 

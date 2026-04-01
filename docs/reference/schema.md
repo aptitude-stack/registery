@@ -1,12 +1,10 @@
 # Database Schema
 
-> Status: canonical PostgreSQL schema baseline for the live server.
-> Use [docs/project/api-contract.md](project/api-contract.md) for the live HTTP
-> contract and [docs/README.md](README.md) for the full docs map.
+> Status: canonical PostgreSQL schema baseline for the live registry.
+> Use [`api-contract.md`](api-contract.md) for the live HTTP contract.
 
 ## Purpose
-This document describes the canonical PostgreSQL baseline for the registry data
-model.
+This document describes the canonical PostgreSQL baseline for the registry data model.
 
 It reflects the runtime schema created by
 `alembic/versions/0001_initial_schema.py`:

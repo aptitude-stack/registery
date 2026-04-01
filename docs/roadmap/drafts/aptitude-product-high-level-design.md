@@ -1,9 +1,9 @@
 # Aptitude: High Level Design
 
-> Status: project-level context document, not the canonical `aptitude-server`
+> Status: project-level context document, not the canonical `Aptitude Registry`
 > contract.
-> Use [docs/README.md](../README.md), [docs/project/api-contract.md](api-contract.md),
-> and [docs/project/scope.md](scope.md) as the live server sources of truth.
+> Use [`../../README.md`](../../README.md), [`../../reference/api-contract.md`](../../reference/api-contract.md),
+> and [`../../architecture/server-resolver-boundary.md`](../../architecture/server-resolver-boundary.md) as the live registry sources of truth.
 
 **Team:** Aptitude
 
@@ -12,7 +12,7 @@
 ## 1. Executive Summary
 
 - **Problem Statement**: Teams need a reliable way to publish, discover, resolve, and execute skills through agents without coupling authoring workflows, registry storage, and runtime decision-making into one hard-to-scale service. Today, Aptitude needs a project-level design that defines how publisher, registry, resolver, and agent-facing interfaces work together as one product.
-- **Proposed Solution**: Build Aptitude as a three-surface product: `aptitude-publisher` for authoring and CI release flows, `aptitude-server` as the authoritative registry backend, and `aptitude-resolver` as the consumer-side discovery, solving, locking, and execution-planning client. The current user interface is CLI + MCP for seamless agent integration, with a future web application added as a convenience layer rather than as the core product dependency.
+- **Proposed Solution**: Build Aptitude as a three-surface product: `aptitude-publisher` for authoring and CI release flows, `Aptitude Registry` as the authoritative registry backend, and `aptitude-resolver` as the consumer-side discovery, solving, locking, and execution-planning client. The current user interface is CLI + MCP for seamless agent integration, with a future web application added as a convenience layer rather than as the core product dependency.
 - **Success Criteria**:
   - Search relevance achieves an initial benchmark target of `Precision@5 >= 85%` across at least 50 representative skill-discovery tasks.
   - Discovery API latency stays at `p95 <= 250 ms` for top-candidate retrieval on a 10,000-skill catalog.
@@ -58,7 +58,7 @@
 ### Tool Requirements
 
 - `aptitude-resolver` must expose agent-friendly interfaces through CLI and MCP.
-- `aptitude-server` must expose stable HTTP APIs for publish, discovery, resolution, exact fetch, and lifecycle control.
+- `Aptitude Registry` must expose stable HTTP APIs for publish, discovery, resolution, exact fetch, and lifecycle control.
 - `aptitude-publisher` must support local and CI-driven release workflows.
 - The project should remain model-agnostic: Aptitude integrates with agents, but does not require one specific LLM vendor to function.
 
@@ -76,7 +76,7 @@
 At the project level, Aptitude is composed of four primary product components and one future-facing interface:
 
 - `aptitude-publisher`: authoring and CI publishing client.
-- `aptitude-server`: authoritative registry backend and API surface.
+- `Aptitude Registry`: authoritative registry backend and API surface.
 - `aptitude-resolver`: consumer-side discovery, solving, locking, and execution-planning client.
 - `PostgreSQL`: canonical storage for registry metadata, versions, artifacts, lifecycle state, and audit data.
 - `Future Web App` (later phase): browser-based user experience for catalog browsing and operations, built on top of the same APIs and contracts.
@@ -85,7 +85,7 @@ At the project level, Aptitude is composed of four primary product components an
 flowchart LR
     Author["Skill Author / CI"] --> Publisher["aptitude-publisher"]
     Agent["Agent Runtime / MCP Host / CLI User"] --> Resolver["aptitude-resolver"]
-    Publisher --> Server["aptitude-server"]
+    Publisher --> Server["Aptitude Registry"]
     Resolver --> Server
     Server --> DB["PostgreSQL"]
     Web["Future Web App"] --> Server
@@ -96,7 +96,7 @@ flowchart LR
 | Component | Primary Role | Owns | Does Not Own |
 | --- | --- | --- | --- |
 | `aptitude-publisher` | Publish client | Packaging, local prechecks, request assembly, CI and author UX | Canonical validation, persistence, runtime solving |
-| `aptitude-server` | Registry backend | Auth, validation, immutability, governance, persistence, search, audit | Prompt interpretation, final selection, dependency solving, execution planning |
+| `Aptitude Registry` | Registry backend | Auth, validation, immutability, governance, persistence, search, audit | Prompt interpretation, final selection, dependency solving, execution planning |
 | `aptitude-resolver` | Runtime client | Discovery query construction, reranking, solve, lock, execution planning, MCP and CLI surfaces | Publish packaging, canonical registry policy |
 | `PostgreSQL` | Canonical data store | Skill metadata, versions, content digests, lifecycle state, audit records | Client-side runtime decision logic |
 | `Future Web App` | UX layer | Catalog browsing, skill inspection, operator workflows | Registry source of truth, solving logic |
@@ -122,7 +122,7 @@ The two dominant project flows are publishing and agent-driven consumption.
 sequenceDiagram
     participant A as Author or CI
     participant P as aptitude-publisher
-    participant S as aptitude-server
+    participant S as Aptitude Registry
     participant D as PostgreSQL
 
     A->>P: Package skill content and metadata
@@ -141,7 +141,7 @@ sequenceDiagram
     participant U as User
     participant M as Agent via CLI or MCP
     participant R as aptitude-resolver
-    participant S as aptitude-server
+    participant S as Aptitude Registry
     participant D as PostgreSQL
 
     U->>M: Ask for a capability or task
@@ -177,7 +177,7 @@ sequenceDiagram
   - Can add server-side rendering or route handlers without moving core Aptitude logic out of the resolver and server.
 - Architectural rule:
   - The web app should remain a presentation layer over Aptitude APIs.
-  - Business rules for publishing stay in `aptitude-publisher` and `aptitude-server`.
+  - Business rules for publishing stay in `aptitude-publisher` and `Aptitude Registry`.
   - Discovery and planning intelligence stays in `aptitude-resolver`.
 
 ### Mocks for Main Pages
@@ -297,12 +297,12 @@ The MVP has no formal browser pages, so the current "screens" are CLI and MCP in
 ### Deployment Strategy
 
 - **MVP**:
-  - `aptitude-server` deployed as the only long-running backend service.
+  - `Aptitude Registry` deployed as the only long-running backend service.
   - PostgreSQL as the canonical database.
   - `aptitude-publisher` used locally or in CI.
   - `aptitude-resolver` used via CLI, MCP host integration, or SDK surface.
 - **Target cloud deployment**:
-  - `aptitude-server` on Cloud Run or GKE.
+  - `Aptitude Registry` on Cloud Run or GKE.
   - PostgreSQL on Cloud SQL.
   - Optional Pub/Sub or worker tier only for post-commit side effects.
 
@@ -335,7 +335,7 @@ The MVP has no formal browser pages, so the current "screens" are CLI and MCP in
 
 ### Dependencies and External Services
 
-- FastAPI application layer in `aptitude-server`.
+- FastAPI application layer in `Aptitude Registry`.
 - PostgreSQL for canonical storage and indexed retrieval.
 - CLI and MCP host environments for end-user and agent integrations.
 - Optional future services: dedicated search engine, async worker tier, web UI hosting stack.
@@ -345,7 +345,7 @@ The MVP has no formal browser pages, so the current "screens" are CLI and MCP in
 ### Phased Rollout
 
 - **MVP**:
-  - `aptitude-publisher`, `aptitude-server`, and `aptitude-resolver` working end to end.
+  - `aptitude-publisher`, `Aptitude Registry`, and `aptitude-resolver` working end to end.
   - CLI + MCP as the primary user-facing interfaces.
   - Search, exact fetch, immutable publishing, and resolver-side planning fully functional.
 - **v1.1**:

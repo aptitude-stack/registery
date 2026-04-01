@@ -28,9 +28,9 @@ Start small and add sources only when they change the decision.
 ### Architecture and scope
 
 Open:
-- `docs/overview.md`
-- `docs/scope.md`
-- `docs/prd.md`
+- `docs/architecture/system-overview.md`
+- `docs/architecture/server-resolver-boundary.md`
+- `docs/roadmap/requirements-and-phases.md`
 
 Use for:
 - new features
@@ -41,7 +41,7 @@ Use for:
 ### API and contract work
 
 Open:
-- `docs/api-contract.md`
+- `docs/reference/api-contract.md`
 - `postman/collections/`
 - `app/interface/`
 - relevant integration tests in `tests/integration/`
@@ -55,9 +55,9 @@ Use for:
 ### Persistence and discovery
 
 Open:
-- `docs/schema.md`
-- `docs/storage-strategy.md`
-- `docs/discovery-candidate-selection.md`
+- `docs/reference/schema.md`
+- `docs/reference/storage-strategy.md`
+- `docs/architecture/discovery-and-ranking.md`
 - `app/persistence/`
 - `alembic/versions/`
 

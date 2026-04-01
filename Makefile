@@ -1,5 +1,5 @@
 UV ?= UV_CACHE_DIR=.uv-cache uv
-DOCKER_IMAGE ?= y0ncha/aptitude-server
+DOCKER_IMAGE ?= y0ncha/aptitude-registry
 DOCKER_TAG ?= latest
 DOCKER_IMAGE_REF := $(DOCKER_IMAGE):$(DOCKER_TAG)
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
@@ -23,7 +23,7 @@ debug:
 	@LOG_LEVEL=DEBUG UVICORN_RELOAD=false $(UV) run python -m app.main
 
 test:
-	$(UV) run --extra dev pytest
+	$(UV) run --extra dev python -m pytest
 
 lint:
 	$(UV) run --extra dev ruff check .
@@ -32,7 +32,7 @@ format:
 	$(UV) run --extra dev ruff format .
 
 typecheck:
-	$(UV) run --extra dev mypy app
+	$(UV) run --extra dev python -m mypy app
 
 migrate-up:
 	$(UV) run alembic upgrade head
@@ -76,7 +76,7 @@ docker-smoke:
 		sleep 1; \
 	done
 	@for attempt in $$(seq 1 30); do \
-		if curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"aptitude-server"' \
+		if curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"aptitude-registry"' \
 			&& curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"loki"' \
 			&& curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"otelcol"'; then \
 			break; \
@@ -87,20 +87,20 @@ docker-smoke:
 	curl --fail http://127.0.0.1:8000/readyz
 	curl --fail http://127.0.0.1:8000/metrics
 	curl --fail http://127.0.0.1:3100/ready
-	curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"aptitude-server"'
+	curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"aptitude-registry"'
 	curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"loki"'
 	curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"otelcol"'
 	curl --silent --fail -H 'X-Request-ID: loki-smoke' http://127.0.0.1:8000/healthz >/dev/null
 	@START=$$(python3 -c 'import time; print(time.time_ns() - 300_000_000_000)'); \
 	for attempt in $$(seq 1 30); do \
 		END=$$(python3 -c 'import time; print(time.time_ns())'); \
-		if curl --silent --get --data-urlencode 'query={service_name="aptitude-server"} |= "loki-smoke"' --data-urlencode "start=$${START}" --data-urlencode "end=$${END}" --data-urlencode 'limit=20' http://127.0.0.1:3100/loki/api/v1/query_range | python3 -c 'import json, sys; data = json.load(sys.stdin); raise SystemExit(0 if any(stream["values"] for stream in data["data"]["result"]) else 1)'; then \
+		if curl --silent --get --data-urlencode 'query={service_name="aptitude-registry"} |= "loki-smoke"' --data-urlencode "start=$${START}" --data-urlencode "end=$${END}" --data-urlencode 'limit=20' http://127.0.0.1:3100/loki/api/v1/query_range | python3 -c 'import json, sys; data = json.load(sys.stdin); raise SystemExit(0 if any(stream["values"] for stream in data["data"]["result"]) else 1)'; then \
 			break; \
 		fi; \
 		sleep 1; \
 	done; \
 	END=$$(python3 -c 'import time; print(time.time_ns())'); \
-	curl --silent --get --data-urlencode 'query={service_name="aptitude-server"} |= "loki-smoke"' --data-urlencode "start=$${START}" --data-urlencode "end=$${END}" --data-urlencode 'limit=20' http://127.0.0.1:3100/loki/api/v1/query_range | python3 -c 'import json, sys; data = json.load(sys.stdin); matches = [(ts, line) for stream in data["data"]["result"] for ts, line in stream["values"]]; print(matches[0][1]) if matches else sys.exit("No Loki records matched loki-smoke")'
+	curl --silent --get --data-urlencode 'query={service_name="aptitude-registry"} |= "loki-smoke"' --data-urlencode "start=$${START}" --data-urlencode "end=$${END}" --data-urlencode 'limit=20' http://127.0.0.1:3100/loki/api/v1/query_range | python3 -c 'import json, sys; data = json.load(sys.stdin); matches = [(ts, line) for stream in data["data"]["result"] for ts, line in stream["values"]]; print(matches[0][1]) if matches else sys.exit("No Loki records matched loki-smoke")'
 	docker compose --profile observability down -v
 
 docker-build:

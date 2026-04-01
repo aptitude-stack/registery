@@ -139,7 +139,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (level) (count_over_time({service_name=\"aptitude-server\"} | json | logger=\"app.main\" | event_type != \"\" | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [5m]))",
+          "expr": "sum by (level) (count_over_time({service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | event_type != \"\" | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [5m]))",
           "legendFormat": "{{level}}",
           "queryType": "range",
           "refId": "A"
@@ -204,7 +204,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aptitude-server\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [15m]))",
+          "expr": "sum(count_over_time({service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [15m]))",
           "queryType": "range",
           "refId": "A"
         }
@@ -268,7 +268,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aptitude-server\"} | json | level=\"ERROR\" [15m]))",
+          "expr": "sum(count_over_time({service_name=\"aptitude-registry\"} | json | level=\"ERROR\" [15m]))",
           "queryType": "range",
           "refId": "A"
         }
@@ -332,7 +332,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aptitude-server\"} | json | logger=\"app.main\" | status_code >= 400 | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [15m]))",
+          "expr": "sum(count_over_time({service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | status_code >= 400 | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [15m]))",
           "queryType": "range",
           "refId": "A"
         }
@@ -396,7 +396,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"aptitude-server\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | duration_ms > 250 | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [15m]))",
+          "expr": "sum(count_over_time({service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | duration_ms > 250 | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" [15m]))",
           "queryType": "range",
           "refId": "A"
         }
@@ -429,7 +429,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "{service_name=\"aptitude-server\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" | line_format \"{{ printf \\\"%-6s %-44.44s %-10.10s %3v %8s ms %-12.12s\\\" .http_method .http_route .surface .status_code .duration_ms .outcome }}{{ if .error_code }} {{ .error_code }}{{ end }}\"",
+          "expr": "{service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" | line_format \"{{ printf \\\"%-6s %-44.44s %-10.10s %3v %8s ms %-12.12s\\\" .http_method .http_route .surface .status_code .duration_ms .outcome }}{{ if .error_code }} {{ .error_code }}{{ end }}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -462,7 +462,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "{service_name=\"aptitude-server\"} | json | level=\"ERROR\" | line_format \"{{ printf \\\"%-8s %-18.18s %-24.24s %-10.10s %3v\\\" .level .logger .message .surface .status_code }}{{ if .error_code }} {{ .error_code }}{{ end }}{{ if .exception_type }} {{ .exception_type }}{{ end }}\"",
+          "expr": "{service_name=\"aptitude-registry\"} | json | level=\"ERROR\" | line_format \"{{ printf \\\"%-8s %-18.18s %-24.24s %-10.10s %3v\\\" .level .logger .message .surface .status_code }}{{ if .error_code }} {{ .error_code }}{{ end }}{{ if .exception_type }} {{ .exception_type }}{{ end }}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -495,7 +495,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "{service_name=\"aptitude-server\"} | json | logger=\"app.main\" | status_code >= 400 | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" | line_format \"{{ printf \\\"%-6s %-44.44s %-10.10s %3v %8s ms %-12.12s\\\" .http_method .http_route .surface .status_code .duration_ms .outcome }}{{ if .error_code }} {{ .error_code }}{{ end }}\"",
+          "expr": "{service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | status_code >= 400 | http_route != \"/metrics\" | http_route != \"/healthz\" | http_route != \"/readyz\" | line_format \"{{ printf \\\"%-6s %-44.44s %-10.10s %3v %8s ms %-12.12s\\\" .http_method .http_route .surface .status_code .duration_ms .outcome }}{{ if .error_code }} {{ .error_code }}{{ end }}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -528,7 +528,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "{service_name=\"aptitude-server\"} |= \"$request_id\" | json | logger=\"app.main\" | line_format \"{{ printf \\\"%-18.18s %-6s %-36.36s %-10.10s %3v %8s ms %-12.12s\\\" .event_type .http_method .http_route .surface .status_code .duration_ms .outcome }}{{ if .error_code }} {{ .error_code }}{{ end }}\"",
+          "expr": "{service_name=\"aptitude-registry\"} |= \"$request_id\" | json | logger=\"app.main\" | line_format \"{{ printf \\\"%-18.18s %-6s %-36.36s %-10.10s %3v %8s ms %-12.12s\\\" .event_type .http_method .http_route .surface .status_code .duration_ms .outcome }}{{ if .error_code }} {{ .error_code }}{{ end }}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -561,7 +561,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "{service_name=\"aptitude-server\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | http_route =~ \"/(metrics|healthz|readyz)\" | line_format \"{{ printf \\\"%-6s %-18.18s %3v %8s ms\\\" .http_method .http_route .status_code .duration_ms }}\"",
+          "expr": "{service_name=\"aptitude-registry\"} | json | logger=\"app.main\" | event_type=\"request.completed\" | http_route =~ \"/(metrics|healthz|readyz)\" | line_format \"{{ printf \\\"%-6s %-18.18s %3v %8s ms\\\" .http_method .http_route .status_code .duration_ms }}\"",
           "queryType": "range",
           "refId": "A"
         }
@@ -574,7 +574,7 @@
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
-    "aptitude-server",
+    "aptitude-registry",
     "logs",
     "service"
   ],
@@ -600,7 +600,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Aptitude Server Logs",
-  "uid": "aptitude-server-logs",
+  "title": "Aptitude Registry Logs",
+  "uid": "aptitude-registry-logs",
   "version": 1
 }

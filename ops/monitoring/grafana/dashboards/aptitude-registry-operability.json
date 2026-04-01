@@ -874,7 +874,7 @@
   "schemaVersion": 39,
   "style": "dark",
   "tags": [
-    "aptitude-server",
+    "aptitude-registry",
     "publish",
     "discovery",
     "resolution",
@@ -890,6 +890,6 @@
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Aptitude Server Operability",
+  "title": "Aptitude Registry Operability",
   "version": 1
 }

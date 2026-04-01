@@ -23,7 +23,7 @@
 
    ```bash
    curl --get \
-     --data-urlencode 'query={service_name="aptitude-server"} |= "runbook-loki-check"' \
+     --data-urlencode 'query={service_name="Aptitude Registry"} |= "runbook-loki-check"' \
      http://127.0.0.1:3100/loki/api/v1/query
    ```
 

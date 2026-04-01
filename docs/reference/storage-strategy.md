@@ -1,12 +1,11 @@
 # Storage Strategy for Skill Content
 
-> Status: current storage decision record for the live server baseline.
-> Use [docs/schema.md](schema.md) for the implemented schema shape and
-> [docs/README.md](README.md) for the full docs map.
+> Status: current storage decision record for the live registry baseline.
+> Use [`schema.md`](schema.md) for the implemented schema shape.
 
 ## Purpose
 
-Evaluate storage strategies for skill artifacts in `aptitude-server` and recommend a design based on the current workload:
+Evaluate storage strategies for skill artifacts in `Aptitude Registry` and recommend a design based on the current workload:
 
 - Skill bodies average `4-6 KB`
 - Skills are fetched as whole documents
@@ -194,4 +193,4 @@ Revisit this decision if one or more of the following become true:
 
 ## Proposed ADR Outcome
 
-For the current product phase, `aptitude-server` should use PostgreSQL as the only persistence layer for skill metadata and skill content. Discovery and exact fetch should be separated at the API, service, query, and schema levels, not by introducing filesystem or object-storage backends.
+For the current product phase, `Aptitude Registry` should use PostgreSQL as the only persistence layer for skill metadata and skill content. Discovery and exact fetch should be separated at the API, service, query, and schema levels, not by introducing filesystem or object-storage backends.
