@@ -57,3 +57,5 @@ htmlcov/
 
 .tmp_migration.db
 /.codex/
+/.cursor/
+
