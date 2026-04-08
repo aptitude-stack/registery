@@ -34,3 +34,8 @@ def test_ci_workflows_boot_runner_tests_from_compose_db(workflow_path: str) -> N
     assert boot_match.start() < document.index("run: make migrate-up")
     assert boot_match.start() < document.index("run: make test-integration")
     assert boot_match.start() < ready_match.start()
+    assert "Bootstrap container smoke test" in document
+    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make docker-smoke" in document
+    assert "docker-smoke-demo" not in document
+    assert "docker-up-demo" not in document
+    assert "docker-demo-seed" not in document

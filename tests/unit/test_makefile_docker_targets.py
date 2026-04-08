@@ -46,6 +46,8 @@ def test_demo_make_targets_run_profiled_demo_seed_and_demo_stack() -> None:
             "make",
             "-n",
             "docker-demo-seed",
+            "docker-up",
+            "docker-up-demo",
             "observability-up-demo",
             "docker-smoke-demo",
         ],
@@ -57,5 +59,7 @@ def test_demo_make_targets_run_profiled_demo_seed_and_demo_stack() -> None:
 
     assert "docker compose --profile demo run --rm demo-seed" in result.stdout
     assert result.stdout.count("docker compose --profile demo run --rm demo-seed") >= 2
+    assert "docker compose up -d server" in result.stdout
     assert "docker compose --profile observability up -d db" in result.stdout
     assert "docker compose --profile observability up -d server observability" in result.stdout
+    assert "docker compose --profile observability rm -f -s migrate" in result.stdout
