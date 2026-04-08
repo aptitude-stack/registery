@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.core.ports import (
+    SkillInstallCounterPort,
     SkillRegistryPort,
     SkillRelationshipReadPort,
     SkillSearchPort,
@@ -23,6 +24,7 @@ class SQLAlchemySkillRegistryRepository(
     SkillRegistryRepositoryBase,
     SkillRegistryPort,
     SkillVersionReadPort,
+    SkillInstallCounterPort,
     SkillSearchPort,
     SkillRelationshipReadPort,
 ):

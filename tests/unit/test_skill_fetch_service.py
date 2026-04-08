@@ -71,6 +71,16 @@ class FakeVersionReader:
         return self._versions
 
 
+class FakeInstallCounter:
+    """Collect install-tracking calls made by the fetch service."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def record_install(self, *, slug: str, version: str) -> None:
+        self.calls.append((slug, version))
+
+
 def _governance_policy() -> GovernancePolicy:
     return GovernancePolicy(profile=build_default_policy_profile())
 
@@ -83,6 +93,7 @@ def _stored_version(*, lifecycle_status: str = "published") -> StoredSkillVersio
     return StoredSkillVersion(
         slug="python.lint",
         version="1.0.0",
+        install_count=0,
         version_checksum_digest="version-digest",
         content_checksum_digest="content-digest",
         content_size_bytes=18,
@@ -137,6 +148,7 @@ def test_get_version_metadata_returns_immutable_detail() -> None:
         version_reader=FakeVersionReader(version=_stored_version()),
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
+        install_counter=FakeInstallCounter(),
     )
 
     detail = service.get_version_metadata(
@@ -155,10 +167,12 @@ def test_get_version_metadata_returns_immutable_detail() -> None:
 @pytest.mark.unit
 def test_get_content_returns_markdown_document() -> None:
     audit_recorder = FakeAuditRecorder()
+    install_counter = FakeInstallCounter()
     service = SkillFetchService(
         version_reader=FakeVersionReader(content=_stored_content()),
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
+        install_counter=install_counter,
     )
 
     document = service.get_content(
@@ -171,6 +185,7 @@ def test_get_content_returns_markdown_document() -> None:
     assert document.checksum.digest == "content-digest"
     assert document.size_bytes == len(b"# Python Lint\n")
     assert audit_recorder.events == ["skill.version_content_read"]
+    assert install_counter.calls == [("python.lint", "1.0.0")]
 
 
 @pytest.mark.unit
@@ -179,6 +194,7 @@ def test_get_version_metadata_raises_not_found_for_unknown_coordinate() -> None:
         version_reader=FakeVersionReader(),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
+        install_counter=FakeInstallCounter(),
     )
 
     with pytest.raises(SkillVersionNotFoundError):
@@ -192,10 +208,12 @@ def test_get_version_metadata_raises_not_found_for_unknown_coordinate() -> None:
 @pytest.mark.unit
 def test_get_content_applies_exact_read_policy() -> None:
     audit_recorder = FakeAuditRecorder()
+    install_counter = FakeInstallCounter()
     service = SkillFetchService(
         version_reader=FakeVersionReader(content=_stored_content(lifecycle_status="archived")),
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
+        install_counter=install_counter,
     )
 
     with pytest.raises(PolicyViolation):
@@ -206,6 +224,7 @@ def test_get_content_applies_exact_read_policy() -> None:
         )
 
     assert audit_recorder.events == ["skill.version_exact_read_denied"]
+    assert install_counter.calls == []
 
 
 @pytest.mark.unit
@@ -224,6 +243,7 @@ def test_list_versions_returns_visible_versions_with_current_default_first() -> 
         ),
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
+        install_counter=FakeInstallCounter(),
     )
 
     result = service.list_versions(caller=_caller("read"), slug="python.lint")
@@ -243,6 +263,7 @@ def test_list_versions_hides_fully_invisible_skills() -> None:
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
+        install_counter=FakeInstallCounter(),
     )
 
     with pytest.raises(SkillNotFoundError):
@@ -264,6 +285,7 @@ def test_list_versions_includes_archived_versions_for_admin_without_marking_defa
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
+        install_counter=FakeInstallCounter(),
     )
 
     result = service.list_versions(caller=_caller("admin"), slug="python.lint")
@@ -293,6 +315,7 @@ def test_list_versions_uses_version_as_final_tie_break_for_current_default() -> 
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
+        install_counter=FakeInstallCounter(),
     )
 
     result = service.list_versions(caller=_caller("read"), slug="python.lint")

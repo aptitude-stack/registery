@@ -1,16 +1,16 @@
 groups:
-  - name: aptitude-server
+  - name: aptitude-registry
     rules:
-      - alert: AptitudeServerDatabaseNotReady
+      - alert: AptitudeRegistryDatabaseNotReady
         expr: aptitude_readiness_status{dependency="database"} == 0
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: Aptitude Server database readiness is failing
+          summary: Aptitude Registry database readiness is failing
           description: The readiness gauge reports the PostgreSQL dependency as not ready.
 
-      - alert: AptitudeServerHighHttp5xxRate
+      - alert: AptitudeRegistryHighHttp5xxRate
         expr: |
           sum(rate(aptitude_http_requests_total{status_class="5xx",route!="__unmatched__"}[5m]))
           /
@@ -20,10 +20,10 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: Aptitude Server is returning too many 5xx responses
+          summary: Aptitude Registry is returning too many 5xx responses
           description: More than 5% of requests are failing with 5xx responses over the last 10 minutes.
 
-      - alert: AptitudeServerDiscoveryP95LatencyHigh
+      - alert: AptitudeRegistryDiscoveryP95LatencyHigh
         expr: |
           histogram_quantile(
             0.95,
@@ -38,7 +38,7 @@ groups:
           summary: Discovery latency is above the release target
           description: The p95 discovery latency has exceeded 250ms over the last 10 minutes.
 
-      - alert: AptitudeServerPublishClientErrors
+      - alert: AptitudeRegistryPublishClientErrors
         expr: increase(aptitude_registry_operation_total{surface="publish",outcome="client_error"}[15m]) > 0
         for: 5m
         labels:
@@ -47,7 +47,7 @@ groups:
           summary: Publish requests are returning client errors
           description: Investigate publish failures caused by validation, auth, or policy denials.
 
-      - alert: AptitudeServerLokiUnavailable
+      - alert: AptitudeRegistryLokiUnavailable
         expr: up{job="loki"} == 0
         for: 5m
         labels:
@@ -56,7 +56,7 @@ groups:
           summary: Loki is unavailable in the local observability stack
           description: Grafana log queries will fail until the Loki service is reachable again.
 
-      - alert: AptitudeServerCollectorUnavailable
+      - alert: AptitudeRegistryCollectorUnavailable
         expr: up{job="otelcol"} == 0
         for: 5m
         labels:

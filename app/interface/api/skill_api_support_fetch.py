@@ -30,6 +30,7 @@ def to_metadata_response(detail: SkillVersionDetail) -> SkillVersionMetadataResp
     return SkillVersionMetadataResponse(
         slug=detail.slug,
         version=detail.version,
+        install_count=detail.install_count,
         version_checksum=_checksum_response(detail.version_checksum),
         content=_content_summary_response(detail.content.checksum, detail.content.size_bytes),
         metadata=_metadata_response(detail.metadata),

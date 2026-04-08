@@ -2,7 +2,7 @@
 
 Core domain logic and cross-layer contracts.
 
-Use [docs/project/scope.md](../../docs/project/scope.md) for the canonical
+Use [docs/architecture/server-resolver-boundary.md](../../docs/architecture/server-resolver-boundary.md) for the canonical
 server-vs-resolver boundary.
 
 ## Purpose

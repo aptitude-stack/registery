@@ -39,7 +39,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
             column["name"] for column in inspector.get_columns("skill_search_documents")
         }
 
-        assert {"slug", "created_at", "updated_at"} <= skill_columns
+        assert {"slug", "install_count", "created_at", "updated_at"} <= skill_columns
         assert "current_version_id" not in skill_columns
 
         assert {

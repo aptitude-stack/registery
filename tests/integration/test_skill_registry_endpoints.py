@@ -135,6 +135,41 @@ def _query_storage_counts(database_url: str, *, slug: str) -> dict[str, int]:
         engine.dispose()
 
 
+def _query_install_counts(database_url: str, *, slug: str) -> dict[str, int]:
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            row = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT
+                            skills.install_count AS skill_install_count,
+                            COALESCE(MIN(skill_search_documents.usage_count), 0) AS min_usage_count,
+                            COALESCE(MAX(skill_search_documents.usage_count), 0) AS max_usage_count
+                        FROM skills
+                        LEFT JOIN skill_versions
+                            ON skill_versions.skill_fk = skills.id
+                        LEFT JOIN skill_search_documents
+                            ON skill_search_documents.skill_version_fk = skill_versions.id
+                        WHERE skills.slug = :slug
+                        GROUP BY skills.install_count
+                        """
+                    ),
+                    {"slug": slug},
+                )
+                .mappings()
+                .one()
+            )
+            return {
+                "skill_install_count": int(row["skill_install_count"]),
+                "min_usage_count": int(row["min_usage_count"]),
+                "max_usage_count": int(row["max_usage_count"]),
+            }
+    finally:
+        engine.dispose()
+
+
 def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
     engine = create_engine(database_url)
     try:
@@ -222,6 +257,7 @@ def test_publish_discovery_resolution_and_exact_fetch(
     assert "content_download_path" not in published
     assert "rendered_summary" not in published["content"]
     assert "headers" not in published["metadata"]
+    assert published["install_count"] == 0
 
     assert discovery.status_code == 200
     assert discovery.json()["candidates"] == [source_slug]
@@ -264,6 +300,7 @@ def test_publish_discovery_resolution_and_exact_fetch(
     assert "relationships" not in metadata_body
     assert "content_download_path" not in metadata_body
     assert "rendered_summary" not in metadata_body["content"]
+    assert metadata_body["install_count"] == 0
     assert metadata_body["provenance"] == {
         "repo_url": "https://github.com/example/skills",
         "commit_sha": "aabbccddeeff00112233445566778899aabbccdd",
@@ -282,6 +319,44 @@ def test_publish_discovery_resolution_and_exact_fetch(
     assert content.headers["Cache-Control"] == "public, immutable"
     assert content.headers["Content-Length"] == str(len(b"# v2\n"))
     assert content.text == "# v2\n"
+
+
+@pytest.mark.integration
+def test_content_fetch_increments_aggregate_install_count(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python.install-count.{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        published = _publish(client, slug, _request("1.0.0", intent="create_skill"))
+        initial_metadata = client.get(
+            f"/skills/{slug}/1.0.0",
+            headers=_headers("reader-token"),
+        )
+        content = client.get(
+            f"/skills/{slug}/1.0.0/content",
+            headers=_headers("reader-token"),
+        )
+        updated_metadata = client.get(
+            f"/skills/{slug}/1.0.0",
+            headers=_headers("reader-token"),
+        )
+
+    counts = _query_install_counts(migrated_registry_database, slug=slug)
+
+    assert published["install_count"] == 0
+    assert initial_metadata.status_code == 200
+    assert initial_metadata.json()["install_count"] == 0
+    assert content.status_code == 200
+    assert updated_metadata.status_code == 200
+    assert updated_metadata.json()["install_count"] == 1
+    assert counts == {
+        "skill_install_count": 1,
+        "min_usage_count": 1,
+        "max_usage_count": 1,
+    }
 
 
 @pytest.mark.integration

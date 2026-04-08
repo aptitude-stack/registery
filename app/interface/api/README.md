@@ -2,7 +2,7 @@
 
 HTTP API routers for the service.
 
-Use [docs/project/api-contract.md](../../../docs/project/api-contract.md) as the
+Use [docs/reference/api-contract.md](../../../docs/reference/api-contract.md) as the
 canonical HTTP contract for route semantics.
 
 ## Purpose
@@ -70,9 +70,9 @@ skill slug.
 matches, solve dependencies, or plan execution.
 `GET /resolution/{slug}/{version}` returns direct authored dependencies only;
 it does not expand transitive graphs or select versions for constraints.
-The exact fetch routes intentionally separate immutable metadata from markdown
-bytes so metadata reads stay JSON-oriented while raw content reads preserve
-cache-friendly markdown delivery headers.
+The exact fetch routes intentionally separate exact metadata responses from
+immutable markdown bytes so metadata reads stay JSON-oriented while raw content
+reads preserve cache-friendly markdown delivery headers.
 `GET /skills/{slug}` returns a summary list only; callers still use the exact
 metadata/content routes for per-version detail.
 Publisher-supplied provenance may appear only on publish/exact metadata

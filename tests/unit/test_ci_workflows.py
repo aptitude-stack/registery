@@ -31,6 +31,6 @@ def test_ci_workflows_boot_runner_tests_from_compose_db(workflow_path: str) -> N
     assert "services:" not in document
     assert boot_match is not None
     assert ready_match is not None
-    assert boot_match.start() < document.index("uv run alembic upgrade head")
-    assert boot_match.start() < document.index("uv run --extra dev pytest tests/integration")
+    assert boot_match.start() < document.index("run: make migrate-up")
+    assert boot_match.start() < document.index("run: make test-integration")
     assert boot_match.start() < ready_match.start()

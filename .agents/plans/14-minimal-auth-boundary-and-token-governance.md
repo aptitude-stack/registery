@@ -1,7 +1,7 @@
 # Plan 14 - Minimal Auth Boundary and Token Governance
 
 ## Goal
-After `dev`, `test`, and `prod` are standardized in Plan 13, introduce a minimal, maintainable authentication boundary for `aptitude-server` that keeps opaque bearer-token auth simple while managing auth mechanisms explicitly in `test` and `prod`.
+After `dev`, `test`, and `prod` are standardized in Plan 13, introduce a minimal, maintainable authentication boundary for `Aptitude Registry` that keeps opaque bearer-token auth simple while managing auth mechanisms explicitly in `test` and `prod`.
 
 ## Stack Alignment
 - Runtime: Python 3.12+

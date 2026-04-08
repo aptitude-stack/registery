@@ -19,6 +19,7 @@ def to_skill_version_detail(*, stored: StoredSkillVersion) -> SkillVersionDetail
     return SkillVersionDetail(
         slug=stored.slug,
         version=stored.version,
+        install_count=stored.install_count,
         version_checksum=SkillChecksum(
             algorithm=SHA256_ALGORITHM,
             digest=stored.version_checksum_digest,

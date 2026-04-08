@@ -1,6 +1,6 @@
 # app.persistence.models module
 
-SQLAlchemy ORM models mapped to Aptitude Server tables.
+SQLAlchemy ORM models mapped to Aptitude Registry tables.
 
 ## Purpose
 

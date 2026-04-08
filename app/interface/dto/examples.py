@@ -50,6 +50,7 @@ CHECKSUM_EXAMPLE = {
 SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
     "slug": "python.lint",
     "version": "1.2.3",
+    "install_count": 0,
     "version_checksum": CHECKSUM_EXAMPLE,
     "content": {
         "checksum": CHECKSUM_EXAMPLE,

@@ -1,19 +1,20 @@
 [project]
-name = "aptitude-server"
+name = "aptitude-registry"
 version = "0.1.0"
-description = "aptitude-server foundation service skeleton"
+description = "aptitude-registry foundation service skeleton"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.16.5",
-    "fastapi[standard]==0.135.1",
+    "fastapi[standard]==0.135.2",
     "pydantic-settings>=2.11.0",
     "prometheus-client>=0.23.1",
     "psycopg[binary]==3.3.3",
     "sqlalchemy>=2.0.44",
     "uvicorn[standard]>=0.41.0",
     "pydantic>=2.12.5",
-    "starlette>=0.52.1",
+    "starlette==1.0.0",
     "pydantic-extra-types==2.11.1",
+    "fastapi-cloud-cli==0.15.1",
 ]
 
 [project.optional-dependencies]
@@ -22,7 +23,7 @@ dev = [
     "mypy>=1.18.2",
     "pytest==9.0.2",
     "pytest-asyncio>=0.26.0",
-    "ruff==0.15.7",
+    "ruff==0.15.8",
 ]
 
 [tool.fastapi]

@@ -63,6 +63,7 @@ class FakeRegistry:
         stored = StoredSkillVersion(
             slug=record.slug,
             version=record.version,
+            install_count=0,
             version_checksum_digest=record.version_checksum_digest,
             content_checksum_digest=record.content.checksum_digest,
             content_size_bytes=record.content.size_bytes,
@@ -102,6 +103,7 @@ class FakeRegistry:
         updated = StoredSkillVersion(
             slug=record.slug,
             version=record.version,
+            install_count=record.install_count,
             version_checksum_digest=record.version_checksum_digest,
             content_checksum_digest=record.content_checksum_digest,
             content_size_bytes=record.content_size_bytes,

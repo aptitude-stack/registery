@@ -16,10 +16,11 @@ from app.interface.dto.skills_shared import (
 
 
 class SkillVersionMetadataResponse(BaseModel):
-    """Immutable metadata envelope returned by publish and exact metadata fetch."""
+    """Exact metadata response returned by publish and exact metadata fetch."""
 
     slug: str
     version: str
+    install_count: int
     version_checksum: ChecksumResponse
     content: SkillContentSummaryResponse
     metadata: SkillMetadataResponse

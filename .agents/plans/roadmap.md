@@ -1,11 +1,11 @@
-# Aptitude Roadmap
+# Aptitude Registry Roadmap
 
 ## Goal
-Deliver a production-ready, PyPI-like immutable registry service (`aptitude-server`) in Python/FastAPI through incremental, testable milestones.
+Deliver a production-ready immutable registry service (`Aptitude Registry`) in Python/FastAPI through incremental, testable milestones.
 
 ## Alignment Sources
-- Scope boundary and ownership: [`docs/scope.md`](../../docs/project/scope.md)
-- Server requirements and KPIs: [`docs/prd.md`](../../docs/prd.md)
+- Scope boundary and ownership: [`../../docs/architecture/server-resolver-boundary.md`](../../docs/architecture/server-resolver-boundary.md)
+- Server requirements and KPIs: [`../../docs/roadmap/requirements-and-phases.md`](../../docs/roadmap/requirements-and-phases.md)
 - Resolver ownership and dependency-solving responsibilities are out of scope for this repository and tracked in the resolver repository.
 
 ## Platform Defaults
@@ -14,7 +14,7 @@ Deliver a production-ready, PyPI-like immutable registry service (`aptitude-serv
 - Search: PostgreSQL-native indexing and full-text capabilities.
 
 ## Boundary Guardrails
-- This roadmap covers `aptitude-server` only.
+- This roadmap covers `Aptitude Registry` only.
 - Server owns data-local registry work: publish, discovery candidate generation, exact first-degree dependency reads, exact immutable metadata fetch, exact immutable content fetch, lifecycle enforcement, provenance capture, and audit.
 - Resolver owns decision-local work: MCP/CLI prompt interfaces, prompt interpretation, reranking, final candidate selection, recursive dependency solving, lock generation, plugin orchestration, and execution planning.
 - Server remains execution-agnostic and exposes governed APIs for publish, discovery, resolution, exact fetch, lifecycle, and provenance.

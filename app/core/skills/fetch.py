@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.core.audit_events import build_version_list_audit_event
 from app.core.governance import CallerIdentity, GovernancePolicy
-from app.core.ports import AuditPort, SkillVersionReadPort
+from app.core.ports import AuditPort, SkillInstallCounterPort, SkillVersionReadPort
 
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import (
@@ -29,10 +29,12 @@ class SkillFetchService:
         version_reader: SkillVersionReadPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
+        install_counter: SkillInstallCounterPort,
     ) -> None:
         self._version_reader = version_reader
         self._audit_recorder = audit_recorder
         self._governance_policy = governance_policy
+        self._install_counter = install_counter
 
     def get_version_metadata(
         self,
@@ -93,6 +95,7 @@ class SkillFetchService:
             ),
             size_bytes=stored.size_bytes,
         )
+        self._install_counter.record_install(slug=stored.slug, version=stored.version)
         return document
 
     def list_versions(

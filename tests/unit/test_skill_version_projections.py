@@ -15,6 +15,7 @@ def _stored_version() -> StoredSkillVersion:
     return StoredSkillVersion(
         slug="python.lint",
         version="1.0.0",
+        install_count=7,
         version_checksum_digest="version-digest",
         content_checksum_digest="content-digest",
         content_size_bytes=42,
@@ -58,6 +59,7 @@ def test_to_skill_version_detail_returns_immutable_metadata_without_relationship
     assert detail.slug == "python.lint"
     assert detail.content.checksum.digest == "content-digest"
     assert not hasattr(detail.content, "rendered_summary")
+    assert detail.install_count == 7
     assert detail.metadata.name == "Python Lint"
     assert not hasattr(detail.metadata, "headers")
     assert detail.lifecycle_status == "published"
