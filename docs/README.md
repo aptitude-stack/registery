@@ -1,66 +1,62 @@
-# Documentation Hub
+# Aptitude Registry Docs
 
-Use this file as the navigation entrypoint for repository documentation.
+Use this directory as the canonical documentation entrypoint for contributors, reviewers, and operators.
 
-The repo has four documentation classes:
+## Taxonomy
 
-- canonical/current docs for the live `aptitude-server` contract and architecture
-- operational guides and runbooks for local setup and incident response
-- historical milestone plans and changelogs that explain how the repo got here
-- drafts/context docs that are useful background but are not the current source of truth
+- `architecture/`: normative current-state system structure, boundaries, and invariants
+- `contributors/`: practical repo workflow for engineers and reviewers
+- `reference/`: stable technical facts, contracts, schema, storage, and operations material
+- `roadmap/`: forward-looking technical direction and drafts, explicitly non-normative unless promoted
+- `changelog/`: protected implementation history
 
-## Canonical / Current Docs
+Related entrypoints outside this directory:
 
-These files describe the live product and engineering baseline:
+- [`../README.md`](../README.md): cold-start repo overview
+- [`../TODO.md`](../TODO.md): intentionally small near-term backlog
+- [`../.agents/README.md`](../.agents/README.md): agent-only derivative context
+- [`../.agents/plans/roadmap.md`](../.agents/plans/roadmap.md): canonical implementation sequence
 
-- [README.md](../README.md): repo entrypoint, frozen route surface, quick start, and docs map
-- [docs/project/api-contract.md](project/api-contract.md): canonical public HTTP contract
-- [docs/project/publish-endpoint-schema.md](project/publish-endpoint-schema.md): field-by-field schema for the live publish request
-- [docs/project/scope.md](project/scope.md): server vs resolver/client boundary
-- [docs/prd.md](prd.md): current product requirements and success criteria
-- [docs/overview.md](overview.md): current product framing and end-to-end system shape
-- [docs/schema.md](schema.md): canonical PostgreSQL schema baseline
-- [docs/storage-strategy.md](storage-strategy.md): current storage decision and revisit triggers
-- [.agents/plans/roadmap.md](../.agents/plans/roadmap.md): milestone sequencing and freeze rules
-- [.agents/memory/meta.md](../.agents/memory/meta.md): stable repo facts for agents and future doc work
-- [app/README.md](../app/README.md): application package/module index
+## Read By Goal
 
-## Operational Guides and Runbooks
+### Understand the system
 
-Use these when running or troubleshooting the service:
+- [`architecture/README.md`](architecture/README.md): architecture reading order and normative docs
+- [`architecture/system-overview.md`](architecture/system-overview.md): high-level system shape
+- [`architecture/server-resolver-boundary.md`](architecture/server-resolver-boundary.md): hard ownership split with the resolver
+- [`architecture/decision-rules.md`](architecture/decision-rules.md): implementation invariants and doc-sync rules
 
-- [docs/guides/setup-dev.md](guides/setup-dev.md): canonical local setup and observability guide
-- [docs/runbooks/README.md](runbooks/README.md): incident/runbook index
-- [docs/runbooks/publish-failures.md](runbooks/publish-failures.md)
-- [docs/runbooks/discovery-latency-regression.md](runbooks/discovery-latency-regression.md)
-- [docs/runbooks/resolution-failures.md](runbooks/resolution-failures.md)
-- [docs/runbooks/fetch-failures.md](runbooks/fetch-failures.md)
-- [docs/runbooks/governance-denials.md](runbooks/governance-denials.md)
-- [docs/runbooks/metrics-scrape-failures.md](runbooks/metrics-scrape-failures.md)
-- [docs/runbooks/log-ingestion-failures.md](runbooks/log-ingestion-failures.md)
+### Make or review changes
 
-## Historical Milestones
+- [`contributors/README.md`](contributors/README.md): contributor entrypoint
+- [`contributors/development-setup.md`](contributors/development-setup.md): environment setup and common commands
+- [`contributors/testing-and-verification.md`](contributors/testing-and-verification.md): verification expectations
+- [`contributors/module-guide.md`](contributors/module-guide.md): practical package ownership map
+- [`contributors/documentation-guidelines.md`](contributors/documentation-guidelines.md): canonical vs derivative docs rules
 
-These files explain delivery history. They are useful, but they are not the canonical source of truth for the current contract.
+### Check live technical facts
 
-- [.agents/plans/01-11*.md](../.agents/plans/): protected history for implemented milestones
-- [docs/changelog/01-11*.md](changelog/): protected history for delivered milestones
-- [.agents/plans/12-15*.md](../.agents/plans/): later milestone planning and follow-on work
+- [`reference/README.md`](reference/README.md): reference index
+- [`reference/api-contract.md`](reference/api-contract.md): canonical HTTP contract
+- [`reference/publish-request-schema.md`](reference/publish-request-schema.md): publish request schema
+- [`reference/schema.md`](reference/schema.md): canonical PostgreSQL schema baseline
+- [`reference/storage-strategy.md`](reference/storage-strategy.md): current storage decision
+- [`reference/operations/README.md`](reference/operations/README.md): operational runbook index
 
-History rule:
+### Review roadmap and history
 
-- Plans and changelogs `01` through `11` are append-only.
-- Do not rewrite existing body text in those files.
-- Clarifications must be added as dated addenda or superseding notes at the end of the file.
+- [`roadmap/README.md`](roadmap/README.md): forward-looking documentation index
+- [`roadmap/requirements-and-phases.md`](roadmap/requirements-and-phases.md): product requirements and phased rollout framing
+- [`roadmap/near-term-evolution.md`](roadmap/near-term-evolution.md): next hardening and capability themes
+- [`changelog/`](changelog/): protected implementation history
 
-## Drafts and Context
+## Ownership Rules
 
-These docs provide background or future-looking ideas. Treat them as context, not as the live contract:
+- `docs/architecture/*`: normative current-state behavior and invariants
+- `docs/contributors/*`: how to work in the repo
+- `docs/reference/*`: stable supporting facts and operations material
+- `docs/roadmap/*`: forward-looking guidance, explicitly non-normative unless promoted
+- `docs/changelog/*`: implementation history, not canonical current-state truth
+- `.agents/*`: derivative agent operating context only
 
-- [docs/project/aptitude-project-high-level-design.md](project/aptitude-project-high-level-design.md)
-- [docs/drafts/publisher-server-resolver-architecture.md](drafts/publisher-server-resolver-architecture.md)
-- [docs/drafts/json-to-toon-migration.md](drafts/json-to-toon-migration.md)
-- [docs/drafts/semantic-search-architecture.md](drafts/semantic-search-architecture.md)
-- [docs/diagrams/aptitude-server-architecture.md](diagrams/aptitude-server-architecture.md)
-
-When a draft conflicts with the canonical docs above, the canonical docs win.
+Historical milestone docs in [`changelog/`](changelog/) may mention old paths or the former product name. Treat them as implementation history, not as the current source of truth. Human canonical docs live under `docs/`, while implementation sequencing intentionally remains anchored in [`../.agents/plans/roadmap.md`](../.agents/plans/roadmap.md).

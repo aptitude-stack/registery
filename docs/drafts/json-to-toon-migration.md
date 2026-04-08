@@ -1,9 +1,10 @@
 # JSON to TOON Migration Draft
 
 > Status: draft/context document, not the canonical live contract.
-> Use [docs/README.md](../README.md), [docs/project/api-contract.md](../project/api-contract.md),
-> [docs/project/scope.md](../project/scope.md), and [docs/prd.md](../prd.md)
-> for the current `aptitude-server` baseline.
+> Use [`../../README.md`](../../README.md), [`../../reference/api-contract.md`](../../reference/api-contract.md),
+> [`../../architecture/server-resolver-boundary.md`](../../architecture/server-resolver-boundary.md), and
+> [`../../roadmap/requirements-and-phases.md`](../../roadmap/requirements-and-phases.md)
+> for the current `Aptitude Registry` baseline.
 
 This draft evaluates whether Aptitude should migrate from JSON to TOON.
 
@@ -168,7 +169,7 @@ API, persistence, or domain core.
 
 ```mermaid
 flowchart LR
-    Publisher["aptitude-publisher"] --> Server["aptitude-server\nJSON + markdown contract"]
+    Publisher["aptitude-publisher"] --> Server["Aptitude Registry\nJSON + markdown contract"]
     Server --> DB["PostgreSQL\nnormalized canonical state"]
 
     Server --> Resolver["aptitude-resolver / SDK\ncanonical JSON reads"]
@@ -256,7 +257,7 @@ Recommended first implementation:
 
 - add JSON -> TOON compilation utilities in resolver/client-side tooling
 - compile only the subset of JSON actually used in prompts
-- keep `aptitude-server` unchanged
+- keep `Aptitude Registry` unchanged
 
 This gives the team the main prompt-efficiency benefit without
 touching the frozen API.
@@ -342,7 +343,7 @@ Many Aptitude payloads are small or nested, not large uniform tables.
 
 Recommendation:
 
-1. Do **not** migrate `aptitude-server` from JSON to TOON wholesale.
+1. Do **not** migrate `Aptitude Registry` from JSON to TOON wholesale.
 2. Do **not** replace markdown content with TOON.
 3. Introduce TOON only as a client-side JSON -> TOON compilation step for LLM
    input.

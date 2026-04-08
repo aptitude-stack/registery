@@ -5,7 +5,7 @@ Request and response DTOs for the public HTTP contract.
 ## Purpose
 
 Defines Pydantic models and example payloads for publish, discovery,
-identity-level version listing, exact immutable metadata fetch, and
+identity-level version listing, exact metadata fetch, and
 lifecycle-status APIs.
 
 ## Structure
@@ -13,7 +13,7 @@ lifecycle-status APIs.
 - `skills_publish.py`: publish request models, authored relationship selectors,
   and governance/provenance input DTOs.
 - `skills_discovery.py`: discovery request/response DTOs.
-- `skills_fetch.py`: version-list and exact immutable metadata response
+- `skills_fetch.py`: version-list and exact metadata response
   envelopes.
 - `skills_resolution.py`: direct dependency response DTOs.
 - `skills_lifecycle.py`: lifecycle-status request/response DTOs.
@@ -34,4 +34,4 @@ lifecycle-status APIs.
 - Advisory provenance fields are publisher-supplied on publish, while
   server-derived trust context is returned only on immutable metadata reads.
 - Raw markdown content fetch is modeled directly as an HTTP response, so this
-  module keeps the immutable metadata envelope but not a markdown-body DTO.
+  module keeps the exact metadata response model but not a markdown-body DTO.

@@ -52,6 +52,7 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
             version_reader=registry_repository,
             audit_recorder=audit_recorder,
             governance_policy=governance_policy,
+            install_counter=registry_repository,
         ),
         skill_resolution_service=SkillResolutionService(
             relationship_reader=registry_repository,

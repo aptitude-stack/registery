@@ -1,9 +1,9 @@
 # app module
 
-Application package for the aptitude-server service.
+Application package for the Aptitude Registry service.
 
 For the repo-wide docs map, use [docs/README.md](../docs/README.md). For the
-canonical HTTP contract, use [docs/project/api-contract.md](../docs/project/api-contract.md).
+canonical HTTP contract, use [docs/reference/api-contract.md](../docs/reference/api-contract.md).
 
 ## Purpose
 

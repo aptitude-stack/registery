@@ -117,6 +117,7 @@ class SkillVersionDetail:
 
     slug: str
     version: str
+    install_count: int
     version_checksum: SkillChecksum
     content: SkillContentSummary
     metadata: SkillMetadata

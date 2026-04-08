@@ -105,7 +105,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """Create and configure a FastAPI application instance."""
     app = FastAPI(
-        title="aptitude-server Service",
+        title="Aptitude Registry Service",
         description=API_DESCRIPTION,
         version=API_VERSION,
         lifespan=lifespan,

@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")
     log_file_path: str | None = Field(default=None, alias="LOG_FILE_PATH")
-    app_name: str = Field(default="aptitude-server", alias="APP_NAME")
+    app_name: str = Field(default="aptitude-registry", alias="APP_NAME")
     auth_tokens: dict[str, tuple[CallerScope, ...]] = Field(
         default_factory=dict,
         alias="AUTH_TOKENS_JSON",

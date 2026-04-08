@@ -175,6 +175,7 @@ def to_stored_skill_version(entity: SkillVersion) -> StoredSkillVersion:
     return StoredSkillVersion(
         slug=entity.skill.slug,
         version=entity.version,
+        install_count=entity.skill.install_count,
         version_checksum_digest=entity.checksum_digest,
         content_checksum_digest=entity.content.checksum_digest,
         content_size_bytes=entity.content.storage_size_bytes,

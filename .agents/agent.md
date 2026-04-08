@@ -1,152 +1,28 @@
-# Aptitude Agent Contract
+# Aptitude Registry Agent Contract
 
-## General Idea
-Aptitude is a Python-based, execution-agnostic registry server for immutable
-skills with deterministic dependency metadata contracts, explicit relationships,
-policy governance, and auditable outcomes.
+Use this file as the thin operating contract for agents working in this repo.
 
-## Entry Point
+## Required Reading Order
 
-Use this file as the main agent-facing entrypoint for:
+1. [`../docs/README.md`](../docs/README.md)
+2. [`../docs/architecture/README.md`](../docs/architecture/README.md)
+3. [`../docs/reference/api-contract.md`](../docs/reference/api-contract.md)
+4. [`../docs/architecture/server-resolver-boundary.md`](../docs/architecture/server-resolver-boundary.md)
+5. [`rules/repo.md`](rules/repo.md)
+6. [`plans/roadmap.md`](plans/roadmap.md)
+7. [`memory/meta.md`](memory/meta.md)
 
-- workflow
-- methodology
-- collaboration expectations
-- documentation preferences
+## Agent-Specific Expectations
 
-Strict project rules and approval gates remain centralized in
-[`rules/repo.md`](rules/repo.md).
+- Keep `.agents/*` derivative; do not restate architecture that already lives in `docs/`.
+- Use the smallest relevant doc set for the task.
+- Keep plan files and changelogs aligned with implementation work when the task changes roadmap or milestone scope.
+- Respect protected history: plans `01-11` and changelogs `01-11` are append-only.
 
-## Source and Instruction Files
-1. Documentation hub: [`docs/README.md`](../docs/README.md)
-2. Product and architecture intent: [`docs/overview.md`](../docs/overview.md)
-3. Server/Resolver boundary contract: [`docs/scope.md`](../docs/project/scope.md)
-4. Server product requirements: [`docs/prd.md`](../docs/prd.md)
-5. Strict repo rules: [`rules/repo.md`](rules/repo.md)
-6. Roadmap and sequencing: [`.agents/plans/roadmap.md`](plans/roadmap.md)
-7. Plan execution files: `.agents/plans/XX-*.md` (append-only milestones)
-8. Stable repo facts: [`memory/meta.md`](memory/meta.md)
-9. Skills:
-   - [`skills/architect-review`](skills/architect-review) - system design and architecture best practices
-   - [`skills/fastapi`](skills/fastapi) - fastapi best practices
-   - [`skills/postgres-patterns`](skills/postgres-patterns) - postgres best practices
-   - [`skills/python-patterns`](skills/python-patterns) - python best practices
-   - [`skills/python-testing`](skills/python-patterns) - python testing best practices
-   - [`skills/prd`](skills/prd) - prd writing best practices
+## High-Value Paths
 
-
-If rules conflict, follow the highest item unless the server includes a newer explicit architecture decision.
-
-## Relevant Paths for Task Execution
-
-Use these paths when gathering context and executing work.
-
-### Core Code Paths
-
-- `app/main.py`: composition root and app wiring
-- `app/interface/`: FastAPI routes, DTOs, API helpers, error mapping
-- `app/core/`: domain services, ports, governance, fetch, discovery, resolution
-- `app/intelligence/`: pure ranking and search support logic
-- `app/persistence/`: SQLAlchemy models, repository adapters, persistence helpers
-- `app/audit/`: audit storage and audit-facing logic
-
-### Verification and Tooling Paths
-
-- `tests/unit/`: unit coverage for pure logic and service behavior
-- `tests/integration/`: integration coverage for API, repository, and migrations
-- `tests/resources/`: test payloads and fixture resources
-- `alembic/versions/`: schema migration history
-- `scripts/`: repo scripts and maintenance utilities
-- `postman/collections/`: executable API request coverage and examples
-- `postman/environments/`: Postman environments for local/manual validation
-- `.github/workflows/`: CI expectations and command patterns
-
-### Planning and Memory Paths
-
-- `.agents/plans/roadmap.md`: sequencing and milestone order
-- `.agents/plans/XX-*.md`: active milestone plan files
-- `memory/meta.md`: stable project facts worth preserving across tasks
-
-## Task-to-Doc Map
-
-Use the smallest relevant set of docs for the task at hand.
-
-### Architecture and Scope
-
-- [`docs/overview.md`](../docs/overview.md): product intent and system framing
-- [`docs/scope.md`](../docs/project/scope.md): server vs client boundary and ownership
-- [`docs/prd.md`](../docs/prd.md): requirements and acceptance-level product constraints
-
-### API and Contract Work
-
-- [`docs/api-contract.md`](../docs/project/api-contract.md): route behavior and public request/response contract
-- `postman/collections/`: concrete request examples and manual validation flows
-
-### Persistence and Discovery
-
-- [`docs/schema.md`](../docs/schema.md): canonical schema shape and table responsibilities
-- [`docs/storage-strategy.md`](../docs/storage-strategy.md): storage design decisions and tradeoffs
-- [`docs/discovery-candidate-selection.md`](../docs/project/discovery-candidate-selection.md): discovery matching, filtering, ranking, and per-slug collapse
-
-### Delivery History
-
-- `docs/changelog/`: prior milestone delivery notes and architectural decisions already implemented
-- Plans/changelogs `01` through `11` are protected history: add dated notes only and do not rewrite existing body text.
-
-## Collaboration and Learning
-- Keep Yonatan involved in non-trivial design and implementation decisions.
-- Teach while building: explain relevant Python/FastAPI/backend concepts and
-  system design tradeoffs in short, concrete terms.
-- For non-trivial decisions, present options with pros, cons, and impact when
-  the tradeoff is still open.
-- Keep changes incremental and reviewable with clear test notes.
-
-## Planning and Execution
-
-- Work on one milestone plan file at a time under `.agents/plans/XX-*.md`.
-- Do not start the next plan file before the current one meets its acceptance criteria.
-- Keep plan files append-only. Do not renumber or rename completed plans.
-- Plans `01` through `11` and changelogs `01` through `11` are protected history; use dated addenda for clarifications instead of in-place rewrites.
-- When updating a plan, harmonize `.agents/plans/roadmap.md` and all downstream `.agents/plans/XX-*.md` files so sequencing, scope, and acceptance criteria stay aligned.
-- Every implementation PR should map to exactly one active plan file.
-- When finishing work on a plan, review older changelogs and prior implementation work for logic conflicts, redundancy, and code that should now be removed.
-
-## Large Change Workflow
-
-Use this flow for large or cross-cutting changes, not only for net-new features.
-
-1. Review the current code before implementation to detect conflicts, redundancy, and reusable existing code.
-2. Implement the change with the active milestone plan in mind. Prefer replacement and cleanup over additive compatibility work.
-3. Run `make lint`.
-4. Run `make typecheck`.
-5. Run `make test`.
-6. Update the active milestone documentation for the effort by appending plan notes in the corresponding file under `.agents/plans/`.
-7. Write or update the matching milestone changelog using `$changelog-writer`.
-
-- Do not skip steps 3-7 for a large change unless the environment blocks them. If blocked, record the reason in the changelog or plan note.
-
-## TDD Workflow
-
-- Follow RED -> GREEN -> REFACTOR for non-trivial changes.
-- Write or update failing tests first for new behavior.
-- Implement the minimal change to pass tests.
-- Refactor only with tests green and keep behavior unchanged.
-- Include happy-path and failure-path coverage for each milestone.
-
-## Documentation Preferences
-
-- Keep docs concise, concrete, and synced with behavior.
-- Before changing behavior, read the smallest relevant doc set from the task-to-doc map above.
-- Use [`docs/README.md`](../docs/README.md) as the canonical navigation entrypoint when the right source is not obvious.
-- Update these files when relevant behavior changes:
-  - `.agents/plans/XX-*.md` for milestone scope or acceptance updates
-  - `.agents/plans/roadmap.md` for sequencing changes
-  - `memory/meta.md` for stable product or server facts
-- For new APIs or payloads, document endpoint, request shape, response shape, and error cases.
-- Document deterministic rules explicitly, including ordering, tie-breakers, and policy precedence.
-
-## Module README Discipline
-- Every module directory under `app/` must contain a `README.md`.
-- If code changes in a module, update that module README in the same change.
-- If a module is added, renamed, or removed, add/update/remove the corresponding README.
-- Keep `app/README.md` updated as the index of module responsibilities.
+- `app/main.py`: composition root
+- `app/interface/`: API routes and DTOs
+- `app/core/`: domain services and ports
+- `app/persistence/`: SQLAlchemy adapters and models
+- `tests/`: unit and integration coverage

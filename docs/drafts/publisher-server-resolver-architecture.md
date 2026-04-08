@@ -1,13 +1,13 @@
 # Publisher, Server, Resolver Architecture Draft
 
-> Status: draft/context document, not the canonical `aptitude-server` contract.
-> Use [docs/README.md](../README.md), [docs/project/api-contract.md](../project/api-contract.md),
-> and [docs/project/scope.md](../project/scope.md) for the live server baseline.
+> Status: draft/context document, not the canonical `Aptitude Registry` contract.
+> Use [`../../README.md`](../../README.md), [`../../reference/api-contract.md`](../../reference/api-contract.md),
+> and [`../../architecture/server-resolver-boundary.md`](../../architecture/server-resolver-boundary.md) for the live registry baseline.
 
 This draft proposes a concrete target architecture for three Aptitude surfaces:
 
 - `aptitude-publisher`: authoring and CI client for publish and lifecycle workflows
-- `aptitude-server`: authoritative registry backend
+- `Aptitude Registry`: authoritative registry backend
 - `aptitude-resolver`: consumer client for discovery, resolution, fetch, solving, and execution planning
 
 The goal is team alignment on boundaries, repo shape, development structure, deployment structure, and the modular publish pipeline.
@@ -18,7 +18,7 @@ The goal is team alignment on boundaries, repo shape, development structure, dep
 - **Proposed Solution**: Standardize on three product surfaces: a dedicated publisher client, a single registry server, and a dedicated resolver client. Keep one authoritative backend and one PostgreSQL database, use synchronous HTTP for the core publish/read paths, and reserve asynchronous messaging for post-commit side effects only.
 - **Success Criteria**:
   - Publisher and resolver ship independently without importing each other's domain logic.
-  - `aptitude-server` remains the only authority for publish validation, immutability, governance, audit, and persisted skill state.
+  - `Aptitude Registry` remains the only authority for publish validation, immutability, governance, audit, and persisted skill state.
   - End-to-end publish of one `slug@version` completes synchronously in <= 2 seconds p95 under expected CI load.
   - Resolver consumption paths remain unchanged in principle: discovery, public resolution, exact metadata fetch, and exact content fetch.
   - Any asynchronous processing is non-authoritative and cannot create a published version that the server did not commit first.
@@ -40,7 +40,7 @@ The goal is team alignment on boundaries, repo shape, development structure, dep
 - **Acceptance Criteria**:
   - `aptitude-publisher` owns packaging and request assembly for `POST /skills/{slug}/versions` and `PATCH /skills/{slug}/versions/{version}/status`.
   - `aptitude-resolver` owns `POST /discovery`, `GET /resolution/{slug}/{version}`, `GET /skills/{slug}/versions/{version}`, and `GET /skills/{slug}/versions/{version}/content`.
-  - `aptitude-server` owns auth enforcement, validation, policy enforcement, immutability checks, persistence, indexing, and audit for both publish and read paths.
+  - `Aptitude Registry` owns auth enforcement, validation, policy enforcement, immutability checks, persistence, indexing, and audit for both publish and read paths.
   - Prompt-injection and content safety checks that affect registry admission are enforced on the server, even if the publisher runs local prechecks.
   - Token footprint estimation, labeling, description quality, and dependency-shape validation are validated authoritatively on the server.
   - The publish path does not require a message broker to succeed.
@@ -75,7 +75,7 @@ The goal is team alignment on boundaries, repo shape, development structure, dep
 
 - **Architecture Overview**:
   - `aptitude-publisher` is a thin authoring client.
-  - `aptitude-server` is the only authoritative backend.
+  - `Aptitude Registry` is the only authoritative backend.
   - `aptitude-resolver` is the only runtime consumer/orchestration client.
   - PostgreSQL remains the single source of truth.
   - A broker is optional later for non-authoritative side effects.
@@ -85,7 +85,7 @@ flowchart LR
     Author["Author / CI"] --> Publisher["aptitude-publisher"]
     Consumer["User / MCP / CLI"] --> Resolver["aptitude-resolver"]
 
-    Publisher -->|"POST /skills/{slug}/versions\nPATCH /status"| Server["aptitude-server"]
+    Publisher -->|"POST /skills/{slug}/versions\nPATCH /status"| Server["Aptitude Registry"]
     Resolver -->|"POST /discovery\nGET /resolution\nGET /skills/... "| Server
 
     Server --> DB["PostgreSQL"]
@@ -101,7 +101,7 @@ flowchart LR
 | Component | Primary Role | Must Own | Must Not Own |
 | --- | --- | --- | --- |
 | `aptitude-publisher` | Authoring and CI publish client | Packaging, request assembly, local prechecks, publisher UX, retry policy for publish calls | Canonical validation, persistence, auth policy decisions, runtime solving |
-| `aptitude-server` | Authoritative registry backend | Auth, validation, immutability, governance, persistence, search indexing, audit, read APIs | Prompt interpretation, final selection, dependency solving, execution planning |
+| `Aptitude Registry` | Authoritative registry backend | Auth, validation, immutability, governance, persistence, search indexing, audit, read APIs | Prompt interpretation, final selection, dependency solving, execution planning |
 | `aptitude-resolver` | Consumer/runtime client | Discovery input construction, reranking, solving, lock generation, execution planning | Publish packaging, release lifecycle administration, canonical registry validation |
 | Optional worker | Post-commit async processing | Reindex repair, notifications, export fanout, long-running enrichment | Canonical publish admission, source-of-truth writes, contract ownership |
 
@@ -129,7 +129,7 @@ flowchart LR
 sequenceDiagram
     participant A as Author or CI
     participant P as aptitude-publisher
-    participant S as aptitude-server
+    participant S as Aptitude Registry
     participant D as PostgreSQL
     participant W as Optional worker
 
@@ -167,7 +167,7 @@ Option recommended now:
 Suggested shape:
 
 ```text
-aptitude-server/
+Aptitude Registry/
   app/
   docs/
   tests/
@@ -203,7 +203,7 @@ Recommendation:
 
 ```text
 docker-compose / container runtime
-  - aptitude-server
+  - Aptitude Registry
   - postgres
   - optional migration job
 ```
@@ -215,7 +215,7 @@ Clients are not long-running infrastructure:
 ### Phase 2: GCP target deployment
 
 Recommended baseline:
-- `aptitude-server` on Cloud Run or GKE
+- `Aptitude Registry` on Cloud Run or GKE
 - PostgreSQL on Cloud SQL for PostgreSQL
 - object storage not required for canonical skill state yet
 - Secret Manager for service tokens or bootstrap credentials
@@ -225,7 +225,7 @@ Recommended baseline:
 flowchart TB
     Publisher["aptitude-publisher\nCI / local"] --> HTTPS["HTTPS"]
     Resolver["aptitude-resolver\nCLI / MCP / SDK"] --> HTTPS
-    HTTPS --> Server["aptitude-server\nCloud Run or GKE"]
+    HTTPS --> Server["Aptitude Registry\nCloud Run or GKE"]
     Server --> SQL["Cloud SQL PostgreSQL"]
     Server --> SM["Secret Manager"]
     Server --> PS["Optional Pub/Sub"]
@@ -290,7 +290,7 @@ flowchart TB
 
 Adopt this architecture now:
 
-1. Keep one authoritative backend: `aptitude-server`.
+1. Keep one authoritative backend: `Aptitude Registry`.
 2. Keep one PostgreSQL database.
 3. Introduce a dedicated publisher surface separate from resolver.
 4. Keep publisher and resolver as separate packages, even if they temporarily live in one client repo.
@@ -303,7 +303,7 @@ Adopt this architecture now:
 Near-term concrete split:
 
 ```text
-aptitude-server
+Aptitude Registry
   Owns:
     - publish API
     - discovery API

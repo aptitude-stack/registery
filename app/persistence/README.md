@@ -2,8 +2,8 @@
 
 Persistence adapters and storage infrastructure.
 
-Use [docs/schema.md](../../docs/schema.md) and
-[docs/storage-strategy.md](../../docs/storage-strategy.md) as the canonical
+Use [docs/reference/schema.md](../../docs/reference/schema.md) and
+[docs/reference/storage-strategy.md](../../docs/reference/storage-strategy.md) as the canonical
 persistence references.
 
 ## Purpose

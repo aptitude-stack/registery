@@ -24,7 +24,7 @@ processors:
     attributes:
       - action: upsert
         key: service.name
-        value: aptitude-server
+        value: aptitude-registry
       - action: upsert
         key: deployment.environment.name
         value: local

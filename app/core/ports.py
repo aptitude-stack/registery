@@ -108,6 +108,7 @@ class StoredSkillVersion:
 
     slug: str
     version: str
+    install_count: int
     version_checksum_digest: str
     content_checksum_digest: str
     content_size_bytes: int
@@ -258,6 +259,13 @@ class SkillVersionReadPort(Protocol):
 
     def list_versions(self, *, slug: str) -> tuple[StoredSkillVersionSummary, ...]:
         """Return stored version summaries for one skill identity."""
+
+
+class SkillInstallCounterPort(Protocol):
+    """Mutable install-counter contract used by exact content fetches."""
+
+    def record_install(self, *, slug: str, version: str) -> None:
+        """Record one successful skill install/download for an exact coordinate."""
 
 
 class SkillSearchPort(Protocol):

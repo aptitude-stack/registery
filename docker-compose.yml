@@ -20,7 +20,6 @@ services:
       - aptitude-postgres-data:/var/lib/postgresql/data
 
   server:
-    profiles: ["observability"]
     build:
       context: .
     image: ${APP_IMAGE:-y0ncha/aptitude-server:local}
@@ -28,6 +27,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
       AUTH_TOKENS_JSON: '{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
@@ -48,7 +49,6 @@ services:
       start_period: 15s
 
   migrate:
-    profiles: ["observability"]
     build:
       context: .
     image: ${APP_IMAGE:-y0ncha/aptitude-server:local}
@@ -59,6 +59,22 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
       APP_ENV: container
     command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  demo-seed:
+    profiles: ["demo"]
+    build:
+      context: .
+    image: ${APP_IMAGE:-y0ncha/aptitude-server:local}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
+      APP_ENV: container
+    command: ["python", "-m", "app.bootstrap.seed_demo"]
     restart: "no"
 
   observability:

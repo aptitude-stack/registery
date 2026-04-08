@@ -1,4 +1,4 @@
-"""HTTP contract for exact immutable metadata and markdown fetch endpoints."""
+"""HTTP contract for exact metadata and immutable markdown fetch endpoints."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ PATH_VALIDATION_ERROR_RESPONSE = invalid_request_response(
 
 METADATA_RESPONSES: ApiResponses = {
     status.HTTP_200_OK: {
-        "description": "Immutable metadata returned successfully.",
+        "description": "Exact metadata returned successfully.",
         "content": {"application/json": {"example": SKILL_VERSION_METADATA_RESPONSE_EXAMPLE}},
     },
     **NOT_FOUND_RESPONSE,
@@ -107,7 +107,7 @@ def list_skill_versions(
     "/skills/{slug}/{version}",
     operation_id="getImmutableMetadata",
     summary="Fetch immutable metadata",
-    description="Return the immutable metadata envelope for one exact `slug@version`.",
+    description="Return the exact metadata response for one exact `slug@version`.",
     response_model=SkillVersionMetadataResponse,
     response_model_exclude_unset=True,
     responses=METADATA_RESPONSES,
@@ -128,7 +128,7 @@ def get_version_metadata(
     fetch_service: SkillFetchServiceDep,
     caller: ReadCallerDep,
 ) -> SkillVersionMetadataResponse | JSONResponse:
-    """Return the immutable metadata envelope for one exact coordinate."""
+    """Return the exact metadata response for one exact coordinate."""
     try:
         detail = fetch_service.get_version_metadata(
             caller=caller,
