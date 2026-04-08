@@ -9,6 +9,7 @@ from app.bootstrap.demo_catalog import build_demo_catalog
 from app.bootstrap.seed_demo import seed_demo_catalog
 from app.core.skills.models import (
     DuplicateSkillVersionError,
+    SkillAlreadyExistsError,
     SkillChecksum,
     SkillContentSummary,
     SkillMetadata,
@@ -155,3 +156,36 @@ def test_demo_seed_runner_is_idempotent_and_preserves_unrelated_versions() -> No
     assert store[("python.lint", "1.0.0")].lifecycle_status == "deprecated"
     assert store[("python.format", "1.0.0")].lifecycle_status == "archived"
     assert store[("python.legacy.audit", "0.9.0")].lifecycle_status == "deprecated"
+
+
+def test_demo_seed_treats_existing_skill_slug_as_already_seeded() -> None:
+    catalog = build_demo_catalog()
+    first_entry = catalog[0]
+    store: dict[tuple[str, str], _StoredVersion] = {
+        (first_entry.command.slug, first_entry.command.version): _StoredVersion(
+            lifecycle_status=first_entry.desired_lifecycle_status,
+            trust_tier=first_entry.command.governance.trust_tier,
+            published_at=datetime.now(UTC),
+        )
+    }
+    fetch_service = _FakeFetchService(store)
+
+    class _ExistingSkillRegistryService(_FakeRegistryService):
+        def publish_version(self, *, caller, command):  # type: ignore[no-untyped-def]
+            del caller
+            if (
+                command.slug == first_entry.command.slug
+                and command.version == first_entry.command.version
+            ):
+                raise SkillAlreadyExistsError(slug=command.slug)
+            return super().publish_version(caller=None, command=command)
+
+    summary = seed_demo_catalog(
+        registry_service=_ExistingSkillRegistryService(store),  # type: ignore[arg-type]
+        fetch_service=fetch_service,
+        catalog=catalog[0:1],
+    )
+
+    assert summary.published_count == 0
+    assert summary.skipped_existing_count == 1
+    assert summary.status_updated_count == 0

@@ -8,7 +8,11 @@ from app.bootstrap.demo_catalog import DemoSeedEntry, build_demo_catalog
 from app.core.governance import CallerIdentity
 from app.core.settings import get_settings, reset_settings_cache
 from app.core.skills.fetch import SkillFetchService
-from app.core.skills.models import DuplicateSkillVersionError, SkillVersionNotFoundError
+from app.core.skills.models import (
+    DuplicateSkillVersionError,
+    SkillAlreadyExistsError,
+    SkillVersionNotFoundError,
+)
 from app.core.skills.registry import SkillRegistryService
 from app.persistence.db import dispose_engine
 from app.service_container import build_service_container
@@ -48,7 +52,7 @@ def seed_demo_catalog(
                 command=entry.command,
             )
             published_count += 1
-        except DuplicateSkillVersionError:
+        except (DuplicateSkillVersionError, SkillAlreadyExistsError):
             skipped_existing_count += 1
 
         current_status = _current_lifecycle_status(
