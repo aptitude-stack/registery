@@ -94,6 +94,73 @@ make migrate-up
 make run
 ```
 
+Docker quick start:
+
+- `bootstrap-only`: start only PostgreSQL when you want an empty local database and plan to run migrations or the API yourself outside Docker.
+- `observability` profile: run the API plus Grafana, Prometheus, Loki, and OTLP collectors without demo data.
+- Demo profile: run the one-shot `demo-seed` service to load a rich multi-version catalog for deeper API, discovery, and governance testing.
+
+### Docker Profiles And Uses
+
+`db` only for local app-led development:
+
+```bash
+make db-up
+```
+
+Use this when you want PostgreSQL on `127.0.0.1:5432` but prefer running migrations and the API directly with `uv`.
+
+`db` plus migrations, still bootstrap-only:
+
+```bash
+make db-up
+make docker-migrate
+```
+
+Use this when you want the schema prepared in Docker but still want an empty catalog afterward.
+
+Full observability stack without demo data:
+
+```bash
+make observability-up
+```
+
+Use this when you need the API, metrics, logs, and dashboards running, but you want discovery/fetch behavior against a clean database.
+
+Full observability stack with demo data:
+
+```bash
+make observability-up-demo
+```
+
+Use this when you want the `observability` profile plus the `demo` profile seeder so the API starts against a rich catalog with multiple skills, versions, lifecycle states, trust tiers, and authored relationships.
+
+Demo-seed-only rerun against an existing stack:
+
+```bash
+make docker-demo-seed
+```
+
+Use this when the database is already migrated and you want to repopulate the rich demo catalog without restarting the running stack.
+
+End-to-end smoke check with demo data:
+
+```bash
+make docker-smoke-demo
+```
+
+Use this when you want the full smoke workflow to validate health, readiness, metrics, Loki flow, and the demo-seeded stack in one run.
+
+Teardown:
+
+```bash
+make observability-down
+# or, for db-only flows
+make db-down
+```
+
+Use `make observability-down` for any full-stack run and `make db-down` for the plain `db`-only bootstrap-only flow.
+
 Local URLs:
 
 - API: `http://127.0.0.1:8000`

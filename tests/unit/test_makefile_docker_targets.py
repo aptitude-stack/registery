@@ -37,3 +37,25 @@ def test_docker_build_push_bootstraps_and_uses_named_builder() -> None:
         "docker buildx build --builder ci-builder --platform linux/amd64,linux/arm64 "
         "--push -t example/image:test ." in result.stdout
     )
+
+
+@pytest.mark.unit
+def test_demo_make_targets_run_profiled_demo_seed_and_demo_stack() -> None:
+    result = subprocess.run(
+        [
+            "make",
+            "-n",
+            "docker-demo-seed",
+            "observability-up-demo",
+            "docker-smoke-demo",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "docker compose --profile demo run --rm demo-seed" in result.stdout
+    assert result.stdout.count("docker compose --profile demo run --rm demo-seed") >= 3
+    assert "docker compose --profile observability up -d db" in result.stdout
+    assert "docker compose --profile observability up -d server observability" in result.stdout

@@ -103,6 +103,32 @@ This starts the API plus:
 - OTLP HTTP at `http://127.0.0.1:4318`
 - Grafana at `http://127.0.0.1:3000`
 
+This is the bootstrap-only full stack: the database is migrated, but the catalog remains empty unless you explicitly run the demo profile.
+
+## Optional Demo Profile
+
+The demo profile is a one-shot Compose service that seeds a rich multi-version catalog after migrations. Use it when you want meaningful discovery, exact fetch, lifecycle, and dependency-resolution behavior without hand-publishing skills.
+
+Seed the running stack in place:
+
+```bash
+make docker-demo-seed
+```
+
+Bring up the full observability stack with demo data already loaded:
+
+```bash
+make observability-up-demo
+```
+
+Run the end-to-end smoke workflow against the demo-seeded stack:
+
+```bash
+make docker-smoke-demo
+```
+
+The `demo` profile is opt-in. Normal `make db-up`, `make docker-migrate`, and `make observability-up` flows stay bootstrap-only so contributors can choose between an empty schema and a seeded local catalog.
+
 Shut the stack down with:
 
 ```bash

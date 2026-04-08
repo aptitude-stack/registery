@@ -61,6 +61,20 @@ services:
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
+  demo-seed:
+    profiles: ["demo"]
+    build:
+      context: .
+    image: ${APP_IMAGE:-y0ncha/aptitude-server:local}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
+      APP_ENV: container
+    command: ["python", "-m", "app.bootstrap.seed_demo"]
+    restart: "no"
+
   observability:
     profiles: ["observability"]
     image: ${OBSERVABILITY_IMAGE:-grafana/otel-lgtm:latest}
