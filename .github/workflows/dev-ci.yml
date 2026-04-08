@@ -71,7 +71,7 @@ jobs:
       - name: Build app image for smoke test
         run: make docker-build
 
-      - name: Container smoke test
+      - name: Bootstrap container smoke test
         run: APP_IMAGE=y0ncha/aptitude-registry:latest make docker-smoke
 
       - name: Tear down compose services

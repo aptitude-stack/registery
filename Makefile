@@ -29,7 +29,7 @@ LOKI_SMOKE_REQUEST_ID ?= loki-smoke
 	run debug \
 	quality check test test-unit test-integration lint format format-check typecheck import-check \
 	migrate-up migrate-down db-up db-down prometheus-check observability-config-check \
-	docker-migrate docker-demo-seed observability-up observability-up-demo observability-down \
+	docker-migrate docker-demo-seed docker-up docker-up-demo observability-up observability-up-demo observability-down \
 	docker-smoke docker-smoke-demo \
 	docker-build docker-buildx-bootstrap docker-push \
 	._docker-bootstrap ._docker-bootstrap-demo ._docker-up-observability ._docker-clean-migrate ._docker-down \
@@ -167,6 +167,13 @@ docker-migrate: ## Run migrations inside the Docker stack
 
 docker-demo-seed: ## Seed demo data inside the Docker stack
 	$(COMPOSE_DEMO) run --rm demo-seed
+	@$(MAKE) ._docker-clean-migrate
+
+docker-up: ._docker-bootstrap ## Start the local app stack with bootstrap data only
+	$(COMPOSE) up -d server
+
+docker-up-demo: ._docker-bootstrap-demo ## Start the local app stack with demo data loaded
+	$(COMPOSE) up -d server
 
 observability-up: ._docker-bootstrap ._docker-up-observability ._docker-clean-migrate ## Start the local app and observability stack
 
