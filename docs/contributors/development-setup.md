@@ -7,13 +7,13 @@ This guide shows the simplest way to run `Aptitude Registry` locally for develop
 ## Prerequisites
 
 - Python `3.12+`
-- [`uv`](https://docs.astral.sh/uv/)
+- [uv](https://docs.astral.sh/uv/)
 - Docker
 
 ## 1. Start PostgreSQL
 
 ```bash
-make db-up
+docker compose up -d db
 ```
 
 This starts PostgreSQL on `127.0.0.1:5432` with:
@@ -49,13 +49,13 @@ export LOG_FORMAT="auto"
 ## 4. Run Migrations
 
 ```bash
-make migrate-up
+uv run alembic upgrade head
 ```
 
 ## 5. Start The API
 
 ```bash
-make run
+uv run python -m app.main
 ```
 
 Local URLs:
@@ -67,12 +67,12 @@ Local URLs:
 ## 6. Common Commands
 
 ```bash
-make test
-make lint
-make format
-make typecheck
-make migrate-down
-make db-down
+uv run --extra dev python -m pytest
+uv run --extra dev ruff check .
+uv run --extra dev ruff format .
+uv run --extra dev python -m mypy app
+uv run alembic downgrade -1
+docker compose down -v
 ```
 
 ## Quick Check
@@ -92,7 +92,7 @@ Clients may also send an `X-Request-ID` header. The API echoes it on every respo
 ## Optional Local Observability Profile
 
 ```bash
-make observability-up
+docker compose --profile observability up -d server observability
 ```
 
 This starts the API plus:
@@ -103,7 +103,7 @@ This starts the API plus:
 - OTLP HTTP at `http://127.0.0.1:4318`
 - Grafana at `http://127.0.0.1:3000`
 
-This is the bootstrap-only full stack: the database is migrated, but the catalog remains empty unless you explicitly run the demo profile.
+`server` depends on `migrate`, so Compose applies the latest Alembic schema before the API starts.
 
 ## Optional Demo Profile
 
@@ -112,27 +112,23 @@ The demo profile is a one-shot Compose service that seeds a rich multi-version c
 Seed the running stack in place:
 
 ```bash
-make docker-demo-seed
+docker compose --profile demo run --rm demo-seed
 ```
 
 Bring up the full observability stack with demo data already loaded:
 
 ```bash
-make observability-up-demo
+docker compose up -d server
+docker compose --profile demo run --rm demo-seed
+docker compose --profile observability up -d server observability
 ```
 
-Run the end-to-end smoke workflow against the demo-seeded stack:
-
-```bash
-make docker-smoke-demo
-```
-
-The `demo` profile is opt-in. Normal `make db-up`, `make docker-migrate`, and `make observability-up` flows stay bootstrap-only so contributors can choose between an empty schema and a seeded local catalog.
+The `demo` profile is opt-in. Normal `docker compose up -d server` and `docker compose --profile observability up -d server observability` flows stay bootstrap-only, while `docker compose --profile demo run --rm demo-seed` adds the rich local catalog only when you ask for it.
 
 Shut the stack down with:
 
 ```bash
-make observability-down
+docker compose down -v
 ```
 
 ### Verify Log Flow

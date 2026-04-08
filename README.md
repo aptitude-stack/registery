@@ -48,13 +48,16 @@ flowchart LR
     Adapters <-->|reads / writes| Storage
 ```
 
-Design rules:
+The registry is organized as a small layered service around PostgreSQL. The interface layer exposes publish, discovery, resolution, exact fetch, and operational endpoints. Those requests flow into core services that implement immutable catalog behavior, lifecycle governance, dependency declaration reads, and audit recording. Persistence and audit adapters translate the core contracts into relational reads and writes over the registry store, which holds versions, metadata, markdown content, search-facing projections, and audit history.
 
-- Registry owns data-local work; resolver owns decision-local work.
-- Discovery returns ordered slug candidates only.
-- Resolution returns direct authored `depends_on` selectors only.
-- Exact fetch stays coordinate-based and immutable.
-- Canonical contract and boundary docs live under [`docs/reference/api-contract.md`](docs/reference/api-contract.md) and [`docs/architecture/server-resolver-boundary.md`](docs/architecture/server-resolver-boundary.md).
+The main boundary is between authoritative registry data and downstream execution decisions. The registry publishes and serves immutable skill records and authored dependency selectors, while resolver or client components remain responsible for interpreting intent, selecting candidates, solving full dependency graphs, and producing execution plans.
+
+- Interface layer: FastAPI endpoints for publish, discovery, exact reads, lifecycle updates, health, readiness, and metrics.
+- Core services: skill-domain workflows for registry writes, discovery candidate generation, exact metadata/content access, dependency reads, and governance.
+- Persistence and storage: PostgreSQL-backed adapters and models for immutable artifacts, provenance snapshots, search projections, and audit trails.
+- Operations: observability components expose service health, structured logs, metrics, and readiness signals.
+
+Canonical contract and boundary details live in [`docs/reference/api-contract.md`](docs/reference/api-contract.md) and [`docs/architecture/server-resolver-boundary.md`](docs/architecture/server-resolver-boundary.md).
 
 ## Route Surface
 
@@ -84,82 +87,52 @@ Requirements:
 Local development:
 
 ```bash
-make db-up
+docker compose up -d db
 uv venv
 source .venv/bin/activate
 uv sync --extra dev
 export DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
 export AUTH_TOKENS_JSON='{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
-make migrate-up
-make run
+uv run alembic upgrade head
+uv run python -m app.main
 ```
 
 Docker quick start:
 
-- `bootstrap-only`: start only PostgreSQL when you want an empty local database and plan to run migrations or the API yourself outside Docker.
-- `observability` profile: run the API plus Grafana, Prometheus, Loki, and OTLP collectors without demo data.
-- Demo profile: run the one-shot `demo-seed` service to load a rich multi-version catalog for deeper API, discovery, and governance testing.
+- `server` waits for `migrate`, so every server run applies the latest Alembic schema before the API starts.
 
-### Docker Profiles And Uses
+### Clean Run
 
-`db` only for local app-led development:
+Run the registry server with a clean database and no demo data.
 
 ```bash
-make db-up
+docker compose up -d server
 ```
 
-Use this when you want PostgreSQL on `127.0.0.1:5432` but prefer running migrations and the API directly with `uv`.
+### Demo Run
 
-`db` plus migrations, still bootstrap-only:
+Run the server and then seed the rich demo catalog for testing clients against realistic sample data.
 
 ```bash
-make db-up
-make docker-migrate
+docker compose up -d server
+docker compose --profile demo run --rm demo-seed
 ```
 
-Use this when you want the schema prepared in Docker but still want an empty catalog afterward.
+### Observability Run
 
-Full observability stack without demo data:
+Run the server with Grafana, Prometheus, and logs/metrics tooling.
 
 ```bash
-make observability-up
+docker compose --profile observability up -d server observability
 ```
-
-Use this when you need the API, metrics, logs, and dashboards running, but you want discovery/fetch behavior against a clean database.
-
-Full observability stack with demo data:
-
-```bash
-make observability-up-demo
-```
-
-Use this when you want the `observability` profile plus the `demo` profile seeder so the API starts against a rich catalog with multiple skills, versions, lifecycle states, trust tiers, and authored relationships.
-
-Demo-seed-only rerun against an existing stack:
-
-```bash
-make docker-demo-seed
-```
-
-Use this when the database is already migrated and you want to repopulate the rich demo catalog without restarting the running stack.
-
-End-to-end smoke check with demo data:
-
-```bash
-make docker-smoke-demo
-```
-
-Use this when you want the full smoke workflow to validate health, readiness, metrics, Loki flow, and the demo-seeded stack in one run.
 
 Teardown:
 
 ```bash
-make observability-down
-# or, for db-only flows
-make db-down
+docker compose down -v
 ```
 
-Use `make observability-down` for any full-stack run and `make db-down` for the plain `db`-only bootstrap-only flow.
+Use this for both simple and full-stack local flows.
 
 Local URLs:
 
