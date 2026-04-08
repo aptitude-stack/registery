@@ -36,20 +36,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev --frozen
 
-      - name: Format code
-        run: uv run --extra dev ruff format .
-
-      - name: Lint
-        run: uv run --extra dev ruff check .
-
-      - name: Typecheck
-        run: uv run --extra dev mypy app
+      - name: Run quality checks
+        run: make quality
 
       - name: Run tests
-        run: uv run --extra dev pytest -m "not integration"
+        run: make test-unit
 
       - name: Import app entrypoint
-        run: uv run python -c "from app.main import app"
+        run: make import-check
 
       - name: Start compose database
         run: |
@@ -63,69 +57,23 @@ jobs:
           docker compose --ansi=never --progress=plain exec -T db pg_isready -U postgres -d aptitude
 
       - name: Run database migrations
-        run: uv run alembic upgrade head
+        run: make migrate-up
 
       - name: Run integration tests
-        run: uv run --extra dev pytest tests/integration
+        run: make test-integration
 
       - name: Validate Prometheus config and rules
-        run: |
-          docker run --rm \
-            --entrypoint promtool \
-            -v "$PWD/ops/monitoring/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.5.1 \
-            check config /etc/prometheus/prometheus.yml
+        run: make prometheus-check
 
       - name: Validate observability compose profile
-        run: docker compose --ansi=never --progress=plain --profile observability config >/dev/null
+        run: make observability-config-check
 
       - name: Build app image for smoke test
-        run: docker buildx build --progress=plain --load --platform linux/amd64 --tag y0ncha/aptitude-registry:latest .
+        run: make docker-build
 
       - name: Container smoke test
-        run: |
-          APP_IMAGE=y0ncha/aptitude-registry:latest docker compose --ansi=never --progress=plain --profile observability up -d db
-          APP_IMAGE=y0ncha/aptitude-registry:latest docker compose --ansi=never --progress=plain --profile observability run --rm migrate
-          APP_IMAGE=y0ncha/aptitude-registry:latest docker compose --ansi=never --progress=plain --profile observability up -d server observability
-          for attempt in $(seq 1 30); do
-            if curl --silent --fail http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          for attempt in $(seq 1 30); do
-            if curl --silent --fail http://127.0.0.1:3100/ready >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          for attempt in $(seq 1 30); do
-            if curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"aptitude-registry"' \
-              && curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"loki"' \
-              && curl --silent http://127.0.0.1:9090/api/v1/targets | grep -q '"job":"otelcol"'; then
-              break
-            fi
-            sleep 1
-          done
-          curl --fail http://127.0.0.1:8000/healthz
-          curl --fail http://127.0.0.1:8000/readyz
-          curl --fail http://127.0.0.1:8000/metrics
-          curl --fail http://127.0.0.1:3100/ready
-          curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"aptitude-registry"'
-          curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"loki"'
-          curl --silent http://127.0.0.1:9090/api/v1/targets | grep '"job":"otelcol"'
-          curl --silent --fail -H 'X-Request-ID: loki-smoke' http://127.0.0.1:8000/healthz >/dev/null
-          START=$(python3 -c 'import time; print(time.time_ns() - 300_000_000_000)')
-          for attempt in $(seq 1 30); do
-            END=$(python3 -c 'import time; print(time.time_ns())')
-            if curl --silent --get --data-urlencode 'query={service_name="aptitude-registry"} |= "loki-smoke"' --data-urlencode "start=${START}" --data-urlencode "end=${END}" --data-urlencode 'limit=20' http://127.0.0.1:3100/loki/api/v1/query_range | python3 -c 'import json, sys; data = json.load(sys.stdin); raise SystemExit(0 if any(stream["values"] for stream in data["data"]["result"]) else 1)'; then
-              break
-            fi
-            sleep 1
-          done
-          END=$(python3 -c 'import time; print(time.time_ns())')
-          curl --silent --get --data-urlencode 'query={service_name="aptitude-registry"} |= "loki-smoke"' --data-urlencode "start=${START}" --data-urlencode "end=${END}" --data-urlencode 'limit=20' http://127.0.0.1:3100/loki/api/v1/query_range | python3 -c 'import json, sys; data = json.load(sys.stdin); matches = [(ts, line) for stream in data["data"]["result"] for ts, line in stream["values"]]; print(matches[0][1]) if matches else sys.exit("No Loki records matched loki-smoke")'
+        run: APP_IMAGE=y0ncha/aptitude-registry:latest make docker-smoke
 
       - name: Tear down compose services
         if: always()
-        run: docker compose --ansi=never --progress=plain --profile observability down -v
+        run: make observability-down
