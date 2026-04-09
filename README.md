@@ -87,14 +87,29 @@ Requirements:
 Local development:
 
 ```bash
-docker compose up -d db
+make db
 uv venv
 source .venv/bin/activate
 uv sync --extra dev
 export DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
+export TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
 export AUTH_TOKENS_JSON='{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
 uv run alembic upgrade head
 uv run python -m app.main
+```
+
+Integration tests use a separate PostgreSQL container on `127.0.0.1:5433` so the test cycle never resets the local app database on `127.0.0.1:5432`.
+
+```bash
+make tests-integration-container
+```
+
+For faster local iteration, keep the dedicated test DB running and point `TEST_DATABASE_URL` at it:
+
+```bash
+make db-test
+make tests-integration
+make db-down
 ```
 
 Docker quick start:
@@ -106,7 +121,7 @@ Docker quick start:
 Run the registry server with a clean database and no demo data.
 
 ```bash
-docker compose up -d server
+make stack
 ```
 
 ### Demo Run
@@ -114,8 +129,7 @@ docker compose up -d server
 Run the server and then seed the rich demo catalog for testing clients against realistic sample data.
 
 ```bash
-docker compose up -d server
-docker compose --profile demo run --rm demo-seed
+make stack-demo
 ```
 
 ### Observability Run
@@ -123,13 +137,13 @@ docker compose --profile demo run --rm demo-seed
 Run the server with Grafana, Prometheus, and logs/metrics tooling.
 
 ```bash
-docker compose --profile observability up -d server observability
+make stack-observability
 ```
 
 Teardown:
 
 ```bash
-docker compose down -v
+make stack-down
 ```
 
 Use this for both simple and full-stack local flows.

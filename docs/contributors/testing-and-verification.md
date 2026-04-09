@@ -5,9 +5,8 @@ Use this guide when deciding what to run before calling work complete.
 ## Default Commands
 
 ```bash
-make lint
-make typecheck
-make test
+make quality
+make tests
 ```
 
 ## What Counts As Verification

@@ -7,21 +7,10 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
-from alembic import command
 from app.main import create_app
-
-
-@pytest.fixture
-def migrated_registry_database(clean_integration_database: str) -> str:
-    config = Config("alembic.ini")
-    config.set_main_option("script_location", "alembic")
-    config.set_main_option("sqlalchemy.url", clean_integration_database)
-    command.upgrade(config, "head")
-    return clean_integration_database
 
 
 def _headers(token: str, *, request_id: str | None = None) -> dict[str, str]:
@@ -124,9 +113,9 @@ def test_readyz_initializes_database_readiness_metric(
 @pytest.mark.integration
 def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
     monkeypatch: pytest.MonkeyPatch,
-    migrated_registry_database: str,
+    migrated_integration_database: str,
 ) -> None:
-    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    monkeypatch.setenv("DATABASE_URL", migrated_integration_database)
     slug = f"python.operability.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
@@ -137,7 +126,7 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
         )
         metrics = client.get("/metrics")
 
-    audit_events = _query_audit_events(migrated_registry_database)
+    audit_events = _query_audit_events(migrated_integration_database)
 
     assert publish.status_code == 201, publish.text
     assert publish.headers["X-Request-ID"] == "req-publish"

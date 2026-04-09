@@ -6,22 +6,11 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
 
-from alembic import command
 from app.main import create_app
 from app.persistence.db import get_session_factory
-
-
-@pytest.fixture
-def migrated_registry_database(clean_integration_database: str) -> str:
-    config = Config("alembic.ini")
-    config.set_main_option("script_location", "alembic")
-    config.set_main_option("sqlalchemy.url", clean_integration_database)
-    command.upgrade(config, "head")
-    return clean_integration_database
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -70,6 +59,26 @@ def _request(
             "overlaps_with": overlaps_with or [],
         },
     }
+
+
+def _test_skill_request(
+    version: str,
+    *,
+    name: str,
+    description: str,
+    trust_tier: str,
+    provenance: dict[str, str] | None = None,
+) -> dict[str, object]:
+    return _request(
+        version,
+        intent="create_skill",
+        raw_markdown=f"# {name}\n\nTest-only fixture entry.\n",
+        name=name,
+        description=description,
+        tags=["python", "test", "fixture", "integration"],
+        trust_tier=trust_tier,
+        provenance=provenance,
+    )
 
 
 def _publish(
@@ -175,7 +184,10 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
     try:
         with engine.connect() as connection:
             return [
-                {"event_type": str(row["event_type"]), "payload": row["payload"]}
+                {
+                    "event_type": str(row["event_type"]),
+                    "payload": row["payload"],
+                }
                 for row in connection.execute(
                     text("SELECT event_type, payload FROM audit_events ORDER BY id")
                 ).mappings()
@@ -974,17 +986,19 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
 @pytest.mark.integration
 def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
-    migrated_registry_database: str,
+    migrated_integration_database: str,
 ) -> None:
-    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.audit.{uuid4().hex}"
+    monkeypatch.setenv("DATABASE_URL", migrated_integration_database)
+    slug = "test.python.audit-fixture"
+    denied_slug = f"{slug}.policy"
 
     with TestClient(create_app()) as client:
         publish_response = client.post(
             f"/skills/{slug}",
-            json=_request(
+            json=_test_skill_request(
                 "1.0.0",
-                intent="create_skill",
+                name="Python Audit Fixture",
+                description="Test-only fixture used to validate publish and read audit coverage.",
                 trust_tier="internal",
                 provenance={
                     "repo_url": "https://github.com/example/skills",
@@ -996,7 +1010,7 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
             headers=_headers("publisher-token"),
         )
         denied_publish = client.post(
-            f"/skills/{slug}.policy",
+            f"/skills/{denied_slug}",
             json=_request("1.0.0", trust_tier="internal"),
             headers=_headers("publisher-token"),
         )
@@ -1036,6 +1050,8 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
             headers=_headers("reader-token"),
         )
 
+    audit_events = _query_audit_events(migrated_integration_database)
+
     assert publish_response.status_code == 201
     assert denied_publish.status_code == 403
     assert discovery.status_code == 200
@@ -1047,7 +1063,6 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
     assert denied_status.status_code == 403
     assert denied_metadata.status_code == 403
 
-    audit_events = _query_audit_events(migrated_registry_database)
     event_types = [event["event_type"] for event in audit_events]
 
     assert "skill.version_published" in event_types

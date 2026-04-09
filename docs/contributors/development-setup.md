@@ -13,12 +13,24 @@ This guide shows the simplest way to run `Aptitude Registry` locally for develop
 ## 1. Start PostgreSQL
 
 ```bash
-docker compose up -d db
+make db
 ```
 
 This starts PostgreSQL on `127.0.0.1:5432` with:
 
 - database: `aptitude`
+- user: `postgres`
+- password: `postgres`
+
+Integration tests should use the dedicated test database instead of the app database:
+
+```bash
+make db-test
+```
+
+This starts PostgreSQL on `127.0.0.1:5433` with:
+
+- database: `aptitude_test`
 - user: `postgres`
 - password: `postgres`
 
@@ -34,6 +46,7 @@ uv sync --extra dev
 
 ```bash
 export DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
+export TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
 export AUTH_TOKENS_JSON='{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
 ```
 
@@ -68,11 +81,26 @@ Local URLs:
 
 ```bash
 uv run --extra dev python -m pytest
+make tests
+make tests-unit
+make tests-integration-container
 uv run --extra dev ruff check .
 uv run --extra dev ruff format .
 uv run --extra dev python -m mypy app
 uv run alembic downgrade -1
-docker compose down -v
+make stack
+make stack-demo
+make stack-observability
+make stack-down
+```
+
+Dedicated integration database flows:
+
+```bash
+make tests-integration-container
+make db-test
+make tests-integration
+make db-down
 ```
 
 ## Quick Check
@@ -92,7 +120,7 @@ Clients may also send an `X-Request-ID` header. The API echoes it on every respo
 ## Optional Local Observability Profile
 
 ```bash
-docker compose --profile observability up -d server observability
+make stack-observability
 ```
 
 This starts the API plus:
@@ -112,23 +140,21 @@ The demo profile is a one-shot Compose service that seeds a rich multi-version c
 Seed the running stack in place:
 
 ```bash
-docker compose --profile demo run --rm demo-seed
+make stack-demo
 ```
 
 Bring up the full observability stack with demo data already loaded:
 
 ```bash
-docker compose up -d server
-docker compose --profile demo run --rm demo-seed
-docker compose --profile observability up -d server observability
+make stack-observability-demo
 ```
 
-The `demo` profile is opt-in. Normal `docker compose up -d server` and `docker compose --profile observability up -d server observability` flows stay bootstrap-only, while `docker compose --profile demo run --rm demo-seed` adds the rich local catalog only when you ask for it.
+The `demo` profile is opt-in. Normal `make stack` and `make stack-observability` flows stay bootstrap-only, while `make stack-demo` or `make stack-observability-demo` add the rich local catalog only when you ask for it.
 
 Shut the stack down with:
 
 ```bash
-docker compose down -v
+make stack-down
 ```
 
 ### Verify Log Flow
