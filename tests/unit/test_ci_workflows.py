@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-
-DB_BOOT_PATTERN = re.compile(r"docker compose(?: [^\n]+)? up -d db")
-DB_READY_PATTERN = re.compile(
-    r"docker compose(?: [^\n]+)? exec -T db pg_isready -U postgres -d aptitude"
-)
 
 
 @pytest.mark.unit
@@ -25,17 +19,37 @@ DB_READY_PATTERN = re.compile(
 )
 def test_ci_workflows_boot_runner_tests_from_compose_db(workflow_path: str) -> None:
     document = (REPO_ROOT / workflow_path).read_text()
-    boot_match = DB_BOOT_PATTERN.search(document)
-    ready_match = DB_READY_PATTERN.search(document)
 
     assert "services:" not in document
-    assert boot_match is not None
-    assert ready_match is not None
-    assert boot_match.start() < document.index("run: make migrate-up")
-    assert boot_match.start() < document.index("run: make test-integration")
-    assert boot_match.start() < ready_match.start()
-    assert "Bootstrap container smoke test" in document
-    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make docker-smoke" in document
-    assert "docker-smoke-demo" not in document
-    assert "docker-up-demo" not in document
-    assert "docker-demo-seed" not in document
+    assert "docker compose --ansi=never --progress=plain up -d db" not in document
+    assert "run: make ci-quality" in document
+    assert "run: make ci-tests" in document
+    assert "run: make ci-observability" in document
+    assert "run: make ci-image" in document
+    assert (
+        "TEST_DATABASE_URL: "
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test" in document
+    )
+    assert "Run smoke gate" in document
+    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make ci-smoke" in document
+    assert "run: make stack-down" in document
+    assert "test-integration-docker" not in document
+    assert "docker-smoke" not in document
+    assert "observability-down" not in document
+
+
+@pytest.mark.unit
+def test_release_ci_remains_image_focused_and_avoids_test_db_bootstrap() -> None:
+    document = (REPO_ROOT / ".github/workflows/release-ci.yml").read_text()
+
+    assert "docker/build-push-action@v6" in document
+    assert "make ci-tests" not in document
+    assert "docker compose --profile test" not in document
+    assert "TEST_DATABASE_URL" not in document
+    assert '      - "Dockerfile"' in document
+    assert '      - ".dockerignore"' in document
+    assert '      - "app/**"' in document
+    assert '      - "alembic/**"' in document
+    assert '      - "alembic.ini"' in document
+    assert '      - "pyproject.toml"' in document
+    assert '      - "uv.lock"' in document

@@ -6,31 +6,11 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
 
-from alembic import command
 from app.main import create_app
 from app.persistence.db import get_session_factory
-
-
-@pytest.fixture
-def migrated_registry_database(clean_integration_database: str) -> str:
-    config = Config("alembic.ini")
-    config.set_main_option("script_location", "alembic")
-    config.set_main_option("sqlalchemy.url", clean_integration_database)
-    command.upgrade(config, "head")
-    return clean_integration_database
-
-
-@pytest.fixture
-def migrated_registry_database_without_reset(require_integration_database: str) -> str:
-    config = Config("alembic.ini")
-    config.set_main_option("script_location", "alembic")
-    config.set_main_option("sqlalchemy.url", require_integration_database)
-    command.upgrade(config, "head")
-    return require_integration_database
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -205,80 +185,13 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
         with engine.connect() as connection:
             return [
                 {
-                    "id": int(row["id"]),
                     "event_type": str(row["event_type"]),
                     "payload": row["payload"],
                 }
                 for row in connection.execute(
-                    text("SELECT id, event_type, payload FROM audit_events ORDER BY id")
+                    text("SELECT event_type, payload FROM audit_events ORDER BY id")
                 ).mappings()
             ]
-    finally:
-        engine.dispose()
-
-
-def _delete_test_skill_artifacts(
-    database_url: str,
-    *,
-    slug: str,
-    denied_slug: str | None = None,
-    audit_event_ids: tuple[int, ...] = (),
-) -> None:
-    engine = create_engine(database_url)
-    try:
-        with engine.begin() as connection:
-            if audit_event_ids:
-                connection.execute(
-                    text(
-                        """
-                        DELETE FROM audit_events
-                        WHERE id = ANY(:audit_event_ids)
-                        """
-                    ),
-                    {"audit_event_ids": list(audit_event_ids)},
-                )
-            connection.execute(
-                text(
-                    """
-                    DELETE FROM audit_events
-                    WHERE payload ->> 'slug' IN (:slug, :denied_slug)
-                    """
-                ),
-                {"slug": slug, "denied_slug": denied_slug or slug},
-            )
-            connection.execute(
-                text(
-                    """
-                    DELETE FROM skills
-                    WHERE slug = :slug
-                    """
-                ),
-                {"slug": slug},
-            )
-            connection.execute(
-                text(
-                    """
-                    DELETE FROM skill_contents
-                    WHERE NOT EXISTS (
-                        SELECT 1
-                        FROM skill_versions
-                        WHERE skill_versions.content_fk = skill_contents.id
-                    )
-                    """
-                )
-            )
-            connection.execute(
-                text(
-                    """
-                    DELETE FROM skill_metadata
-                    WHERE NOT EXISTS (
-                        SELECT 1
-                        FROM skill_versions
-                        WHERE skill_versions.metadata_fk = skill_metadata.id
-                    )
-                    """
-                )
-            )
     finally:
         engine.dispose()
 
@@ -1073,91 +986,71 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
 @pytest.mark.integration
 def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
     monkeypatch: pytest.MonkeyPatch,
-    migrated_registry_database_without_reset: str,
+    migrated_integration_database: str,
 ) -> None:
-    monkeypatch.setenv("DATABASE_URL", migrated_registry_database_without_reset)
+    monkeypatch.setenv("DATABASE_URL", migrated_integration_database)
     slug = "test.python.audit-fixture"
     denied_slug = f"{slug}.policy"
-    audit_events: list[dict[str, Any]] = []
-    audit_event_ids: tuple[int, ...] = ()
 
-    _delete_test_skill_artifacts(
-        migrated_registry_database_without_reset,
-        slug=slug,
-        denied_slug=denied_slug,
-    )
-    baseline_audit_event_count = len(_query_audit_events(migrated_registry_database_without_reset))
-    try:
-        with TestClient(create_app()) as client:
-            publish_response = client.post(
-                f"/skills/{slug}",
-                json=_test_skill_request(
-                    "1.0.0",
-                    name="Python Audit Fixture",
-                    description=(
-                        "Test-only fixture used to validate publish and read audit coverage."
-                    ),
-                    trust_tier="internal",
-                    provenance={
-                        "repo_url": "https://github.com/example/skills",
-                        "commit_sha": "0123456789abcdef0123456789abcdef01234567",
-                        "tree_path": f"skills/{slug}",
-                        "publisher_identity": "ci/example-release",
-                    },
-                ),
-                headers=_headers("publisher-token"),
-            )
-            denied_publish = client.post(
-                f"/skills/{denied_slug}",
-                json=_request("1.0.0", trust_tier="internal"),
-                headers=_headers("publisher-token"),
-            )
-            discovery = client.post(
-                "/discovery",
-                json={"name": "Python Lint"},
-                headers=_headers("reader-token"),
-            )
-            resolution = client.get(
-                f"/resolution/{slug}/1.0.0",
-                headers=_headers("reader-token"),
-            )
-            versions = client.get(
-                f"/skills/{slug}",
-                headers=_headers("reader-token"),
-            )
-            metadata = client.get(
-                f"/skills/{slug}/1.0.0",
-                headers=_headers("reader-token"),
-            )
-            content = client.get(
-                f"/skills/{slug}/1.0.0/content",
-                headers=_headers("reader-token"),
-            )
-            archived = client.patch(
-                f"/skills/{slug}/1.0.0/status",
-                json={"status": "archived"},
-                headers=_headers("admin-token"),
-            )
-            denied_status = client.patch(
-                f"/skills/{slug}/1.0.0/status",
-                json={"status": "published"},
-                headers=_headers("admin-token"),
-            )
-            denied_metadata = client.get(
-                f"/skills/{slug}/1.0.0",
-                headers=_headers("reader-token"),
-            )
-        audit_events = _query_audit_events(migrated_registry_database_without_reset)[
-            baseline_audit_event_count:
-        ]
-        audit_event_ids = tuple(int(event["id"]) for event in audit_events)
-    finally:
-        _delete_test_skill_artifacts(
-            migrated_registry_database_without_reset,
-            slug=slug,
-            denied_slug=denied_slug,
-            audit_event_ids=audit_event_ids,
+    with TestClient(create_app()) as client:
+        publish_response = client.post(
+            f"/skills/{slug}",
+            json=_test_skill_request(
+                "1.0.0",
+                name="Python Audit Fixture",
+                description="Test-only fixture used to validate publish and read audit coverage.",
+                trust_tier="internal",
+                provenance={
+                    "repo_url": "https://github.com/example/skills",
+                    "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+                    "tree_path": f"skills/{slug}",
+                    "publisher_identity": "ci/example-release",
+                },
+            ),
+            headers=_headers("publisher-token"),
         )
+        denied_publish = client.post(
+            f"/skills/{denied_slug}",
+            json=_request("1.0.0", trust_tier="internal"),
+            headers=_headers("publisher-token"),
+        )
+        discovery = client.post(
+            "/discovery",
+            json={"name": "Python Lint"},
+            headers=_headers("reader-token"),
+        )
+        resolution = client.get(
+            f"/resolution/{slug}/1.0.0",
+            headers=_headers("reader-token"),
+        )
+        versions = client.get(
+            f"/skills/{slug}",
+            headers=_headers("reader-token"),
+        )
+        metadata = client.get(
+            f"/skills/{slug}/1.0.0",
+            headers=_headers("reader-token"),
+        )
+        content = client.get(
+            f"/skills/{slug}/1.0.0/content",
+            headers=_headers("reader-token"),
+        )
+        archived = client.patch(
+            f"/skills/{slug}/1.0.0/status",
+            json={"status": "archived"},
+            headers=_headers("admin-token"),
+        )
+        denied_status = client.patch(
+            f"/skills/{slug}/1.0.0/status",
+            json={"status": "published"},
+            headers=_headers("admin-token"),
+        )
+        denied_metadata = client.get(
+            f"/skills/{slug}/1.0.0",
+            headers=_headers("reader-token"),
+        )
+
+    audit_events = _query_audit_events(migrated_integration_database)
 
     assert publish_response.status_code == 201
     assert denied_publish.status_code == 403
