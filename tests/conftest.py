@@ -8,12 +8,15 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.core.settings import SETTINGS_ENV_FILE_ENV_VAR
+from alembic import command
+from app.core.settings import SETTINGS_ENV_FILE_ENV_VAR, reset_settings_cache
+from app.persistence.db import dispose_engine
 
-DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
+DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
 DEFAULT_AUTH_TOKENS = {
     "reader-token": ["read"],
     "publisher-token": ["read", "publish"],
@@ -49,8 +52,6 @@ def _reset_database(database_url: str) -> None:
 @pytest.fixture(autouse=True)
 def clear_settings_cache() -> Generator[None, None, None]:
     """Ensure tests never share cached settings state."""
-    from app.core.settings import reset_settings_cache
-
     reset_settings_cache()
     yield
     reset_settings_cache()
@@ -94,13 +95,37 @@ def require_integration_database(integration_database_url: str) -> str:
     if not _database_is_available(integration_database_url):
         pytest.skip(
             "PostgreSQL is not reachable for integration tests. "
-            "Run `make db-up` and set TEST_DATABASE_URL if needed.",
+            "Run `make db-test` or `make tests-integration-container` and set "
+            "TEST_DATABASE_URL if needed.",
         )
     return integration_database_url
 
 
 @pytest.fixture
-def clean_integration_database(require_integration_database: str) -> str:
+def clean_integration_database(require_integration_database: str) -> Generator[str, None, None]:
     """Provide a blank Postgres schema for integration tests."""
     _reset_database(require_integration_database)
-    return require_integration_database
+    yield require_integration_database
+    dispose_engine()
+    reset_settings_cache()
+    _reset_database(require_integration_database)
+
+
+def _build_alembic_config(database_url: str) -> Config:
+    config = Config("alembic.ini")
+    config.set_main_option("script_location", "alembic")
+    config.set_main_option("sqlalchemy.url", database_url)
+    return config
+
+
+@pytest.fixture
+def migrated_integration_database(clean_integration_database: str) -> str:
+    """Provide a blank Postgres schema upgraded to the latest Alembic revision."""
+    command.upgrade(_build_alembic_config(clean_integration_database), "head")
+    return clean_integration_database
+
+
+@pytest.fixture
+def migrated_registry_database(migrated_integration_database: str) -> str:
+    """Compatibility alias for integration tests that expect the older fixture name."""
+    return migrated_integration_database

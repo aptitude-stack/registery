@@ -18,8 +18,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test
 
     steps:
       - name: Check out repository
@@ -36,44 +36,21 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev --frozen
 
-      - name: Run quality checks
-        run: make quality
+      - name: Run quality gate
+        run: make ci-quality
 
-      - name: Run tests
-        run: make test-unit
+      - name: Run test gate
+        run: make ci-tests
 
-      - name: Import app entrypoint
-        run: make import-check
-
-      - name: Start compose database
-        run: |
-          docker compose --ansi=never --progress=plain up -d db
-          for attempt in $(seq 1 30); do
-            if docker compose --ansi=never --progress=plain exec -T db pg_isready -U postgres -d aptitude >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-          docker compose --ansi=never --progress=plain exec -T db pg_isready -U postgres -d aptitude
-
-      - name: Run database migrations
-        run: make migrate-up
-
-      - name: Run integration tests
-        run: make test-integration
-
-      - name: Validate Prometheus config and rules
-        run: make prometheus-check
-
-      - name: Validate observability compose profile
-        run: make observability-config-check
+      - name: Run observability gate
+        run: make ci-observability
 
       - name: Build app image for smoke test
-        run: make docker-build
+        run: make ci-image
 
-      - name: Bootstrap container smoke test
-        run: APP_IMAGE=y0ncha/aptitude-registry:latest make docker-smoke
+      - name: Run smoke gate
+        run: APP_IMAGE=y0ncha/aptitude-registry:latest make ci-smoke
 
       - name: Tear down compose services
         if: always()
-        run: make observability-down
+        run: make stack-down
