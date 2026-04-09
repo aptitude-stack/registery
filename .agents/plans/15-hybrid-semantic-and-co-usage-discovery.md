@@ -81,7 +81,9 @@ It assumes the summary unification cleanup is already complete, with
   - `name`
   - `description`
   - `tags`
-- Keep `raw_markdown` out of the first semantic-search version.
+- Keep zip bundle contents out of the first semantic-search version. Semantic
+  retrieval remains metadata-centric and must not depend on unpacking or
+  embedding bundle files during request handling.
 - Add a new derived read model, recommended as `skill_search_embeddings`, with:
   - `skill_version_fk`
   - `embedding_model`
@@ -114,7 +116,8 @@ It assumes the summary unification cleanup is already complete, with
 - No server-side final selection, reranking policy ownership, solving, lock
   generation, or execution planning.
 - No agent-based search or internal LLM traversal in the discovery request path.
-- No embedding of full markdown bodies in the first version.
+- No embedding of full zip bundle contents or unpacked bundle files in the
+  first version.
 - No requirement that semantic retrieval be available for discovery to succeed.
 - No treatment of co-usage statistics as authoritative install, dependency, or
   compatibility data.
@@ -142,7 +145,8 @@ Recommended fused ordering:
 4. `tag_overlap_count`
 5. `usage_count`
 6. newer `published_at`
-7. smaller `content_size_bytes`
+7. smaller bundle size or derived content footprint field, once Plan 12's
+   bundle-oriented metadata summary is finalized
 8. lexical `slug`
 9. higher internal version id
 
@@ -152,7 +156,7 @@ Recommended fused ordering:
   - lifecycle visibility
   - trust tier
   - freshness window
-  - max content size
+  - max bundle size or derived artifact-size limit
   - required tags
 - Forbidden candidates must not be admitted by semantic retrieval and merely
   pruned later in Python.

@@ -1,4 +1,4 @@
-# Full Skill Directory Bundle Support Implementation Plan
+# Plan 12 - Full Skill Directory Bundle Support
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -94,7 +94,7 @@
 
 ## File Structure and Responsibilities
 
-- Modify: `.agents/plans/12-optional-evaluation-signals-and-snapshotting.md`
+- Modify: `.agents/plans/12-full-skill-directory-bundle-support.md`
   - Rewrite as the implementation-grade milestone plan
 - Create: `docs/reference/publish-bundle-migration.md`
   - Breaking-change migration guide for publishers and consumers
@@ -142,7 +142,7 @@
 ### Task 1: Lock the milestone narrative and contract direction
 
 **Files:**
-- Modify: `.agents/plans/12-optional-evaluation-signals-and-snapshotting.md`
+- Modify: `.agents/plans/12-full-skill-directory-bundle-support.md`
 - Modify: `.agents/plans/roadmap.md`
 - Test: `tests/unit/test_public_contract_docs.py`
 
@@ -150,7 +150,7 @@
 
 ```python
 def test_plan_12_describes_full_skill_directory_bundle_support():
-    text = Path(".agents/plans/12-optional-evaluation-signals-and-snapshotting.md").read_text()
+    text = Path(".agents/plans/12-full-skill-directory-bundle-support.md").read_text()
     assert "zip bundle" in text
     assert "application/zip" in text
     assert "raw_markdown" not in text
@@ -179,7 +179,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .agents/plans/12-optional-evaluation-signals-and-snapshotting.md .agents/plans/roadmap.md tests/unit/test_public_contract_docs.py
+git add .agents/plans/12-full-skill-directory-bundle-support.md .agents/plans/roadmap.md tests/unit/test_public_contract_docs.py
 git commit -m "docs: redefine plan 12 around skill directory bundles"
 ```
 
