@@ -1,8 +1,0 @@
-$kind: collection
-
-name: Negative
-description: |-
-  Deterministic negative coverage for the Aptitude Skills API.
-
-  These requests include their own setup for the duplicate-publish path so the
-  folder can still be run independently.

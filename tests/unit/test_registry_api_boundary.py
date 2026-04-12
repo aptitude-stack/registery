@@ -52,10 +52,15 @@ def test_public_route_surface_excludes_removed_route_families() -> None:
 def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     schema = create_app().openapi()
     paths = schema["paths"]
-    publish_request = paths["/skills/{slug}"]["post"]["requestBody"]["content"][
+    multipart_request = paths["/skills/{slug}"]["post"]["requestBody"]["content"][
         "multipart/form-data"
-    ]["schema"]
+    ]
+    publish_request = multipart_request["schema"]
     publish_properties = publish_request["properties"]
+    publish_encoding = multipart_request["encoding"]
+    content_success = paths["/skills/{slug}/{version}/content"]["get"]["responses"]["200"][
+        "content"
+    ]
 
     assert "/metrics" in paths
     assert "/discovery" in paths
@@ -81,3 +86,5 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     assert "metadata" in publish_request["required"]
     assert "bundle" in publish_request["required"]
     assert "slug" not in publish_properties
+    assert publish_encoding["bundle"]["contentType"] == "application/zstd"
+    assert "application/zstd" in content_success

@@ -9,44 +9,43 @@ http:
   headers:
     - name: Accept
       value: application/json
-    - name: Content-Type
-      value: application/json
     - name: Authorization
       value: Bearer {{publishToken}}
   body:
-    type: json
-    data: |-
-      {
-        "intent": "create_skill",
-        "version": "{{sanity_version_1}}",
-        "content": {
-          "raw_markdown": "# Postman Extension Skill\n\nRun `{{runId}}` extension version 1.\n"
-        },
-        "metadata": {
-          "name": "Postman Extension Skill",
-          "description": "Extension seed for relationship coverage",
-          "tags": [
-            "postman",
-            "sanity",
-            "extension"
-          ],
-          "inputs_schema": {
-            "type": "object"
-          },
-          "outputs_schema": {
-            "type": "object"
-          },
-          "token_estimate": 120,
-          "maturity_score": 0.82,
-          "security_score": 0.91
-        },
-        "relationships": {
-          "depends_on": [],
-          "extends": [],
-          "conflicts_with": [],
-          "overlaps_with": []
-        }
-      }
+    type: multipart-form
+    data:
+      - name: metadata
+        value: |-
+          {
+            "intent": "create_skill",
+            "version": "{{sanity_version_1}}",
+            "metadata": {
+              "name": "Postman Extension Skill",
+              "description": "Extension seed for relationship coverage",
+              "tags": [
+                "postman",
+                "sanity",
+                "extension"
+              ],
+              "inputs_schema": {
+                "type": "object"
+              },
+              "outputs_schema": {
+                "type": "object"
+              },
+              "token_estimate": 120,
+              "maturity_score": 0.82,
+              "security_score": 0.91
+            },
+            "relationships": {
+              "depends_on": [],
+              "extends": [],
+              "conflicts_with": [],
+              "overlaps_with": []
+            }
+          }
+      - name: bundle
+        value: "@file(../../fixtures/extension.zip)"
 
 runtime:
   scripts:
@@ -101,6 +100,7 @@ runtime:
         test('Extension skill publish returns the created version', function () {
           expect(json.slug).to.eql(bru.getVar('sanity_extension_slug'));
           expect(json.version).to.eql(bru.getVar('sanity_version_1'));
+          expect(json.content.media_type).to.eql('application/zip');
         });
 
         bru.runner.setNextRequest(res.getStatus() === 201 ? 'Publish Overlap Skill' : null);

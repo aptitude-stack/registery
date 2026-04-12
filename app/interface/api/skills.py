@@ -112,7 +112,8 @@ STATUS_RESPONSES: ApiResponses = {
     summary="Publish an immutable skill version",
     description=(
         "Create a new immutable skill version for the slug in the path from a "
-        "`multipart/form-data` request containing one JSON metadata part and one zip bundle."
+        "`multipart/form-data` request containing one JSON metadata part and "
+        "one `.tar.zst` artifact."
     ),
     response_model=SkillVersionMetadataResponse,
     response_model_exclude_unset=True,
@@ -134,13 +135,13 @@ STATUS_RESPONSES: ApiResponses = {
                             "bundle": {
                                 "type": "string",
                                 "format": "binary",
-                                "description": "Validated immutable skill bundle zip archive.",
+                                "description": "Validated immutable `.tar.zst` skill artifact.",
                             },
                         },
                     },
                     "encoding": {
                         "metadata": {"contentType": "application/json"},
-                        "bundle": {"contentType": "application/zip"},
+                        "bundle": {"contentType": "application/zstd"},
                     },
                     "example": {
                         "metadata": PUBLISH_REQUEST_EXAMPLE,
@@ -162,7 +163,7 @@ def create_skill_version(
     ],
     bundle: Annotated[
         UploadFile,
-        File(description="Zip archive containing one root skill directory bundle."),
+        File(description="Opaque `.tar.zst` artifact persisted exactly as uploaded."),
     ],
     registry_service: SkillRegistryServiceDep,
     caller: PublishCallerDep,
@@ -170,8 +171,11 @@ def create_skill_version(
     """Publish one immutable normalized skill version."""
     request = parse_publish_request_metadata(metadata)
     bundle_bytes = bundle.file.read()
-    validate_publish_bundle(bundle_bytes)
-    bundle_media_type = bundle.content_type or "application/zip"
+    bundle_media_type = validate_publish_bundle(
+        bundle_bytes=bundle_bytes,
+        filename=bundle.filename,
+        media_type=bundle.content_type,
+    )
 
     try:
         stored = registry_service.publish_version(

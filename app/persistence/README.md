@@ -44,7 +44,7 @@ Persistence adapters that need skill-domain errors or service-facing models
 should import them from `app.core.skills.*`, while preserving the same
 layering boundary against the rest of core.
 Canonical short summary text lives on `skill_metadata.description`; deduplicated
-`skill_contents` rows persist the exact zip bundle bytes plus checksum, media type,
+`skill_contents` rows persist the exact opaque artifact bytes plus checksum, media type,
 and size metadata.
 Current-default recomputation reuses the shared core ordering helper so slug
 listing and lifecycle updates cannot drift on tie-break behavior.

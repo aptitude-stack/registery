@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-from io import BytesIO
 from typing import Any
 from uuid import uuid4
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -95,7 +93,7 @@ def _publish(
         f"/skills/{slug}",
         files={
             "metadata": (None, json.dumps(metadata), "application/json"),
-            "bundle": ("skill.zip", _bundle(raw_markdown), "application/zip"),
+            "bundle": ("skill.tar.zst", _bundle(raw_markdown), "application/zstd"),
         },
         headers=_headers(token),
     )
@@ -117,7 +115,7 @@ def _publish_response(
         f"/skills/{slug}",
         files={
             "metadata": (None, json.dumps(metadata), "application/json"),
-            "bundle": ("skill.zip", _bundle(raw_markdown), "application/zip"),
+            "bundle": ("skill.tar.zst", _bundle(raw_markdown), "application/zstd"),
         },
         headers=headers,
     )
@@ -227,19 +225,7 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
 
 
 def _bundle(markdown: str) -> bytes:
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        archive.writestr("python-lint/SKILL.md", markdown)
-    return buffer.getvalue()
-
-
-def _bundle_entries(payload: bytes) -> dict[str, str]:
-    with ZipFile(BytesIO(payload)) as archive:
-        return {
-            name: archive.read(name).decode("utf-8")
-            for name in archive.namelist()
-            if not name.endswith("/")
-        }
+    return f"opaque-tar-zst:{markdown}".encode()
 
 
 @pytest.mark.integration
@@ -372,11 +358,11 @@ def test_publish_discovery_resolution_and_exact_fetch(
     assert published["provenance"] == metadata_body["provenance"]
 
     assert content.status_code == 200
-    assert content.headers["content-type"].startswith("application/zip")
+    assert content.headers["content-type"].startswith("application/zstd")
     assert content.headers["ETag"] == published["content"]["checksum"]["digest"]
     assert content.headers["Cache-Control"] == "public, immutable"
     assert content.headers["Content-Length"] == str(len(_bundle("# v2\n")))
-    assert _bundle_entries(content.content) == {"python-lint/SKILL.md": "# v2\n"}
+    assert content.content == _bundle("# v2\n")
 
 
 @pytest.mark.integration
@@ -558,7 +544,7 @@ def test_publish_distinct_content_creates_distinct_rows_and_exact_fetch_returns_
         "content_count": 2,
     }
     assert response.headers["ETag"] == second["content"]["checksum"]["digest"]
-    assert _bundle_entries(response.content) == {"python-lint/SKILL.md": "# v2\n"}
+    assert response.content == _bundle("# v2\n")
 
 
 @pytest.mark.integration
@@ -843,9 +829,7 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
     assert archived_content_forbidden.status_code == 403
     assert archived_content_forbidden.json()["error"]["code"] == "POLICY_EXACT_READ_FORBIDDEN"
     assert archived_content_admin.status_code == 200
-    assert _bundle_entries(archived_content_admin.content)["python-lint/SKILL.md"].startswith(
-        "# Python Lint"
-    )
+    assert archived_content_admin.content == _bundle("# Python Lint\n\nTest-only fixture entry.\n")
 
 
 @pytest.mark.integration

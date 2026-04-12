@@ -13,8 +13,7 @@ def test_plan_12_describes_full_skill_directory_bundle_support() -> None:
         encoding="utf-8"
     )
 
-    assert "zip bundle" in text
-    assert "application/zip" in text
+    assert "bundle" in text
     assert "text/markdown" in text
 
 
@@ -25,25 +24,27 @@ def test_publish_bundle_migration_doc_exists_and_mentions_breaking_change() -> N
     assert path.exists()
     text = path.read_text(encoding="utf-8")
     assert "breaking change" in text.lower()
-    assert "application/zip" in text
+    assert "application/zstd" in text
     assert "content.raw_markdown" in text
 
 
 @pytest.mark.unit
-def test_api_contract_docs_describe_bundle_upload_and_zip_fetch() -> None:
+def test_api_contract_docs_describe_tar_zst_upload_and_fetch() -> None:
     api_contract = Path("docs/reference/api-contract.md").read_text(encoding="utf-8")
     publish_contract = Path("docs/reference/publish-request-schema.md").read_text(encoding="utf-8")
     storage_strategy = Path("docs/reference/storage-strategy.md").read_text(encoding="utf-8")
     schema_reference = Path("docs/reference/schema.md").read_text(encoding="utf-8")
 
     assert "multipart/form-data" in api_contract
-    assert "application/zip" in api_contract
+    assert "application/zstd" in api_contract
+    assert ".tar.zst" in api_contract
     assert "5 MiB" in api_contract
     assert "multipart/form-data" in publish_contract
-    assert "application/zip" in publish_contract
+    assert "application/zstd" in publish_contract
+    assert ".tar.zst" in publish_contract
     assert "5 MiB" in publish_contract
     assert "content.checksum.digest" in publish_contract
     assert "version_checksum.digest" in publish_contract
-    assert "zip bundle" in storage_strategy.lower()
+    assert "opaque artifact" in storage_strategy.lower()
     assert "skill_contents.payload" in schema_reference
     assert "stored bundle size" in schema_reference

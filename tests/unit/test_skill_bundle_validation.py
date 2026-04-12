@@ -1,109 +1,56 @@
-"""Unit tests for zip bundle validation."""
+"""Unit tests for opaque skill artifact validation."""
 
 from __future__ import annotations
-
-from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
 from app.interface.validation.skill_bundle import (
+    SKILL_ARTIFACT_MEDIA_TYPE,
     SkillBundleValidationError,
     validate_skill_bundle,
 )
 
 
-def _bundle(files: dict[str, str]) -> bytes:
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        for path, content in files.items():
-            archive.writestr(path, content)
-    return buffer.getvalue()
-
-
 @pytest.mark.unit
-def test_validate_skill_bundle_accepts_required_root_layout() -> None:
+def test_validate_skill_bundle_accepts_tar_zst_artifact() -> None:
     report = validate_skill_bundle(
-        _bundle(
-            {
-                "python-lint/SKILL.md": "---\nname: Python Lint\n---\n",
-                "python-lint/scripts/run.py": "print('ok')\n",
-                "python-lint/references/usage.md": "# Usage\n",
-                "python-lint/assets/icon.txt": "icon\n",
-            }
-        )
+        b"zstd-compressed-tarball",
+        filename="python-lint.tar.zst",
+        media_type=SKILL_ARTIFACT_MEDIA_TYPE,
     )
 
-    assert report.root_directory == "python-lint"
-    assert report.file_count == 4
-    assert report.size_bytes > 0
+    assert report.filename == "python-lint.tar.zst"
+    assert report.media_type == SKILL_ARTIFACT_MEDIA_TYPE
+    assert report.size_bytes == len(b"zstd-compressed-tarball")
 
 
 @pytest.mark.unit
-def test_validate_skill_bundle_rejects_non_zip_payload() -> None:
-    with pytest.raises(SkillBundleValidationError, match="valid zip archive"):
-        validate_skill_bundle(b"not-a-zip")
-
-
-@pytest.mark.unit
-def test_validate_skill_bundle_rejects_multiple_root_directories() -> None:
-    with pytest.raises(SkillBundleValidationError, match="exactly one root"):
+def test_validate_skill_bundle_rejects_non_tar_zst_filename() -> None:
+    with pytest.raises(SkillBundleValidationError, match=r"\.tar\.zst"):
         validate_skill_bundle(
-            _bundle(
-                {
-                    "python-lint/SKILL.md": "---\nname: Python Lint\n---\n",
-                    "python-format/SKILL.md": "---\nname: Python Format\n---\n",
-                }
-            )
+            b"zip-payload",
+            filename="python-lint.zip",
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
         )
 
 
 @pytest.mark.unit
-def test_validate_skill_bundle_rejects_path_traversal() -> None:
-    with pytest.raises(SkillBundleValidationError, match="path traversal"):
+def test_validate_skill_bundle_rejects_unsupported_media_type() -> None:
+    with pytest.raises(SkillBundleValidationError, match="media type"):
         validate_skill_bundle(
-            _bundle(
-                {
-                    "python-lint/SKILL.md": "---\nname: Python Lint\n---\n",
-                    "python-lint/../escape.txt": "nope\n",
-                }
-            )
+            b"opaque-payload",
+            filename="python-lint.tar.zst",
+            media_type="application/zip",
         )
 
 
 @pytest.mark.unit
-def test_validate_skill_bundle_requires_root_skill_markdown() -> None:
-    with pytest.raises(SkillBundleValidationError, match="SKILL.md"):
+def test_validate_skill_bundle_rejects_oversized_payload() -> None:
+    oversized = b"x" * ((5 * 1024 * 1024) + 1)
+
+    with pytest.raises(SkillBundleValidationError, match="maximum size"):
         validate_skill_bundle(
-            _bundle(
-                {
-                    "python-lint/scripts/run.py": "print('ok')\n",
-                }
-            )
-        )
-
-
-@pytest.mark.unit
-def test_validate_skill_bundle_forbids_root_readme() -> None:
-    with pytest.raises(SkillBundleValidationError, match="README.md"):
-        validate_skill_bundle(
-            _bundle(
-                {
-                    "python-lint/SKILL.md": "---\nname: Python Lint\n---\n",
-                    "python-lint/README.md": "# Legacy\n",
-                }
-            )
-        )
-
-
-@pytest.mark.unit
-def test_validate_skill_bundle_rejects_disallowed_top_level_entries() -> None:
-    with pytest.raises(SkillBundleValidationError, match="top-level"):
-        validate_skill_bundle(
-            _bundle(
-                {
-                    "python-lint/SKILL.md": "---\nname: Python Lint\n---\n",
-                    "python-lint/docs/extra.md": "# Extra\n",
-                }
-            )
+            oversized,
+            filename="python-lint.tar.zst",
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
         )

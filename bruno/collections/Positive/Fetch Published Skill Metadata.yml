@@ -67,15 +67,17 @@ runtime:
           expect(json.version).to.eql(bru.getVar('sanity_version_2'));
           expect(json.metadata.name).to.eql('Postman Primary Skill');
           expect(json.metadata.description).to.eql('Primary sanity skill for collection coverage');
+          expect(json.version_checksum.algorithm).to.eql('sha256');
           expect(json.content.checksum.algorithm).to.eql('sha256');
           expect(json.content.checksum.digest).to.be.a('string').and.not.empty;
+          expect(json.content.media_type).to.eql('application/zip');
+          expect(json.content.size_bytes).to.be.a('number').and.to.be.greaterThan(0);
           expect(json.lifecycle_status).to.eql('deprecated');
           expect(json.trust_tier).to.eql('internal');
           expect(json.provenance.repo_url).to.eql('https://github.com/example/skills');
           expect(json.provenance.publisher_identity).to.eql('postman/manual-qa');
           expect(json.provenance.trust_context.policy_profile).to.eql('default');
           expect(json).to.not.have.property('relationships');
-          expect(json).to.not.have.property('content_download_path');
         });
 
         bru.setVar('sanity_primary_content_digest', json.content.checksum.digest);

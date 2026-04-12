@@ -51,7 +51,7 @@ SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
     "version_checksum": CHECKSUM_EXAMPLE,
     "content": {
         "checksum": CHECKSUM_EXAMPLE,
-        "media_type": "application/zip",
+        "media_type": "application/zstd",
         "size_bytes": 1234,
     },
     "metadata": {

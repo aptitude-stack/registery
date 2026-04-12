@@ -12,7 +12,7 @@ It reflects the current runtime shape created by [`alembic/versions/0001_initial
 - PostgreSQL is the only authoritative store.
 - versions are immutable.
 - discovery queries stay body-free.
-- exact content is stored as digest-deduplicated zip bundles.
+- exact content is stored as digest-deduplicated opaque artifacts.
 - identity, versioning, content, metadata, selectors, search projection, and audit records are modeled separately.
 
 ## Canonical Baseline
@@ -20,8 +20,8 @@ It reflects the current runtime shape created by [`alembic/versions/0001_initial
 The live schema is centered on immutable version rows, digest-backed bundle rows, authored selector rows, and a derived search projection.
 
 - `skills` stores the logical identity row and mutable install aggregate.
-- `skill_versions` binds immutable bundle, metadata, and governance state together.
-- `skill_contents` stores the canonical `application/zip` artifact bytes plus digest and size metadata.
+- `skill_versions` binds immutable artifact, metadata, and governance state together.
+- `skill_contents` stores the canonical `application/zstd` artifact bytes plus digest and size metadata.
 - authored selectors live in `skill_relationship_selectors` and remain the only persisted dependency source of truth.
 - discovery uses `skill_search_documents` as a derived, governance-aware read model.
 - `audit_events` remains the append-only audit sink for registry actions.
@@ -37,8 +37,8 @@ Removed compatibility artifacts:
 
 - Keep `skills` as the stable identity row.
 - Keep `skill_versions` immutable after publish.
-- Store exact artifacts in `skill_contents.payload` as bundle bytes.
-- Reuse identical bundles through `skill_contents.checksum_digest`.
+- Store exact artifacts in `skill_contents.payload` as opaque bytes.
+- Reuse identical artifacts through `skill_contents.checksum_digest`.
 - Keep high-cardinality filters and ranking fields in typed columns.
 - Use `jsonb` only for flexible structured metadata.
 - Keep discovery/list/search APIs off the bundle table by default.
@@ -46,11 +46,11 @@ Removed compatibility artifacts:
 
 ## Storage Guidance
 
-Use PostgreSQL row storage and TOAST implicitly for bundle payloads.
+Use PostgreSQL row storage and TOAST implicitly for artifact payloads.
 
 - `skill_contents.payload` is a `bytea`/`LargeBinary` column.
-- do not use Postgres large objects or reconstruct bundles from normalized rows.
-- the main optimization is still query-path separation so metadata-heavy reads never touch bundle bytes unless exact content is requested.
+- do not use Postgres large objects or reconstruct artifacts from normalized rows.
+- the main optimization is still query-path separation so metadata-heavy reads never touch artifact bytes unless exact content is requested.
 
 ## Entity Overview
 
@@ -104,7 +104,7 @@ Immutable version rows binding identity, content, metadata, and governance toget
 | `id` | `bigint` | PK | Internal immutable version key. |
 | `skill_fk` | `bigint` | `NOT NULL`, FK -> `skills.id` | Parent skill identity. |
 | `version` | `text` | `NOT NULL` | Semantic version string. |
-| `content_fk` | `bigint` | `NOT NULL`, FK -> `skill_contents.id` | Immutable bundle row. |
+| `content_fk` | `bigint` | `NOT NULL`, FK -> `skill_contents.id` | Immutable artifact row. |
 | `metadata_fk` | `bigint` | `NOT NULL`, FK -> `skill_metadata.id` | Immutable metadata row. |
 | `checksum_digest` | `varchar(64)` | `NOT NULL` | Version-level digest returned in exact metadata reads. |
 | `lifecycle_status` | `text` | `NOT NULL`, default `published` | `published`, `deprecated`, or `archived`. |
@@ -121,23 +121,23 @@ Immutable version rows binding identity, content, metadata, and governance toget
 Checksum rule:
 
 - `checksum_digest` is derived from the content checksum plus normalized metadata, governance, and authored relationships.
-- changing bundle bytes, metadata, governance, or relationships creates a new immutable version row.
+- changing artifact bytes, metadata, governance, or relationships creates a new immutable version row.
 
 ### `skill_contents`
 
-Authoritative immutable bundle storage.
+Authoritative immutable artifact storage.
 
 | Column | Type | Constraints | Purpose |
 | --- | --- | --- | --- |
 | `id` | `bigint` | PK | Internal content key. |
-| `payload` | `bytea` | `NOT NULL` | Canonical stored zip bundle bytes returned by exact content fetch. |
-| `media_type` | `text` | `NOT NULL` | Stored artifact media type, currently `application/zip`. |
+| `payload` | `bytea` | `NOT NULL` | Canonical stored artifact bytes returned by exact content fetch. |
+| `media_type` | `text` | `NOT NULL` | Stored artifact media type, currently `application/zstd`. |
 | `storage_size_bytes` | `bigint` | `NOT NULL` | Stored bundle size used by exact fetch metadata and search-document projection. |
-| `checksum_digest` | `varchar(64)` | `NOT NULL`, unique | Bundle digest for deduplication, exact content identity, and `ETag` emission. |
+| `checksum_digest` | `varchar(64)` | `NOT NULL`, unique | Artifact digest for deduplication, exact content identity, and `ETag` emission. |
 
 Storage notes:
 
-- identical bundles are deduplicated by `checksum_digest`
+- identical artifacts are deduplicated by `checksum_digest`
 - exact content fetches read this table directly
 - list/search/rank queries should not join this table unless explicitly needed
 
@@ -201,7 +201,7 @@ This table is derived from `skills`, `skill_versions`, `skill_metadata`, and `sk
 
 Rule:
 
-- do not store bundle payload bytes in this table
+- do not store artifact payload bytes in this table
 
 ## Query Path Separation
 
@@ -229,16 +229,16 @@ Exact fetch path:
 The canonical bundle transition is captured by [`alembic/versions/0003_skill_bundle_storage.py`](../../alembic/versions/0003_skill_bundle_storage.py):
 
 1. add `payload` and `media_type` to `skill_contents`
-2. rewrite legacy markdown rows into zip bundles
-3. recompute content checksums from stored bundle bytes
-4. recompute version checksums from the bundle-aware canonical payload
+2. rewrite legacy markdown rows into artifact blobs
+3. recompute content checksums from stored artifact bytes
+4. recompute version checksums from the artifact-aware canonical payload
 5. backfill `skill_search_documents.content_size_bytes` from stored bundle size
 6. drop `skill_contents.raw_markdown`
 
 ## Non-Goals
 
 - storing exact artifacts as markdown text
-- using Postgres large objects for skill bundles
+- using Postgres large objects for skill artifacts
 - joining the content table for every search/list request
 - making derived search tables the source of truth
 - persisting compatibility tables or legacy markdown-only read semantics

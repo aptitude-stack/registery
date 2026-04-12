@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-from io import BytesIO
 from typing import Any
 from uuid import uuid4
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -48,10 +46,7 @@ def _request(version: str) -> dict[str, object]:
 
 
 def _bundle(markdown: str) -> bytes:
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        archive.writestr("python-lint/SKILL.md", markdown)
-    return buffer.getvalue()
+    return f"opaque-tar-zst:{markdown}".encode()
 
 
 def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
@@ -134,7 +129,7 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
             f"/skills/{slug}",
             files={
                 "metadata": (None, json.dumps(payload), "application/json"),
-                "bundle": ("skill.zip", _bundle(raw_markdown), "application/zip"),
+                "bundle": ("skill.tar.zst", _bundle(raw_markdown), "application/zstd"),
             },
             headers=_headers("publisher-token", request_id="req-publish"),
         )

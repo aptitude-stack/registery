@@ -44,10 +44,20 @@ def parse_publish_request_metadata(metadata_json: str) -> SkillVersionCreateRequ
         ) from exc
 
 
-def validate_publish_bundle(bundle_bytes: bytes) -> None:
-    """Validate the uploaded bundle and surface failures as request validation errors."""
+def validate_publish_bundle(
+    *,
+    bundle_bytes: bytes,
+    filename: str | None,
+    media_type: str | None,
+) -> str:
+    """Validate the uploaded artifact and return the canonical stored media type."""
     try:
-        validate_skill_bundle(bundle_bytes)
+        report = validate_skill_bundle(
+            bundle_bytes,
+            filename=filename,
+            media_type=media_type,
+        )
+        return report.media_type
     except SkillBundleValidationError as exc:
         raise RequestValidationError(
             [

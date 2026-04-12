@@ -27,7 +27,7 @@ The request has two required parts:
 | Part | Type | Content Type | Meaning |
 | --- | --- | --- | --- |
 | `metadata` | string | `application/json` | Structured publish metadata, governance, and relationships |
-| `bundle` | binary | `application/zip` | Immutable skill directory bundle |
+| `bundle` | binary | `application/zstd` | Immutable `.tar.zst` artifact stored without unpacking |
 
 ## Path Parameter
 
@@ -81,21 +81,14 @@ The request has two required parts:
 
 Legacy `content.raw_markdown` is no longer accepted.
 
-## Bundle Validation Rules
+## Artifact Validation Rules
 
 The uploaded `bundle` part must:
 
-- be a valid zip archive
-- unpack without absolute paths or path traversal
-- contain exactly one root skill directory
-- use a kebab-case root directory name
-- contain `SKILL.md` at the root of that directory
-- not contain `README.md` at the root
-- only use these top-level children: `SKILL.md`, `scripts/`, `references/`, `assets/`
+- use a filename ending in `.tar.zst`
+- declare media type `application/zstd`
 - stay within these server-enforced limits:
-  - maximum bundle size: `5 MiB`
-  - maximum file count: `200`
-  - maximum archive path length: `240` bytes
+  - maximum artifact size: `5 MiB`
 
 ## Field Reference
 
@@ -105,7 +98,7 @@ The uploaded `bundle` part must:
 | --- | --- | --- | --- |
 | `intent` | Yes | `string` | Must be `create_skill` or `publish_version`. |
 | `version` | Yes | `string` | Must be valid semver. |
-| `metadata` | Yes | `object` | Structured queryable metadata stored outside the bundle. |
+| `metadata` | Yes | `object` | Structured queryable metadata stored outside the artifact. |
 | `governance` | No | `object` | Publish-time governance input. |
 | `relationships` | No | `object` | Authored relationships preserved with the version. |
 
@@ -152,14 +145,14 @@ Rules:
 | `409` | `DUPLICATE_SKILL_VERSION` | The same `slug@version` already exists. |
 | `409` | `SKILL_ALREADY_EXISTS` | `intent=create_skill` was used for an existing slug. |
 | `404` | `SKILL_NOT_FOUND` | `intent=publish_version` was used for a missing slug. |
-| `422` | `INVALID_REQUEST` | Path, metadata JSON, or bundle validation failed. |
+| `422` | `INVALID_REQUEST` | Path, metadata JSON, or artifact validation failed. |
 | `500` | `CONTENT_STORAGE_FAILURE` | Persistence failed after request validation. |
 
 ## Practical Notes
 
 - The `slug` belongs in the path, not in the JSON metadata part.
-- The server stores the uploaded artifact as one immutable `application/zip` bundle.
-- The server computes `content.checksum.digest` from the stored bundle bytes, not from extracted markdown.
+- The server stores the uploaded artifact as one immutable `application/zstd` `.tar.zst` blob.
+- The server computes `content.checksum.digest` from the stored artifact bytes.
 - The server computes `version_checksum.digest` from the content checksum plus normalized metadata, governance, and authored relationships.
-- Queryable metadata, governance, and relationships remain normalized outside the bundle.
+- Queryable metadata, governance, and relationships remain normalized outside the artifact.
 - `content.raw_markdown` belongs to the retired contract and should be removed from publisher clients.

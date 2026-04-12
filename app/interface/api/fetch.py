@@ -47,9 +47,9 @@ METADATA_RESPONSES: ApiResponses = {
 
 CONTENT_RESPONSES: ApiResponses = {
     status.HTTP_200_OK: {
-        "description": "Immutable bundle content returned successfully.",
+        "description": "Immutable artifact content returned successfully.",
         "content": {
-            "application/zip": {
+            "application/zstd": {
                 "schema": {
                     "type": "string",
                     "format": "binary",
@@ -151,8 +151,8 @@ def get_version_metadata(
 @router.get(
     "/skills/{slug}/{version}/content",
     operation_id="getImmutableContent",
-    summary="Fetch immutable bundle content",
-    description="Return the immutable zip bundle for one exact `slug@version`.",
+    summary="Fetch immutable artifact content",
+    description="Return the immutable stored `.tar.zst` artifact for one exact `slug@version`.",
     response_model=None,
     responses=CONTENT_RESPONSES,
 )

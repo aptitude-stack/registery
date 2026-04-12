@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 
 from .skill_bundle import (
-    MAX_SKILL_BUNDLE_FILE_COUNT,
-    MAX_SKILL_BUNDLE_PATH_LENGTH,
     MAX_SKILL_BUNDLE_SIZE_BYTES,
+    SKILL_ARTIFACT_EXTENSION,
+    SKILL_ARTIFACT_MEDIA_TYPE,
     SkillBundleValidationError,
     SkillBundleValidationReport,
     validate_skill_bundle,
@@ -30,11 +30,11 @@ MARKER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 
 __all__ = [
     "MARKER_PATTERN",
-    "MAX_SKILL_BUNDLE_FILE_COUNT",
-    "MAX_SKILL_BUNDLE_PATH_LENGTH",
     "MAX_SKILL_BUNDLE_SIZE_BYTES",
     "SEMVER_CORE",
     "SEMVER_PATTERN",
+    "SKILL_ARTIFACT_EXTENSION",
+    "SKILL_ARTIFACT_MEDIA_TYPE",
     "SLUG_PATTERN",
     "SkillBundleValidationError",
     "SkillBundleValidationReport",

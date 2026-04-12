@@ -41,7 +41,7 @@ Required parts:
 | Part | Content Type | Meaning |
 | --- | --- | --- |
 | `metadata` | `application/json` | Queryable metadata, governance, and relationships |
-| `bundle` | `application/zip` | Immutable skill directory bundle |
+| `bundle` | `application/zstd` | Immutable `.tar.zst` skill artifact stored without unpacking |
 
 The server validates the uploaded zip structure at publish time and then stores one immutable digest-addressed bundle per version.
 
@@ -63,7 +63,7 @@ Publish and exact metadata fetch return the same structured response shape:
   "version_checksum": {"algorithm": "sha256", "digest": "..."},
   "content": {
     "checksum": {"algorithm": "sha256", "digest": "..."},
-    "media_type": "application/zip",
+    "media_type": "application/zstd",
     "size_bytes": 1234
   },
   "metadata": {
@@ -81,14 +81,14 @@ Publish and exact metadata fetch return the same structured response shape:
 
 Checksum semantics:
 
-- `content.checksum.digest` is the persisted `sha256` digest of the exact stored zip bundle bytes.
+- `content.checksum.digest` is the persisted `sha256` digest of the exact stored artifact bytes.
 - `version_checksum.digest` is the persisted `sha256` digest of the canonical version payload, which includes the content digest plus metadata, governance, and authored relationships.
 
 ## Exact Content
 
-`GET /skills/{slug}/{version}/content` returns the immutable zip bundle for one exact coordinate.
+`GET /skills/{slug}/{version}/content` returns the immutable stored artifact for one exact coordinate.
 
-- Response media type: `application/zip`
+- Response media type: `application/zstd`
 - Success headers:
   - `ETag`
   - `Cache-Control: public, immutable`
@@ -100,7 +100,7 @@ Rules:
 - Missing coordinates return `404`.
 - Read policy matches the exact metadata route.
 - Consumers must not assume markdown text from this route anymore.
-- `ETag` mirrors the stored content checksum digest for the immutable bundle.
+- `ETag` mirrors the stored content checksum digest for the immutable artifact.
 
 ## Endpoint Summary
 
@@ -114,5 +114,5 @@ Rules:
 | `GET` | `/skills/{slug}` | `read` | `200` | Returns visible immutable versions for one skill identity |
 | `GET` | `/resolution/{slug}/{version}` | `read` | `200` | Returns direct authored `depends_on` only |
 | `GET` | `/skills/{slug}/{version}` | `read` | `200` | Returns immutable metadata for one exact coordinate |
-| `GET` | `/skills/{slug}/{version}/content` | `read` | `200` | Returns immutable `application/zip` artifact with cache headers |
+| `GET` | `/skills/{slug}/{version}/content` | `read` | `200` | Returns immutable `application/zstd` artifact with cache headers |
 | `PATCH` | `/skills/{slug}/{version}/status` | `admin` | `200` | Transitions lifecycle state |
