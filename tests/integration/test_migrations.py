@@ -33,6 +33,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_version_checksums" not in inspector.get_table_names()
 
         skill_columns = {column["name"] for column in inspector.get_columns("skills")}
+        metadata_columns = {column["name"] for column in inspector.get_columns("skill_metadata")}
         version_columns = {column["name"] for column in inspector.get_columns("skill_versions")}
         content_columns = {column["name"] for column in inspector.get_columns("skill_contents")}
         search_columns = {
@@ -53,6 +54,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
             "policy_profile_at_publish",
         } <= version_columns
         assert "rendered_summary" not in content_columns
+        assert "headers" not in metadata_columns
 
         assert {"lifecycle_status", "trust_tier"} <= search_columns
     finally:

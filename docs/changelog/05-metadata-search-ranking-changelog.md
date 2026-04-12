@@ -163,3 +163,8 @@ Sources: [alembic/versions/0004_metadata_search_ranking.py](https://github.com/y
 
 - Legacy route names in this changelog are preserved as historical delivery context only. That includes `POST /skill-versions`, `GET /skills/{slug}`, `GET /skills/{slug}/versions`, `GET /discovery/skills/search`, and `POST /resolution/relationships:batch`.
 - The live public contract is the frozen route set documented in [docs/project/api-contract.md](../project/api-contract.md) and [Plan 09](../../.agents/plans/09-public-api-simplification-and-contract-freeze.md).
+
+## Addendum (2026-04-12)
+
+- The `skill_metadata.headers` column referenced in the historical milestone text was removed before production release by folding the break into Alembic revision `0002_skill_install_counts`.
+- `headers` is not part of the released public metadata contract and should be treated as superseded historical context only.

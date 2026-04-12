@@ -8,6 +8,7 @@ Create Date: 2026-03-26
 from __future__ import annotations
 
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -28,7 +29,12 @@ def upgrade() -> None:
             server_default=sa.text("0"),
         ),
     )
+    op.drop_column("skill_metadata", "headers")
 
 
 def downgrade() -> None:
+    op.add_column(
+        "skill_metadata",
+        sa.Column("headers", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    )
     op.drop_column("skills", "install_count")

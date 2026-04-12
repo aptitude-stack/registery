@@ -137,3 +137,8 @@ This milestone does not add a new schema migration. The tables below are the exi
 
 - This changelog already carries a historical-note warning near the top. For clarity, that warning also applies to the legacy publish route name `POST /skill-versions` wherever it appears in the original milestone text or diagrams.
 - The live contract baseline is the frozen route set documented in [docs/project/api-contract.md](../project/api-contract.md) and [Plan 09](../../.agents/plans/09-public-api-simplification-and-contract-freeze.md).
+
+## Addendum (2026-04-12)
+
+- The original milestone text still mentions `skill_metadata.headers` as part of the immutable metadata envelope. That is no longer true for the unreleased schema baseline.
+- The legacy `headers` column was removed by folding the breaking schema cleanup into Alembic revision `0002_skill_install_counts`; current metadata requests and responses do not include it.
