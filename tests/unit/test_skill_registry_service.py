@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
@@ -66,6 +68,7 @@ class FakeRegistry:
             install_count=0,
             version_checksum_digest=record.version_checksum_digest,
             content_checksum_digest=record.content.checksum_digest,
+            content_media_type=record.content.media_type,
             content_size_bytes=record.content.size_bytes,
             name=record.metadata.name,
             description=record.metadata.description,
@@ -106,6 +109,7 @@ class FakeRegistry:
             install_count=record.install_count,
             version_checksum_digest=record.version_checksum_digest,
             content_checksum_digest=record.content_checksum_digest,
+            content_media_type=record.content_media_type,
             content_size_bytes=record.content_size_bytes,
             name=record.name,
             description=record.description,
@@ -169,7 +173,10 @@ def _command(
         slug=slug,
         intent=intent,
         version=version,
-        content=SkillContentInput(raw_markdown="# Python Lint\n"),
+        content=SkillContentInput(
+            payload=_bundle("# Python Lint\n"),
+            media_type="application/zip",
+        ),
         metadata=SkillMetadataInput(
             name="Python Lint",
             description="Linting skill",
@@ -185,6 +192,13 @@ def _governance_policy() -> GovernancePolicy:
 
 def _publish_caller() -> CallerIdentity:
     return CallerIdentity(token="publish", scopes=frozenset({"publish", "read"}))
+
+
+def _bundle(markdown: str) -> bytes:
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("python-lint/SKILL.md", markdown)
+    return buffer.getvalue()
 
 
 @pytest.mark.unit
@@ -205,7 +219,8 @@ def test_publish_version_returns_checksum_and_records_audit() -> None:
     assert response.slug == "python.lint"
     assert response.version == "1.0.0"
     assert response.version_checksum.algorithm == "sha256"
-    assert response.content.size_bytes == len(b"# Python Lint\n")
+    assert response.content.media_type == "application/zip"
+    assert response.content.size_bytes == len(_bundle("# Python Lint\n"))
     assert "skill.version_published" in [event.event_type for event in registry.audit_events]
 
 
@@ -249,7 +264,10 @@ def test_publish_version_distinguishes_version_checksum_from_content_checksum() 
             slug="python.lint",
             intent="publish_version",
             version="2.0.0",
-            content=SkillContentInput(raw_markdown="# Python Lint\n"),
+            content=SkillContentInput(
+                payload=_bundle("# Python Lint\n"),
+                media_type="application/zip",
+            ),
             metadata=SkillMetadataInput(
                 name="Python Lint v2",
                 description="Linting skill with richer metadata",
@@ -336,7 +354,10 @@ def test_publish_version_denied_by_policy_records_audit_event() -> None:
                 slug="python.lint",
                 intent="create_skill",
                 version="1.0.0",
-                content=SkillContentInput(raw_markdown="# Python Lint\n"),
+                content=SkillContentInput(
+                    payload=_bundle("# Python Lint\n"),
+                    media_type="application/zip",
+                ),
                 metadata=SkillMetadataInput(
                     name="Python Lint",
                     description="Linting skill",

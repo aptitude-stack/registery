@@ -119,8 +119,9 @@ class SkillRegistryService:
             raise DuplicateSkillVersionError(slug=command.slug, version=command.version)
 
         content_record = ContentRecordInput(
-            raw_markdown=command.content.raw_markdown,
-            size_bytes=len(command.content.raw_markdown.encode("utf-8")),
+            payload=command.content.payload,
+            media_type=command.content.media_type,
+            size_bytes=len(command.content.payload),
             checksum_digest=_content_checksum_digest(command.content),
         )
         metadata_record = MetadataRecordInput(
@@ -314,7 +315,7 @@ def _to_relationship_record_inputs(
 
 
 def _content_checksum_digest(content: SkillContentInput) -> str:
-    return _sha256_hexdigest(content.raw_markdown.encode("utf-8"))
+    return _sha256_hexdigest(content.payload)
 
 
 def _version_checksum_digest(

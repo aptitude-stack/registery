@@ -1,4 +1,4 @@
-"""Core exact fetch service for immutable metadata and markdown reads."""
+"""Core exact fetch service for immutable metadata and bundle reads."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from .version_ordering import select_current_default_version, sort_versions_for_
 
 
 class SkillFetchService:
-    """Read-only service for exact immutable metadata and markdown access."""
+    """Read-only service for exact immutable metadata and bundle access."""
 
     def __init__(
         self,
@@ -70,7 +70,7 @@ class SkillFetchService:
         slug: str,
         version: str,
     ) -> SkillContentDocument:
-        """Return immutable markdown content for one exact coordinate."""
+        """Return immutable bundle content for one exact coordinate."""
         stored = self._version_reader.get_version_content(slug=slug, version=version)
         if stored is None:
             raise SkillVersionNotFoundError(slug=slug, version=version)
@@ -88,11 +88,12 @@ class SkillFetchService:
             surface="content",
         )
         document = SkillContentDocument(
-            raw_markdown=stored.raw_markdown,
+            payload=stored.payload,
             checksum=SkillChecksum(
                 algorithm=SHA256_ALGORITHM,
                 digest=stored.checksum_digest,
             ),
+            media_type=stored.media_type,
             size_bytes=stored.size_bytes,
         )
         self._install_counter.record_install(slug=stored.slug, version=stored.version)

@@ -101,6 +101,7 @@ def _detail_for(
         version_checksum=SkillChecksum(algorithm="sha256", digest="0" * 64),
         content=SkillContentSummary(
             checksum=SkillChecksum(algorithm="sha256", digest="1" * 64),
+            media_type="application/zip",
             size_bytes=123,
         ),
         metadata=SkillMetadata(

@@ -29,6 +29,7 @@ def to_skill_version_detail(*, stored: StoredSkillVersion) -> SkillVersionDetail
                 algorithm=SHA256_ALGORITHM,
                 digest=stored.content_checksum_digest,
             ),
+            media_type=stored.content_media_type,
             size_bytes=stored.content_size_bytes,
         ),
         metadata=SkillMetadata(

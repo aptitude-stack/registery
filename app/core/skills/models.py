@@ -30,9 +30,10 @@ class SkillRelationshipSelector:
 
 @dataclass(frozen=True, slots=True)
 class SkillContentInput:
-    """Publish-time markdown content."""
+    """Publish-time bundle artifact content."""
 
-    raw_markdown: str
+    payload: bytes
+    media_type: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,18 +83,20 @@ class SkillChecksum:
 
 @dataclass(frozen=True, slots=True)
 class SkillContentSummary:
-    """Compact content metadata returned without the full markdown body."""
+    """Compact artifact metadata returned without the full bundle payload."""
 
     checksum: SkillChecksum
+    media_type: str
     size_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
 class SkillContentDocument:
-    """Full markdown content document."""
+    """Full immutable bundle artifact document."""
 
-    raw_markdown: str
+    payload: bytes
     checksum: SkillChecksum
+    media_type: str
     size_bytes: int
 
 
@@ -113,7 +116,7 @@ class SkillMetadata:
 
 @dataclass(frozen=True, slots=True)
 class SkillVersionDetail:
-    """Detailed immutable metadata projection without the raw markdown body."""
+    """Detailed immutable metadata projection without the bundle payload."""
 
     slug: str
     version: str

@@ -5,9 +5,6 @@ from __future__ import annotations
 PUBLISH_REQUEST_EXAMPLE = {
     "intent": "create_skill",
     "version": "1.2.3",
-    "content": {
-        "raw_markdown": "# Python Lint\n\nLint Python files consistently.\n",
-    },
     "metadata": {
         "name": "Python Lint",
         "description": "Linting skill",
@@ -54,7 +51,8 @@ SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
     "version_checksum": CHECKSUM_EXAMPLE,
     "content": {
         "checksum": CHECKSUM_EXAMPLE,
-        "size_bytes": 123,
+        "media_type": "application/zip",
+        "size_bytes": 1234,
     },
     "metadata": {
         "name": "Python Lint",

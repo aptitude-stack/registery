@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import json
+
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+
 from app.core.skills.models import (
     CreateSkillVersionCommand,
     ProvenanceMetadata,
@@ -17,15 +22,58 @@ from app.interface.dto.skills_publish import (
     SkillGovernanceRequest,
     SkillVersionCreateRequest,
 )
+from app.interface.validation import SkillBundleValidationError, validate_skill_bundle
 
 
-def to_create_command(slug: str, request: SkillVersionCreateRequest) -> CreateSkillVersionCommand:
+def parse_publish_request_metadata(metadata_json: str) -> SkillVersionCreateRequest:
+    """Parse and validate the structured metadata multipart part."""
+    try:
+        return SkillVersionCreateRequest.model_validate_json(metadata_json)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+    except json.JSONDecodeError as exc:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "json_invalid",
+                    "loc": ("body", "metadata"),
+                    "msg": "Metadata part must be valid JSON.",
+                    "input": metadata_json,
+                }
+            ]
+        ) from exc
+
+
+def validate_publish_bundle(bundle_bytes: bytes) -> None:
+    """Validate the uploaded bundle and surface failures as request validation errors."""
+    try:
+        validate_skill_bundle(bundle_bytes)
+    except SkillBundleValidationError as exc:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "value_error",
+                    "loc": ("body", "bundle"),
+                    "msg": str(exc),
+                    "input": None,
+                }
+            ]
+        ) from exc
+
+
+def to_create_command(
+    slug: str,
+    request: SkillVersionCreateRequest,
+    *,
+    bundle_bytes: bytes,
+    bundle_media_type: str,
+) -> CreateSkillVersionCommand:
     """Translate validated API models into immutable core publish commands."""
     return CreateSkillVersionCommand(
         slug=slug,
         intent=request.intent,
         version=request.version,
-        content=SkillContentInput(raw_markdown=request.content.raw_markdown),
+        content=SkillContentInput(payload=bundle_bytes, media_type=bundle_media_type),
         metadata=SkillMetadataInput(
             name=request.metadata.name,
             description=request.metadata.description,

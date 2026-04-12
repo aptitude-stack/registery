@@ -88,8 +88,9 @@ class SkillRegistryReadMixin(SkillRegistryRepositoryBase):
             return StoredSkillVersionContent(
                 slug=item.skill.slug,
                 version=item.version,
-                raw_markdown=item.content.raw_markdown,
+                payload=item.content.payload,
                 checksum_digest=item.content.checksum_digest,
+                media_type=item.content.media_type,
                 size_bytes=item.content.storage_size_bytes,
                 lifecycle_status=cast(LifecycleStatus, item.lifecycle_status),
                 trust_tier=cast(TrustTier, item.trust_tier),

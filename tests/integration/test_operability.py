@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from typing import Any
 from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -24,7 +26,7 @@ def _request(version: str) -> dict[str, object]:
     return {
         "intent": "create_skill",
         "version": version,
-        "content": {"raw_markdown": "# Python Lint\n\nLint Python files.\n"},
+        "bundle_raw_markdown": "# Python Lint\n\nLint Python files.\n",
         "metadata": {
             "name": "Python Lint",
             "description": "Linting skill",
@@ -43,6 +45,13 @@ def _request(version: str) -> dict[str, object]:
             "overlaps_with": [],
         },
     }
+
+
+def _bundle(markdown: str) -> bytes:
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("python-lint/SKILL.md", markdown)
+    return buffer.getvalue()
 
 
 def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
@@ -119,9 +128,14 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
     slug = f"python.operability.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
+        payload = _request("1.0.0")
+        raw_markdown = str(payload.pop("bundle_raw_markdown"))
         publish = client.post(
             f"/skills/{slug}",
-            json=_request("1.0.0"),
+            files={
+                "metadata": (None, json.dumps(payload), "application/json"),
+                "bundle": ("skill.zip", _bundle(raw_markdown), "application/zip"),
+            },
             headers=_headers("publisher-token", request_id="req-publish"),
         )
         metrics = client.get("/metrics")

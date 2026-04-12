@@ -34,9 +34,10 @@ class ExactSkillCoordinate:
 
 @dataclass(frozen=True, slots=True)
 class ContentRecordInput:
-    """Normalized markdown body persisted for one immutable version."""
+    """Normalized bundle artifact persisted for one immutable version."""
 
-    raw_markdown: str
+    payload: bytes
+    media_type: str
     size_bytes: int
     checksum_digest: str
 
@@ -111,6 +112,7 @@ class StoredSkillVersion:
     install_count: int
     version_checksum_digest: str
     content_checksum_digest: str
+    content_media_type: str
     content_size_bytes: int
     name: str
     description: str | None
@@ -130,12 +132,13 @@ class StoredSkillVersion:
 
 @dataclass(frozen=True, slots=True)
 class StoredSkillVersionContent:
-    """Stored markdown content projection."""
+    """Stored bundle content projection."""
 
     slug: str
     version: str
-    raw_markdown: str
+    payload: bytes
     checksum_digest: str
+    media_type: str
     size_bytes: int
     lifecycle_status: LifecycleStatus
     trust_tier: TrustTier
@@ -255,7 +258,7 @@ class SkillVersionReadPort(Protocol):
         slug: str,
         version: str,
     ) -> StoredSkillVersionContent | None:
-        """Return one raw markdown content row for an exact immutable version."""
+        """Return one raw bundle content row for an exact immutable version."""
 
     def list_versions(self, *, slug: str) -> tuple[StoredSkillVersionSummary, ...]:
         """Return stored version summaries for one skill identity."""

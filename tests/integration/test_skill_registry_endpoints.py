@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from io import BytesIO
 from typing import Any
 from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,9 +38,7 @@ def _request(
     return {
         "intent": intent,
         "version": version,
-        "content": {
-            "raw_markdown": raw_markdown,
-        },
+        "bundle_raw_markdown": raw_markdown,
         "metadata": {
             "name": name,
             "description": description,
@@ -88,9 +89,38 @@ def _publish(
     *,
     token: str = "publisher-token",
 ) -> dict[str, object]:
-    response = client.post(f"/skills/{slug}", json=payload, headers=_headers(token))
+    metadata = dict(payload)
+    raw_markdown = str(metadata.pop("bundle_raw_markdown"))
+    response = client.post(
+        f"/skills/{slug}",
+        files={
+            "metadata": (None, json.dumps(metadata), "application/json"),
+            "bundle": ("skill.zip", _bundle(raw_markdown), "application/zip"),
+        },
+        headers=_headers(token),
+    )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def _publish_response(
+    client: TestClient,
+    slug: str,
+    payload: dict[str, object],
+    *,
+    token: str | None = "publisher-token",
+) -> Any:
+    metadata = dict(payload)
+    raw_markdown = str(metadata.pop("bundle_raw_markdown"))
+    headers = {} if token is None else _headers(token)
+    return client.post(
+        f"/skills/{slug}",
+        files={
+            "metadata": (None, json.dumps(metadata), "application/json"),
+            "bundle": ("skill.zip", _bundle(raw_markdown), "application/zip"),
+        },
+        headers=headers,
+    )
 
 
 def _update_status(
@@ -194,6 +224,22 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
             ]
     finally:
         engine.dispose()
+
+
+def _bundle(markdown: str) -> bytes:
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("python-lint/SKILL.md", markdown)
+    return buffer.getvalue()
+
+
+def _bundle_entries(payload: bytes) -> dict[str, str]:
+    with ZipFile(BytesIO(payload)) as archive:
+        return {
+            name: archive.read(name).decode("utf-8")
+            for name in archive.namelist()
+            if not name.endswith("/")
+        }
 
 
 @pytest.mark.integration
@@ -326,11 +372,11 @@ def test_publish_discovery_resolution_and_exact_fetch(
     assert published["provenance"] == metadata_body["provenance"]
 
     assert content.status_code == 200
-    assert content.headers["content-type"].startswith("text/markdown; charset=utf-8")
+    assert content.headers["content-type"].startswith("application/zip")
     assert content.headers["ETag"] == published["content"]["checksum"]["digest"]
     assert content.headers["Cache-Control"] == "public, immutable"
-    assert content.headers["Content-Length"] == str(len(b"# v2\n"))
-    assert content.text == "# v2\n"
+    assert content.headers["Content-Length"] == str(len(_bundle("# v2\n")))
+    assert _bundle_entries(content.content) == {"python-lint/SKILL.md": "# v2\n"}
 
 
 @pytest.mark.integration
@@ -380,13 +426,9 @@ def test_publish_rejects_rendered_summary_field(
 
     with TestClient(create_app()) as client:
         payload = _request("1.0.0")
-        payload["content"]["rendered_summary"] = "Legacy summary field"
+        payload["content"] = {"raw_markdown": "# Python Lint\n"}
 
-        response = client.post(
-            "/skills/python.legacy-summary",
-            json=payload,
-            headers=_headers("publisher-token"),
-        )
+        response = _publish_response(client, "python.legacy-summary", payload)
 
     assert response.status_code == 422, response.text
 
@@ -402,11 +444,7 @@ def test_publish_rejects_metadata_headers_field(
         payload = _request("1.0.0")
         payload["metadata"]["headers"] = {"runtime": "python"}
 
-        response = client.post(
-            "/skills/python.legacy-headers",
-            json=payload,
-            headers=_headers("publisher-token"),
-        )
+        response = _publish_response(client, "python.legacy-headers", payload)
 
     assert response.status_code == 422, response.text
 
@@ -478,7 +516,7 @@ def test_exact_fetch_returns_not_found_for_missing_coordinates(
 
 
 @pytest.mark.integration
-def test_publish_distinct_content_creates_distinct_rows_and_exact_fetch_returns_markdown(
+def test_publish_distinct_content_creates_distinct_rows_and_exact_fetch_returns_bundle(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,
 ) -> None:
@@ -520,7 +558,7 @@ def test_publish_distinct_content_creates_distinct_rows_and_exact_fetch_returns_
         "content_count": 2,
     }
     assert response.headers["ETag"] == second["content"]["checksum"]["digest"]
-    assert response.text == "# v2\n"
+    assert _bundle_entries(response.content) == {"python-lint/SKILL.md": "# v2\n"}
 
 
 @pytest.mark.integration
@@ -533,17 +571,9 @@ def test_authentication_and_scope_failures_are_enforced(
     payload = _request("1.0.0", intent="create_skill")
 
     with TestClient(create_app()) as client:
-        missing = client.post(f"/skills/{slug}", json=payload)
-        invalid = client.post(
-            f"/skills/{slug}",
-            json=payload,
-            headers=_headers("not-a-real-token"),
-        )
-        insufficient = client.post(
-            f"/skills/{slug}",
-            json=payload,
-            headers=_headers("reader-token"),
-        )
+        missing = _publish_response(client, slug, payload, token=None)
+        invalid = _publish_response(client, slug, payload, token="not-a-real-token")
+        insufficient = _publish_response(client, slug, payload, token="reader-token")
         discovery_missing = client.post(
             "/discovery",
             json={"name": "Python Lint"},
@@ -568,14 +598,15 @@ def test_publish_enforces_trust_tier_policy(
     suffix = uuid4().hex
 
     with TestClient(create_app()) as client:
-        internal_without_provenance = client.post(
-            f"/skills/python.internal.{suffix}",
-            json=_request("1.0.0", trust_tier="internal"),
-            headers=_headers("publisher-token"),
+        internal_without_provenance = _publish_response(
+            client,
+            f"python.internal.{suffix}",
+            _request("1.0.0", trust_tier="internal"),
         )
-        verified_without_admin = client.post(
-            f"/skills/python.verified.{suffix}",
-            json=_request(
+        verified_without_admin = _publish_response(
+            client,
+            f"python.verified.{suffix}",
+            _request(
                 "1.0.0",
                 intent="create_skill",
                 trust_tier="verified",
@@ -585,11 +616,11 @@ def test_publish_enforces_trust_tier_policy(
                     "tree_path": "skills/python.verified",
                 },
             ),
-            headers=_headers("publisher-token"),
         )
-        verified_with_admin = client.post(
-            f"/skills/python.verified-admin.{suffix}",
-            json=_request(
+        verified_with_admin = _publish_response(
+            client,
+            f"python.verified-admin.{suffix}",
+            _request(
                 "1.0.0",
                 intent="create_skill",
                 trust_tier="verified",
@@ -599,7 +630,7 @@ def test_publish_enforces_trust_tier_policy(
                     "tree_path": "skills/python.verified-admin",
                 },
             ),
-            headers=_headers("admin-token"),
+            token="admin-token",
         )
 
     assert internal_without_provenance.status_code == 403
@@ -812,7 +843,9 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
     assert archived_content_forbidden.status_code == 403
     assert archived_content_forbidden.json()["error"]["code"] == "POLICY_EXACT_READ_FORBIDDEN"
     assert archived_content_admin.status_code == 200
-    assert archived_content_admin.text.startswith("# Python Lint")
+    assert _bundle_entries(archived_content_admin.content)["python-lint/SKILL.md"].startswith(
+        "# Python Lint"
+    )
 
 
 @pytest.mark.integration
@@ -876,14 +909,14 @@ def test_publish_rejects_invalid_dependency_constraint(
     slug = f"python.invalid.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
-        response = client.post(
-            f"/skills/{slug}",
-            json=_request(
+        response = _publish_response(
+            client,
+            slug,
+            _request(
                 "1.0.0",
                 intent="create_skill",
                 depends_on=[{"slug": "python.base", "version_constraint": "latest"}],
             ),
-            headers=_headers("publisher-token"),
         )
 
     assert response.status_code == 422
@@ -896,6 +929,7 @@ def test_publish_backfills_normalized_search_documents_with_governance(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     slug = f"python.searchdoc.{uuid4().hex}"
+    raw_markdown = "# Search Doc\n"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -904,7 +938,7 @@ def test_publish_backfills_normalized_search_documents_with_governance(
             _request(
                 "1.0.0",
                 intent="create_skill",
-                raw_markdown="# Search Doc\n",
+                raw_markdown=raw_markdown,
                 trust_tier="internal",
                 provenance={
                     "repo_url": "https://github.com/example/skills",
@@ -938,7 +972,7 @@ def test_publish_backfills_normalized_search_documents_with_governance(
             )
             assert row["slug"] == slug
             assert row["normalized_slug"] == slug
-            assert row["content_size_bytes"] == len(b"# Search Doc\n")
+            assert row["content_size_bytes"] == len(_bundle(raw_markdown))
             assert row["lifecycle_status"] == "published"
             assert row["trust_tier"] == "internal"
     finally:
@@ -954,25 +988,13 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
     slug = f"python.intent.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
-        create_skill = client.post(
-            f"/skills/{slug}",
-            json=_request("1.0.0", intent="create_skill"),
-            headers=_headers("publisher-token"),
+        create_skill = _publish_response(client, slug, _request("1.0.0", intent="create_skill"))
+        create_again = _publish_response(client, slug, _request("2.0.0", intent="create_skill"))
+        publish_existing = _publish_response(
+            client, slug, _request("2.0.0", intent="publish_version")
         )
-        create_again = client.post(
-            f"/skills/{slug}",
-            json=_request("2.0.0", intent="create_skill"),
-            headers=_headers("publisher-token"),
-        )
-        publish_existing = client.post(
-            f"/skills/{slug}",
-            json=_request("2.0.0", intent="publish_version"),
-            headers=_headers("publisher-token"),
-        )
-        publish_missing = client.post(
-            f"/skills/{slug}.missing",
-            json=_request("1.0.0", intent="publish_version"),
-            headers=_headers("publisher-token"),
+        publish_missing = _publish_response(
+            client, f"{slug}.missing", _request("1.0.0", intent="publish_version")
         )
 
     assert create_skill.status_code == 201
@@ -993,9 +1015,10 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
     denied_slug = f"{slug}.policy"
 
     with TestClient(create_app()) as client:
-        publish_response = client.post(
-            f"/skills/{slug}",
-            json=_test_skill_request(
+        publish_response = _publish_response(
+            client,
+            slug,
+            _test_skill_request(
                 "1.0.0",
                 name="Python Audit Fixture",
                 description="Test-only fixture used to validate publish and read audit coverage.",
@@ -1007,12 +1030,11 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
                     "publisher_identity": "ci/example-release",
                 },
             ),
-            headers=_headers("publisher-token"),
         )
-        denied_publish = client.post(
-            f"/skills/{denied_slug}",
-            json=_request("1.0.0", trust_tier="internal"),
-            headers=_headers("publisher-token"),
+        denied_publish = _publish_response(
+            client,
+            denied_slug,
+            _request("1.0.0", trust_tier="internal"),
         )
         discovery = client.post(
             "/discovery",

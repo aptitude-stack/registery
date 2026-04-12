@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
@@ -96,7 +98,8 @@ def _stored_version(*, lifecycle_status: str = "published") -> StoredSkillVersio
         install_count=0,
         version_checksum_digest="version-digest",
         content_checksum_digest="content-digest",
-        content_size_bytes=18,
+        content_media_type="application/zip",
+        content_size_bytes=len(_bundle("# Python Lint\n")),
         name="Python Lint",
         description="Linting skill",
         tags=("python", "lint"),
@@ -118,9 +121,10 @@ def _stored_content(*, lifecycle_status: str = "published") -> StoredSkillVersio
     return StoredSkillVersionContent(
         slug="python.lint",
         version="1.0.0",
-        raw_markdown="# Python Lint\n",
+        payload=_bundle("# Python Lint\n"),
         checksum_digest="content-digest",
-        size_bytes=len(b"# Python Lint\n"),
+        media_type="application/zip",
+        size_bytes=len(_bundle("# Python Lint\n")),
         lifecycle_status=lifecycle_status,
         trust_tier="internal",
     )
@@ -139,6 +143,13 @@ def _stored_version_summary(
         trust_tier="internal",
         published_at=published_at or datetime(2026, 3, 13, 9, 0, tzinfo=UTC),
     )
+
+
+def _bundle(markdown: str) -> bytes:
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("python-lint/SKILL.md", markdown)
+    return buffer.getvalue()
 
 
 @pytest.mark.unit
@@ -165,7 +176,7 @@ def test_get_version_metadata_returns_immutable_detail() -> None:
 
 
 @pytest.mark.unit
-def test_get_content_returns_markdown_document() -> None:
+def test_get_content_returns_bundle_document() -> None:
     audit_recorder = FakeAuditRecorder()
     install_counter = FakeInstallCounter()
     service = SkillFetchService(
@@ -181,9 +192,10 @@ def test_get_content_returns_markdown_document() -> None:
         version="1.0.0",
     )
 
-    assert document.raw_markdown == "# Python Lint\n"
+    assert document.payload == _bundle("# Python Lint\n")
     assert document.checksum.digest == "content-digest"
-    assert document.size_bytes == len(b"# Python Lint\n")
+    assert document.media_type == "application/zip"
+    assert document.size_bytes == len(_bundle("# Python Lint\n"))
     assert audit_recorder.events == ["skill.version_content_read"]
     assert install_counter.calls == [("python.lint", "1.0.0")]
 

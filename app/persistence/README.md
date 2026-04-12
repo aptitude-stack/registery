@@ -11,7 +11,7 @@ persistence references.
 Implements core persistence ports for:
 
 - PostgreSQL metadata persistence (SQLAlchemy)
-- digest-addressed immutable markdown storage in PostgreSQL
+- digest-addressed immutable bundle storage in PostgreSQL
 - authored relationship selector preservation for exact dependency reads
 - identity-level version listing plus exact immutable metadata/content lookup
   for one `slug@version`
@@ -44,6 +44,7 @@ Persistence adapters that need skill-domain errors or service-facing models
 should import them from `app.core.skills.*`, while preserving the same
 layering boundary against the rest of core.
 Canonical short summary text lives on `skill_metadata.description`; deduplicated
-`skill_contents` rows persist only markdown plus checksum and size metadata.
+`skill_contents` rows persist the exact zip bundle bytes plus checksum, media type,
+and size metadata.
 Current-default recomputation reuses the shared core ordering helper so slug
 listing and lifecycle updates cannot drift on tie-break behavior.

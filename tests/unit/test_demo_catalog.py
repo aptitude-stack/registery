@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from io import BytesIO
+from zipfile import ZipFile
+
 from app.bootstrap.demo_catalog import build_demo_catalog
 
 
@@ -63,7 +66,9 @@ def test_demo_catalog_contains_expected_versions_relationships_and_sections() ->
     assert bundle_v1.command.relationships.extends[0].version == "1.1.0"
 
     for entry in catalog:
-        markdown = entry.command.content.raw_markdown
+        assert entry.command.content.media_type == "application/zip"
+        with ZipFile(BytesIO(entry.command.content.payload)) as archive:
+            markdown = archive.read("skill-bundle/SKILL.md").decode("utf-8")
         assert len(markdown) > 900
         assert "# " in markdown
         assert "## Purpose" in markdown

@@ -57,7 +57,8 @@ class SkillRegistryRepositoryBase:
             return existing
 
         created = SkillContent(
-            raw_markdown=record.content.raw_markdown,
+            payload=record.content.payload,
+            media_type=record.content.media_type,
             storage_size_bytes=record.content.size_bytes,
             checksum_digest=record.content.checksum_digest,
         )

@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 API_VERSION = "1.0.0"
 API_DESCRIPTION = """
 Registry-first API for immutable skill publication, candidate discovery,
-exact dependency reads, immutable metadata fetch, immutable markdown content
+exact dependency reads, immutable metadata fetch, immutable zip-bundle content
 fetch, and governed lifecycle updates.
 
 The server owns data-local registry operations only. Prompt interpretation,

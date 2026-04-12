@@ -52,7 +52,10 @@ def test_public_route_surface_excludes_removed_route_families() -> None:
 def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     schema = create_app().openapi()
     paths = schema["paths"]
-    request_schema = schema["components"]["schemas"]["SkillVersionCreateRequest"]
+    publish_request = paths["/skills/{slug}"]["post"]["requestBody"]["content"][
+        "multipart/form-data"
+    ]["schema"]
+    publish_properties = publish_request["properties"]
 
     assert "/metrics" in paths
     assert "/discovery" in paths
@@ -73,6 +76,8 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     assert "/fetch/metadata:batch" not in paths
     assert "/fetch/content:batch" not in paths
     assert "/skills/{slug}/versions" not in paths
-    assert "intent" in request_schema["properties"]
-    assert "intent" in request_schema["required"]
-    assert "slug" not in request_schema["properties"]
+    assert "metadata" in publish_properties
+    assert "bundle" in publish_properties
+    assert "metadata" in publish_request["required"]
+    assert "bundle" in publish_request["required"]
+    assert "slug" not in publish_properties

@@ -178,6 +178,7 @@ def to_stored_skill_version(entity: SkillVersion) -> StoredSkillVersion:
         install_count=entity.skill.install_count,
         version_checksum_digest=entity.checksum_digest,
         content_checksum_digest=entity.content.checksum_digest,
+        content_media_type=entity.content.media_type,
         content_size_bytes=entity.content.storage_size_bytes,
         name=entity.metadata_row.name,
         description=entity.metadata_row.description,

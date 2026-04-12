@@ -1,19 +1,20 @@
-"""Markdown content storage model."""
+"""Immutable skill bundle storage model."""
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, String, Text
+from sqlalchemy import BigInteger, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.persistence.models.base import Base
 
 
 class SkillContent(Base):
-    """Stores canonical markdown bodies in PostgreSQL text columns."""
+    """Stores canonical bundle blobs in PostgreSQL."""
 
     __tablename__ = "skill_contents"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    raw_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    media_type: Mapped[str] = mapped_column(Text, nullable=False)
     storage_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     checksum_digest: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)

@@ -2,13 +2,14 @@
 
 Live publish contract for `Aptitude Registry`.
 
-This document describes the live publish request shape used by the repository's server code. It is based on the current route and DTOs, not older historical variants.
+This document describes the current `POST /skills/{slug}` request shape implemented by the server.
 
 Canonical sources:
 
 - `app/interface/api/skills.py`
+- `app/interface/api/skill_api_support_publish.py`
 - `app/interface/dto/skills_publish.py`
-- `app/interface/validation.py`
+- `app/interface/validation/skill_bundle.py`
 - `app/core/governance.py`
 
 ## Endpoint
@@ -17,6 +18,16 @@ Canonical sources:
 - Path: `/skills/{slug}`
 - Required auth scope: `publish`
 - Required header: `Authorization: Bearer <token>`
+- Request content type: `multipart/form-data`
+
+## Multipart Parts
+
+The request has two required parts:
+
+| Part | Type | Content Type | Meaning |
+| --- | --- | --- | --- |
+| `metadata` | string | `application/json` | Structured publish metadata, governance, and relationships |
+| `bundle` | binary | `application/zip` | Immutable skill directory bundle |
 
 ## Path Parameter
 
@@ -27,26 +38,12 @@ Canonical sources:
 - Pattern: `^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$`
 - Meaning: stable public skill identifier
 
-Examples:
-
-- `python.lint`
-- `acme_internal.skill-01`
-
-## Request Body
-
-Content type:
-
-- `application/json`
-
-Top-level shape:
+## `metadata` JSON Shape
 
 ```json
 {
   "intent": "create_skill",
   "version": "1.2.3",
-  "content": {
-    "raw_markdown": "# Python Lint\n\nLint Python files consistently.\n"
-  },
   "metadata": {
     "name": "Python Lint",
     "description": "Linting skill",
@@ -75,49 +72,44 @@ Top-level shape:
         "markers": ["linux", "gpu"]
       }
     ],
-    "extends": [
-      {
-        "slug": "python.base",
-        "version": "1.0.0"
-      }
-    ],
+    "extends": [{"slug": "python.base", "version": "1.0.0"}],
     "conflicts_with": [],
-    "overlaps_with": [
-      {
-        "slug": "python.format",
-        "version": "1.0.0"
-      }
-    ]
+    "overlaps_with": [{"slug": "python.format", "version": "1.0.0"}]
   }
 }
 ```
 
+Legacy `content.raw_markdown` is no longer accepted.
+
+## Bundle Validation Rules
+
+The uploaded `bundle` part must:
+
+- be a valid zip archive
+- unpack without absolute paths or path traversal
+- contain exactly one root skill directory
+- use a kebab-case root directory name
+- contain `SKILL.md` at the root of that directory
+- not contain `README.md` at the root
+- only use these top-level children: `SKILL.md`, `scripts/`, `references/`, `assets/`
+- stay within these server-enforced limits:
+  - maximum bundle size: `5 MiB`
+  - maximum file count: `200`
+  - maximum archive path length: `240` bytes
+
 ## Field Reference
 
-### Top-Level Fields
+### Top-Level `metadata` JSON Fields
 
-| Field | Required | Type | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `intent` | Yes | `string` | none | Must be `create_skill` or `publish_version`. |
-| `version` | Yes | `string` | none | Must be valid semver. |
-| `content` | Yes | `object` | none | Contains the markdown body. |
-| `metadata` | Yes | `object` | none | Contains structured metadata. |
-| `governance` | No | `object` | `{ "trust_tier": "untrusted" }` | Publish-time governance input. |
-| `relationships` | No | `object` | empty relationship groups | Authored relationships preserved with the version. |
+| Field | Required | Type | Notes |
+| --- | --- | --- | --- |
+| `intent` | Yes | `string` | Must be `create_skill` or `publish_version`. |
+| `version` | Yes | `string` | Must be valid semver. |
+| `metadata` | Yes | `object` | Structured queryable metadata stored outside the bundle. |
+| `governance` | No | `object` | Publish-time governance input. |
+| `relationships` | No | `object` | Authored relationships preserved with the version. |
 
-### `content`
-
-| Field | Required | Type | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `raw_markdown` | Yes | `string` | none | Canonical markdown body stored for the immutable version. |
-
-Notes:
-
-- `content` itself is mandatory.
-- `raw_markdown` is mandatory.
-- The DTO requires a string, but does not currently enforce a minimum length.
-
-### `metadata`
+### `metadata.metadata`
 
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -130,40 +122,14 @@ Notes:
 | `maturity_score` | No | `number \| null` | `null` | Must be in `[0, 1]`. |
 | `security_score` | No | `number \| null` | `null` | Must be in `[0, 1]`. |
 
-### `governance`
+### `metadata.governance`
 
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
 | `trust_tier` | No | `string` | `untrusted` | Must be `untrusted`, `internal`, or `verified`. |
 | `provenance` | No | `object \| null` | `null` | Additional publish-time provenance metadata. |
 
-Important:
-
-- `governance` is optional as a whole.
-- If omitted, the server uses `trust_tier=untrusted`.
-- Policy may require provenance for some trust tiers. That is not a JSON-schema requirement, but a governance rule evaluated by the server.
-
-### `governance.provenance`
-
-| Field | Required | Type | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `repo_url` | Yes, if `provenance` exists | `string` | none | Trimmed, cannot be blank. |
-| `commit_sha` | Yes, if `provenance` exists | `string` | none | 7-64 hex chars, normalized to lowercase. |
-| `tree_path` | No | `string \| null` | `null` | Trimmed if present, cannot be blank. |
-| `publisher_identity` | No | `string \| null` | `null` | Trimmed if present, cannot be blank. |
-
-### `relationships`
-
-If omitted, all relationship groups default to empty arrays.
-
-| Field | Required | Type | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `depends_on` | No | `object[]` | `[]` | Dependency selectors. |
-| `extends` | No | `object[]` | `[]` | Exact version relationships. |
-| `conflicts_with` | No | `object[]` | `[]` | Exact version relationships. |
-| `overlaps_with` | No | `object[]` | `[]` | Exact version relationships. |
-
-### `relationships.depends_on[]`
+### `metadata.relationships.depends_on[]`
 
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
@@ -176,96 +142,7 @@ If omitted, all relationship groups default to empty arrays.
 Rules:
 
 - Exactly one of `version` or `version_constraint` must be provided.
-- Supplying both is invalid.
-- Supplying neither is invalid.
-
-### `relationships.extends[]`, `relationships.conflicts_with[]`, `relationships.overlaps_with[]`
-
-Each item has the same shape:
-
-| Field | Required | Type | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `slug` | Yes | `string` | none | Must match the slug pattern. |
-| `version` | Yes | `string` | none | Must be valid semver. |
-
-## Validation Rules
-
-### Unknown Fields
-
-Unknown fields are rejected at every level of the request body.
-
-That means clients must not send extra keys not defined in the schema.
-
-### Semver
-
-Fields validated as semver:
-
-- top-level `version`
-- `relationships.depends_on[].version`
-- `relationships.extends[].version`
-- `relationships.conflicts_with[].version`
-- `relationships.overlaps_with[].version`
-
-Examples:
-
-- valid: `1.2.3`
-- valid: `1.2.3-rc.1`
-- valid: `1.2.3+build.5`
-- invalid: `latest`
-
-### Version Constraint
-
-`relationships.depends_on[].version_constraint` must be a comma-separated list of semver comparators.
-
-Examples:
-
-- valid: `>=1.0.0,<2.0.0`
-- valid: `==1.2.3`
-- invalid: `1.x`
-
-### Markers
-
-Dependency markers must match:
-
-`^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$`
-
-Examples:
-
-- valid: `linux`
-- valid: `gpu`
-- valid: `python:3.12`
-- invalid: `linux amd64`
-
-## Intent Semantics
-
-### `intent=create_skill`
-
-Use this when publishing the first version under a new slug.
-
-If the slug already exists, the server returns:
-
-- `409 Conflict`
-- error code: `SKILL_ALREADY_EXISTS`
-
-### `intent=publish_version`
-
-Use this when publishing a new immutable version under an existing slug.
-
-If the slug does not exist, the server returns:
-
-- `404 Not Found`
-- error code: `SKILL_NOT_FOUND`
-
-## Defaults Summary
-
-If omitted, the server applies these defaults:
-
-- `governance.trust_tier = "untrusted"`
-- `metadata.tags = []`
-- `relationships.depends_on = []`
-- `relationships.extends = []`
-- `relationships.conflicts_with = []`
-- `relationships.overlaps_with = []`
+- Unknown fields are rejected at every level of the JSON metadata payload.
 
 ## Common Errors
 
@@ -275,12 +152,14 @@ If omitted, the server applies these defaults:
 | `409` | `DUPLICATE_SKILL_VERSION` | The same `slug@version` already exists. |
 | `409` | `SKILL_ALREADY_EXISTS` | `intent=create_skill` was used for an existing slug. |
 | `404` | `SKILL_NOT_FOUND` | `intent=publish_version` was used for a missing slug. |
-| validation failure | `INVALID_REQUEST` | Path/body fields failed route or DTO validation. |
+| `422` | `INVALID_REQUEST` | Path, metadata JSON, or bundle validation failed. |
 | `500` | `CONTENT_STORAGE_FAILURE` | Persistence failed after request validation. |
 
 ## Practical Notes
 
-- The `slug` belongs in the path, not in the JSON body.
-- The endpoint accepts JSON, not multipart form data.
-- `provenance` is optional structurally, but governance policy may make it required for some trust tiers.
-- Historical docs may mention older publish route shapes. This file describes the repo's current live contract only.
+- The `slug` belongs in the path, not in the JSON metadata part.
+- The server stores the uploaded artifact as one immutable `application/zip` bundle.
+- The server computes `content.checksum.digest` from the stored bundle bytes, not from extracted markdown.
+- The server computes `version_checksum.digest` from the content checksum plus normalized metadata, governance, and authored relationships.
+- Queryable metadata, governance, and relationships remain normalized outside the bundle.
+- `content.raw_markdown` belongs to the retired contract and should be removed from publisher clients.
