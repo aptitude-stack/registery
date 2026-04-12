@@ -15,6 +15,7 @@ http:
     type: multipart-form
     data:
       - name: metadata
+        type: text
         value: |-
           {
             "intent": "publish_version",
@@ -72,7 +73,10 @@ http:
             }
           }
       - name: bundle
-        value: "@file(../../fixtures/primary-v2.zip)"
+        type: file
+        value:
+          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/primary-v2.tar.zst
+        contentType: application/zstd
 
 runtime:
   scripts:
@@ -128,7 +132,7 @@ runtime:
           expect(json.slug).to.eql(bru.getVar('sanity_primary_slug'));
           expect(json.version).to.eql(bru.getVar('sanity_version_2'));
           expect(json.metadata.name).to.eql('Postman Primary Skill');
-          expect(json.content.media_type).to.eql('application/zip');
+          expect(json.content.media_type).to.eql('application/zstd');
           expect(json.lifecycle_status).to.eql('published');
           expect(json.trust_tier).to.eql('internal');
           expect(json.provenance.repo_url).to.eql('https://github.com/example/skills');

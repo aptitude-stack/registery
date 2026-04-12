@@ -70,7 +70,7 @@ runtime:
           expect(json.version_checksum.algorithm).to.eql('sha256');
           expect(json.content.checksum.algorithm).to.eql('sha256');
           expect(json.content.checksum.digest).to.be.a('string').and.not.empty;
-          expect(json.content.media_type).to.eql('application/zip');
+          expect(json.content.media_type).to.eql('application/zstd');
           expect(json.content.size_bytes).to.be.a('number').and.to.be.greaterThan(0);
           expect(json.lifecycle_status).to.eql('deprecated');
           expect(json.trust_tier).to.eql('internal');

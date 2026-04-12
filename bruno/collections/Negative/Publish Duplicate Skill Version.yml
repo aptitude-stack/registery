@@ -40,7 +40,7 @@ http:
           }
         }
     - name: bundle
-      value: "@file(../../fixtures/duplicate.zip)"
+      value: "@file(../../fixtures/duplicate.tar.zst)"
 runtime:
   scripts:
   - type: before-request

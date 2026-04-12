@@ -45,7 +45,7 @@ http:
           }
         }
     - name: bundle
-      value: "@file(../../fixtures/invalid.zip)"
+      value: "@file(../../fixtures/invalid.tar.zst)"
 runtime:
   scripts:
   - type: before-request

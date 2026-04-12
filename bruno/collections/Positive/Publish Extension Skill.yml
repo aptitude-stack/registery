@@ -15,6 +15,7 @@ http:
     type: multipart-form
     data:
       - name: metadata
+        type: text
         value: |-
           {
             "intent": "create_skill",
@@ -45,7 +46,10 @@ http:
             }
           }
       - name: bundle
-        value: "@file(../../fixtures/extension.zip)"
+        type: file
+        value:
+          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/duplicate.tar.zst
+        contentType: application/zstd
 
 runtime:
   scripts:
@@ -100,7 +104,7 @@ runtime:
         test('Extension skill publish returns the created version', function () {
           expect(json.slug).to.eql(bru.getVar('sanity_extension_slug'));
           expect(json.version).to.eql(bru.getVar('sanity_version_1'));
-          expect(json.content.media_type).to.eql('application/zip');
+          expect(json.content.media_type).to.eql('application/zstd');
         });
 
         bru.runner.setNextRequest(res.getStatus() === 201 ? 'Publish Overlap Skill' : null);

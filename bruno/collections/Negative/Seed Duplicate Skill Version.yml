@@ -40,7 +40,7 @@ http:
           }
         }
     - name: bundle
-      value: "@file(../../fixtures/duplicate.zip)"
+      value: "@file(../../fixtures/duplicate.tar.zst)"
 runtime:
   scripts:
   - type: before-request
@@ -67,7 +67,7 @@ runtime:
     code: "const json = res.getBody();\n\ntest('Status is 201', function () {\n  expect(res.getStatus()).to.equal(201);\n\
       });\n\ntest('Duplicate seed version is created successfully', function () {\n\
       \  expect(json.slug).to.eql(bru.getVar('negative_duplicate_slug'));\n  expect(json.version).to.eql('1.0.0');\n\
-      \  expect(json.content.media_type).to.eql('application/zip');\n});\n\nbru.runner.setNextRequest(\n\
+      \  expect(json.content.media_type).to.eql('application/zstd');\n});\n\nbru.runner.setNextRequest(\n\
       \  res.getStatus() === 201 ? 'Publish Duplicate Skill Version' : null,\n);"
 settings:
   encodeUrl: true

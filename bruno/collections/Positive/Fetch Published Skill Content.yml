@@ -8,7 +8,7 @@ http:
   url: "{{baseUrl}}/skills/{{sanity_primary_slug}}/{{sanity_version_2}}/content"
   headers:
     - name: Accept
-      value: application/zip
+      value: application/zstd
     - name: Authorization
       value: Bearer {{readToken}}
 
@@ -66,14 +66,14 @@ runtime:
           expect(res.getStatus()).to.equal(200);
         });
 
-        test('Exact content fetch returns immutable zip content with cache headers', function () {
+        test('Exact content fetch returns immutable zstd bundle content with cache headers', function () {
           const contentType = getHeader('Content-Type');
           const cacheControl = getHeader('Cache-Control');
           const etag = getHeader('ETag');
           const contentLength = getHeader('Content-Length');
 
           expect(contentType).to.be.a('string');
-          expect(contentType).to.include('application/zip');
+          expect(contentType).to.include('application/zstd');
           expect(cacheControl).to.eql('public, immutable');
           expect(etag).to.eql(
             bru.getVar('sanity_primary_content_digest'),

@@ -15,6 +15,7 @@ http:
     type: multipart-form
     data:
       - name: metadata
+        type: text
         value: |-
           {
             "intent": "create_skill",
@@ -72,7 +73,10 @@ http:
             }
           }
       - name: bundle
-        value: "@file(../../fixtures/primary-v1.zip)"
+        type: file
+        value:
+          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/primary-v1.tar.zst
+        contentType: application/zstd
 
 runtime:
   scripts:
@@ -129,7 +133,7 @@ runtime:
           expect(json.version).to.eql(bru.getVar('sanity_version_1'));
           expect(json.version_checksum.algorithm).to.eql('sha256');
           expect(json.content.checksum.algorithm).to.eql('sha256');
-          expect(json.content.media_type).to.eql('application/zip');
+          expect(json.content.media_type).to.eql('application/zstd');
           expect(json.lifecycle_status).to.eql('published');
           expect(json.trust_tier).to.eql('internal');
           expect(json.provenance.repo_url).to.eql('https://github.com/example/skills');

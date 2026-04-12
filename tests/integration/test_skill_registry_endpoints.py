@@ -829,7 +829,7 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
     assert archived_content_forbidden.status_code == 403
     assert archived_content_forbidden.json()["error"]["code"] == "POLICY_EXACT_READ_FORBIDDEN"
     assert archived_content_admin.status_code == 200
-    assert archived_content_admin.content == _bundle("# Python Lint\n\nTest-only fixture entry.\n")
+    assert archived_content_admin.content == _bundle("# Python Lint\n\nLint Python files.\n")
 
 
 @pytest.mark.integration
