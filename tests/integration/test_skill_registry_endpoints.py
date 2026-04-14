@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
 
+from app.core.skills.bundle_archive import build_skill_bundle
 from app.main import create_app
 from app.persistence.db import get_session_factory
 
@@ -225,7 +226,7 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
 
 
 def _bundle(markdown: str) -> bytes:
-    return f"opaque-tar-zst:{markdown}".encode()
+    return build_skill_bundle(markdown)
 
 
 @pytest.mark.integration
@@ -901,6 +902,30 @@ def test_publish_rejects_invalid_dependency_constraint(
                 intent="create_skill",
                 depends_on=[{"slug": "python.base", "version_constraint": "latest"}],
             ),
+        )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.integration
+def test_publish_rejects_invalid_bundle_structure(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python.invalid.bundle.{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        payload = _request("1.0.0", intent="create_skill")
+        metadata = dict(payload)
+        metadata.pop("bundle_raw_markdown")
+        response = client.post(
+            f"/skills/{slug}",
+            files={
+                "metadata": (None, json.dumps(metadata), "application/json"),
+                "bundle": ("skill.tar.zst", b"not-a-real-tar-zst-stream", "application/zstd"),
+            },
+            headers=_headers("publisher-token"),
         )
 
     assert response.status_code == 422

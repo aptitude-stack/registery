@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
@@ -14,13 +12,18 @@ from app.core.governance import (
     PolicyViolation,
     build_default_policy_profile,
 )
-from app.core.ports import (
-    StoredSkillVersion,
-    StoredSkillVersionContent,
-    StoredSkillVersionSummary,
-)
+from app.core.skills.bundle_archive import SKILL_ARTIFACT_MEDIA_TYPE, build_skill_bundle
 from app.core.skills.fetch import SkillFetchService
-from app.core.skills.models import SkillNotFoundError, SkillVersionNotFoundError
+from app.core.skills.models import (
+    SkillChecksum,
+    SkillContentRecord,
+    SkillContentSummary,
+    SkillMetadata,
+    SkillNotFoundError,
+    SkillVersionDetail,
+    SkillVersionListEntry,
+    SkillVersionNotFoundError,
+)
 
 
 class FakeAuditRecorder:
@@ -34,21 +37,22 @@ class FakeAuditRecorder:
         self.events.append(event_type)
 
 
-class FakeVersionReader:
-    """Stub version reader keyed by exact immutable coordinates."""
+class FakeCatalogRepository:
+    """Stub catalog repository keyed by exact immutable coordinates."""
 
     def __init__(
         self,
         *,
-        version: StoredSkillVersion | None = None,
-        content: StoredSkillVersionContent | None = None,
-        versions: tuple[StoredSkillVersionSummary, ...] = (),
+        version: SkillVersionDetail | None = None,
+        content: SkillContentRecord | None = None,
+        versions: tuple[SkillVersionListEntry, ...] = (),
     ) -> None:
         self._version = version
         self._content = content
         self._versions = versions
+        self.install_calls: list[tuple[str, str]] = []
 
-    def get_version(self, *, slug: str, version: str) -> StoredSkillVersion | None:
+    def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
         if self._version is None:
             return None
         if (self._version.slug, self._version.version) != (slug, version):
@@ -60,27 +64,20 @@ class FakeVersionReader:
         *,
         slug: str,
         version: str,
-    ) -> StoredSkillVersionContent | None:
+    ) -> SkillContentRecord | None:
         if self._content is None:
             return None
         if (self._content.slug, self._content.version) != (slug, version):
             return None
         return self._content
 
-    def list_versions(self, *, slug: str) -> tuple[StoredSkillVersionSummary, ...]:
+    def list_versions(self, *, slug: str) -> tuple[SkillVersionListEntry, ...]:
         if any(item.slug != slug for item in self._versions):
             return ()
         return self._versions
 
-
-class FakeInstallCounter:
-    """Collect install-tracking calls made by the fetch service."""
-
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
-
     def record_install(self, *, slug: str, version: str) -> None:
-        self.calls.append((slug, version))
+        self.install_calls.append((slug, version))
 
 
 def _governance_policy() -> GovernancePolicy:
@@ -91,40 +88,43 @@ def _caller(*scopes: str) -> CallerIdentity:
     return CallerIdentity(token="token", scopes=frozenset(scopes))
 
 
-def _stored_version(*, lifecycle_status: str = "published") -> StoredSkillVersion:
-    return StoredSkillVersion(
+def _stored_version(*, lifecycle_status: str = "published") -> SkillVersionDetail:
+    return SkillVersionDetail(
         slug="python.lint",
         version="1.0.0",
         install_count=0,
-        version_checksum_digest="version-digest",
-        content_checksum_digest="content-digest",
-        content_media_type="application/zip",
-        content_size_bytes=len(_bundle("# Python Lint\n")),
-        name="Python Lint",
-        description="Linting skill",
-        tags=("python", "lint"),
-        inputs_schema={"type": "object"},
-        outputs_schema={"type": "object"},
-        token_estimate=128,
-        maturity_score=0.9,
-        security_score=0.95,
+        version_checksum=SkillChecksum(algorithm="sha256", digest="version-digest"),
+        content=SkillContentSummary(
+            checksum=SkillChecksum(algorithm="sha256", digest="content-digest"),
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+            size_bytes=len(build_skill_bundle("# Python Lint\n")),
+        ),
+        metadata=SkillMetadata(
+            name="Python Lint",
+            description="Linting skill",
+            tags=("python", "lint"),
+            inputs_schema={"type": "object"},
+            outputs_schema={"type": "object"},
+            token_estimate=128,
+            maturity_score=0.9,
+            security_score=0.95,
+        ),
         lifecycle_status=lifecycle_status,
         trust_tier="internal",
         provenance=None,
-        lifecycle_changed_at=datetime(2026, 3, 13, 9, 0, tzinfo=UTC),
         published_at=datetime(2026, 3, 13, 9, 0, tzinfo=UTC),
-        relationships=(),
     )
 
 
-def _stored_content(*, lifecycle_status: str = "published") -> StoredSkillVersionContent:
-    return StoredSkillVersionContent(
+def _stored_content(*, lifecycle_status: str = "published") -> SkillContentRecord:
+    payload = build_skill_bundle("# Python Lint\n")
+    return SkillContentRecord(
         slug="python.lint",
         version="1.0.0",
-        payload=_bundle("# Python Lint\n"),
-        checksum_digest="content-digest",
-        media_type="application/zip",
-        size_bytes=len(_bundle("# Python Lint\n")),
+        payload=payload,
+        checksum=SkillChecksum(algorithm="sha256", digest="content-digest"),
+        media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+        size_bytes=len(payload),
         lifecycle_status=lifecycle_status,
         trust_tier="internal",
     )
@@ -135,8 +135,8 @@ def _stored_version_summary(
     *,
     lifecycle_status: str = "published",
     published_at: datetime | None = None,
-) -> StoredSkillVersionSummary:
-    return StoredSkillVersionSummary(
+) -> SkillVersionListEntry:
+    return SkillVersionListEntry(
         slug="python.lint",
         version=version,
         lifecycle_status=lifecycle_status,
@@ -145,21 +145,14 @@ def _stored_version_summary(
     )
 
 
-def _bundle(markdown: str) -> bytes:
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        archive.writestr("python-lint/SKILL.md", markdown)
-    return buffer.getvalue()
-
-
 @pytest.mark.unit
 def test_get_version_metadata_returns_immutable_detail() -> None:
     audit_recorder = FakeAuditRecorder()
+    repository = FakeCatalogRepository(version=_stored_version())
     service = SkillFetchService(
-        version_reader=FakeVersionReader(version=_stored_version()),
+        repository=repository,
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
-        install_counter=FakeInstallCounter(),
     )
 
     detail = service.get_version_metadata(
@@ -178,12 +171,11 @@ def test_get_version_metadata_returns_immutable_detail() -> None:
 @pytest.mark.unit
 def test_get_content_returns_bundle_document() -> None:
     audit_recorder = FakeAuditRecorder()
-    install_counter = FakeInstallCounter()
+    repository = FakeCatalogRepository(content=_stored_content())
     service = SkillFetchService(
-        version_reader=FakeVersionReader(content=_stored_content()),
+        repository=repository,
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
-        install_counter=install_counter,
     )
 
     document = service.get_content(
@@ -192,21 +184,20 @@ def test_get_content_returns_bundle_document() -> None:
         version="1.0.0",
     )
 
-    assert document.payload == _bundle("# Python Lint\n")
+    assert document.payload == build_skill_bundle("# Python Lint\n")
     assert document.checksum.digest == "content-digest"
-    assert document.media_type == "application/zip"
-    assert document.size_bytes == len(_bundle("# Python Lint\n"))
+    assert document.media_type == SKILL_ARTIFACT_MEDIA_TYPE
+    assert document.size_bytes == len(build_skill_bundle("# Python Lint\n"))
     assert audit_recorder.events == ["skill.version_content_read"]
-    assert install_counter.calls == [("python.lint", "1.0.0")]
+    assert repository.install_calls == [("python.lint", "1.0.0")]
 
 
 @pytest.mark.unit
 def test_get_version_metadata_raises_not_found_for_unknown_coordinate() -> None:
     service = SkillFetchService(
-        version_reader=FakeVersionReader(),
+        repository=FakeCatalogRepository(),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        install_counter=FakeInstallCounter(),
     )
 
     with pytest.raises(SkillVersionNotFoundError):
@@ -220,12 +211,11 @@ def test_get_version_metadata_raises_not_found_for_unknown_coordinate() -> None:
 @pytest.mark.unit
 def test_get_content_applies_exact_read_policy() -> None:
     audit_recorder = FakeAuditRecorder()
-    install_counter = FakeInstallCounter()
+    repository = FakeCatalogRepository(content=_stored_content(lifecycle_status="archived"))
     service = SkillFetchService(
-        version_reader=FakeVersionReader(content=_stored_content(lifecycle_status="archived")),
+        repository=repository,
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
-        install_counter=install_counter,
     )
 
     with pytest.raises(PolicyViolation):
@@ -236,14 +226,14 @@ def test_get_content_applies_exact_read_policy() -> None:
         )
 
     assert audit_recorder.events == ["skill.version_exact_read_denied"]
-    assert install_counter.calls == []
+    assert repository.install_calls == []
 
 
 @pytest.mark.unit
 def test_list_versions_returns_visible_versions_with_current_default_first() -> None:
     audit_recorder = FakeAuditRecorder()
     service = SkillFetchService(
-        version_reader=FakeVersionReader(
+        repository=FakeCatalogRepository(
             versions=(
                 _stored_version_summary("2.0.0", lifecycle_status="published"),
                 _stored_version_summary(
@@ -255,7 +245,6 @@ def test_list_versions_returns_visible_versions_with_current_default_first() -> 
         ),
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
-        install_counter=FakeInstallCounter(),
     )
 
     result = service.list_versions(caller=_caller("read"), slug="python.lint")
@@ -270,12 +259,11 @@ def test_list_versions_returns_visible_versions_with_current_default_first() -> 
 @pytest.mark.unit
 def test_list_versions_hides_fully_invisible_skills() -> None:
     service = SkillFetchService(
-        version_reader=FakeVersionReader(
+        repository=FakeCatalogRepository(
             versions=(_stored_version_summary("1.0.0", lifecycle_status="archived"),)
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        install_counter=FakeInstallCounter(),
     )
 
     with pytest.raises(SkillNotFoundError):
@@ -285,7 +273,7 @@ def test_list_versions_hides_fully_invisible_skills() -> None:
 @pytest.mark.unit
 def test_list_versions_includes_archived_versions_for_admin_without_marking_default() -> None:
     service = SkillFetchService(
-        version_reader=FakeVersionReader(
+        repository=FakeCatalogRepository(
             versions=(
                 _stored_version_summary("2.0.0", lifecycle_status="archived"),
                 _stored_version_summary(
@@ -297,7 +285,6 @@ def test_list_versions_includes_archived_versions_for_admin_without_marking_defa
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        install_counter=FakeInstallCounter(),
     )
 
     result = service.list_versions(caller=_caller("admin"), slug="python.lint")
@@ -311,7 +298,7 @@ def test_list_versions_includes_archived_versions_for_admin_without_marking_defa
 def test_list_versions_uses_version_as_final_tie_break_for_current_default() -> None:
     published_at = datetime(2026, 3, 13, 9, 0, tzinfo=UTC)
     service = SkillFetchService(
-        version_reader=FakeVersionReader(
+        repository=FakeCatalogRepository(
             versions=(
                 _stored_version_summary(
                     "2.0.0",
@@ -327,7 +314,6 @@ def test_list_versions_uses_version_as_final_tie_break_for_current_default() -> 
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        install_counter=FakeInstallCounter(),
     )
 
     result = service.list_versions(caller=_caller("read"), slug="python.lint")

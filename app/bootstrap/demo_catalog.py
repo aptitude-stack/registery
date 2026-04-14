@@ -4,9 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any
-from zipfile import ZIP_DEFLATED, ZipFile
 
 from app.core.governance import (
     CallerIdentity,
@@ -14,6 +12,7 @@ from app.core.governance import (
     ProvenanceMetadata,
     SkillGovernanceInput,
 )
+from app.core.skills.bundle_archive import SKILL_ARTIFACT_MEDIA_TYPE, build_skill_bundle
 from app.core.skills.models import (
     CreateSkillVersionCommand,
     SkillContentInput,
@@ -674,7 +673,7 @@ def _entry(
             version=version,
             content=SkillContentInput(
                 payload=_bundle_content(content),
-                media_type="application/zip",
+                media_type=SKILL_ARTIFACT_MEDIA_TYPE,
             ),
             metadata=SkillMetadataInput(
                 name=name,
@@ -846,7 +845,4 @@ differences remain easy to inspect through the immutable fetch APIs.
 
 
 def _bundle_content(markdown: str) -> bytes:
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        archive.writestr("skill-bundle/SKILL.md", markdown)
-    return buffer.getvalue()
+    return build_skill_bundle(markdown)

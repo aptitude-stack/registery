@@ -7,6 +7,13 @@ from datetime import datetime
 from typing import Any, Literal, Protocol
 
 from app.core.governance import LifecycleStatus, ProvenanceMetadata, TrustTier
+from app.core.skills.models import (
+    SkillContentRecord,
+    SkillRelationshipSource,
+    SkillVersionDetail,
+    SkillVersionListEntry,
+    SkillVersionStatusUpdate,
+)
 
 RelationshipEdgeType = Literal[
     "depends_on",
@@ -22,14 +29,6 @@ class AuditEventRecord:
 
     event_type: str
     payload: dict[str, Any] | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ExactSkillCoordinate:
-    """Exact immutable skill-version selector used by read paths."""
-
-    slug: str
-    version: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,82 +90,6 @@ class CreateSkillVersionRecord:
 
 
 @dataclass(frozen=True, slots=True)
-class StoredRelationshipSelector:
-    """Stored selector projection used by fetch and relationship reads."""
-
-    edge_type: RelationshipEdgeType
-    ordinal: int
-    slug: str
-    version: str | None
-    version_constraint: str | None
-    optional: bool | None
-    markers: tuple[str, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class StoredSkillVersion:
-    """Stored detailed metadata projection for one immutable version."""
-
-    slug: str
-    version: str
-    install_count: int
-    version_checksum_digest: str
-    content_checksum_digest: str
-    content_media_type: str
-    content_size_bytes: int
-    name: str
-    description: str | None
-    tags: tuple[str, ...]
-    inputs_schema: dict[str, Any] | None
-    outputs_schema: dict[str, Any] | None
-    token_estimate: int | None
-    maturity_score: float | None
-    security_score: float | None
-    lifecycle_status: LifecycleStatus
-    trust_tier: TrustTier
-    provenance: ProvenanceMetadata | None
-    lifecycle_changed_at: datetime
-    published_at: datetime
-    relationships: tuple[StoredRelationshipSelector, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class StoredSkillVersionContent:
-    """Stored bundle content projection."""
-
-    slug: str
-    version: str
-    payload: bytes
-    checksum_digest: str
-    media_type: str
-    size_bytes: int
-    lifecycle_status: LifecycleStatus
-    trust_tier: TrustTier
-
-
-@dataclass(frozen=True, slots=True)
-class StoredSkillVersionSummary:
-    """Stored summary projection for identity-level version listings."""
-
-    slug: str
-    version: str
-    lifecycle_status: LifecycleStatus
-    trust_tier: TrustTier
-    published_at: datetime
-
-
-@dataclass(frozen=True, slots=True)
-class StoredSkillRelationshipSource:
-    """Stored relationship-source projection for batch relationship reads."""
-
-    slug: str
-    version: str
-    lifecycle_status: LifecycleStatus
-    trust_tier: TrustTier
-    relationships: tuple[StoredRelationshipSelector, ...]
-
-
-@dataclass(frozen=True, slots=True)
 class SearchCandidatesRequest:
     """Normalized discovery request sent to the persistence search adapter."""
 
@@ -199,24 +122,20 @@ class StoredSkillSearchCandidate:
     tag_overlap_count: int
 
 
-@dataclass(frozen=True, slots=True)
-class StoredSkillVersionStatus:
-    """Stored lifecycle update result for one immutable version."""
-
-    slug: str
-    version: str
-    lifecycle_status: LifecycleStatus
-    trust_tier: TrustTier
-    lifecycle_changed_at: datetime
-    is_current_default: bool
-
-
 class SkillRegistryPersistenceError(RuntimeError):
     """Raised for non-domain-specific persistence failures."""
 
 
-class SkillRegistryPort(Protocol):
-    """Persistence contract for immutable skill version records."""
+class DuplicateSkillVersionPersistenceError(SkillRegistryPersistenceError):
+    """Raised when the immutable `(slug, version)` already exists."""
+
+
+class DuplicateSkillSlugPersistenceError(SkillRegistryPersistenceError):
+    """Raised when the stable skill slug already exists."""
+
+
+class SkillCatalogRepository(Protocol):
+    """Unified persistence contract for the skill catalog."""
 
     def skill_exists(self, *, slug: str) -> bool:
         """Return whether a skill identity already exists."""
@@ -229,50 +148,30 @@ class SkillRegistryPort(Protocol):
         *,
         record: CreateSkillVersionRecord,
         audit_events: tuple[AuditEventRecord, ...] = (),
-    ) -> StoredSkillVersion:
+    ) -> SkillVersionDetail:
         """Create one immutable normalized version."""
 
-    def get_version(self, *, slug: str, version: str) -> StoredSkillVersion | None:
-        """Return one immutable version for governance-aware updates."""
-
-    def update_version_status(
-        self,
-        *,
-        slug: str,
-        version: str,
-        lifecycle_status: LifecycleStatus,
-        audit_events: tuple[AuditEventRecord, ...] = (),
-    ) -> StoredSkillVersionStatus | None:
-        """Update lifecycle state for one immutable version and return the new projection."""
-
-
-class SkillVersionReadPort(Protocol):
-    """Read-only persistence contract for exact immutable version metadata."""
-
-    def get_version(self, *, slug: str, version: str) -> StoredSkillVersion | None:
-        """Return one immutable version for exact read paths."""
+    def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
+        """Return one immutable version detail for exact read or lifecycle paths."""
 
     def get_version_content(
         self,
         *,
         slug: str,
         version: str,
-    ) -> StoredSkillVersionContent | None:
-        """Return one raw bundle content row for an exact immutable version."""
+    ) -> SkillContentRecord | None:
+        """Return one immutable content record for exact content reads."""
 
-    def list_versions(self, *, slug: str) -> tuple[StoredSkillVersionSummary, ...]:
-        """Return stored version summaries for one skill identity."""
+    def list_versions(self, *, slug: str) -> tuple[SkillVersionListEntry, ...]:
+        """Return version-list rows for one skill identity."""
 
-
-class SkillInstallCounterPort(Protocol):
-    """Mutable install-counter contract used by exact content fetches."""
-
-    def record_install(self, *, slug: str, version: str) -> None:
-        """Record one successful skill install/download for an exact coordinate."""
-
-
-class SkillSearchPort(Protocol):
-    """Persistence contract for advisory search candidate retrieval."""
+    def get_relationship_source(
+        self,
+        *,
+        slug: str,
+        version: str,
+    ) -> SkillRelationshipSource | None:
+        """Return exact authored relationships for one immutable coordinate."""
 
     def search_candidates(
         self,
@@ -281,16 +180,18 @@ class SkillSearchPort(Protocol):
     ) -> tuple[StoredSkillSearchCandidate, ...]:
         """Return ranked skill candidates for the provided discovery request."""
 
+    def record_install(self, *, slug: str, version: str) -> None:
+        """Record one successful skill install/download for an exact coordinate."""
 
-class SkillRelationshipReadPort(Protocol):
-    """Read-only persistence contract for authored relationship selector lookup."""
-
-    def get_relationship_sources_batch(
+    def update_version_status(
         self,
         *,
-        coordinates: tuple[ExactSkillCoordinate, ...],
-    ) -> tuple[StoredSkillRelationshipSource, ...]:
-        """Return stored relationship sources for the requested coordinates."""
+        slug: str,
+        version: str,
+        lifecycle_status: LifecycleStatus,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> SkillVersionStatusUpdate | None:
+        """Update lifecycle state for one immutable version and return the new projection."""
 
 
 class AuditPort(Protocol):
@@ -304,4 +205,4 @@ class DatabaseReadinessPort(Protocol):
     """Contract for probing database readiness from the core layer."""
 
     def ping(self) -> tuple[bool, str | None]:
-        """Return (is_ready, detail)."""
+        """Return `(is_ready, detail)`."""

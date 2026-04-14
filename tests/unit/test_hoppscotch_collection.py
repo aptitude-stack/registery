@@ -88,9 +88,7 @@ def test_hoppscotch_collection_keeps_publish_requests_as_multipart_with_bundle_f
     }
 
     requests = {
-        item["name"]: item["request"]
-        for folder in document["item"]
-        for item in folder["item"]
+        item["name"]: item["request"] for folder in document["item"] for item in folder["item"]
     }
 
     for request_name in publish_request_names:

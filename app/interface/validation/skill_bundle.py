@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-MAX_SKILL_BUNDLE_SIZE_BYTES = 5 * 1024 * 1024
-SKILL_ARTIFACT_EXTENSION = ".tar.zst"
-SKILL_ARTIFACT_MEDIA_TYPE = "application/zstd"
+from app.core.skills.bundle_archive import (
+    MAX_SKILL_BUNDLE_FILE_COUNT,
+    MAX_SKILL_BUNDLE_PATH_LENGTH_BYTES,
+    MAX_SKILL_BUNDLE_SIZE_BYTES,
+    SKILL_ARTIFACT_EXTENSION,
+    SKILL_ARTIFACT_MEDIA_TYPE,
+    SkillBundleArchiveError,
+    inspect_skill_bundle,
+)
 
 
 class SkillBundleValidationError(ValueError):
@@ -45,6 +51,23 @@ def validate_skill_bundle(
         raise SkillBundleValidationError(
             f"Skill artifact media type must be `{SKILL_ARTIFACT_MEDIA_TYPE}`."
         )
+
+    try:
+        inspect_skill_bundle(bundle_bytes)
+    except SkillBundleArchiveError as exc:
+        message = str(exc)
+        if str(MAX_SKILL_BUNDLE_FILE_COUNT) in message:
+            raise SkillBundleValidationError(
+                f"Skill artifact exceeds the maximum file count of {MAX_SKILL_BUNDLE_FILE_COUNT}."
+            ) from exc
+        if str(MAX_SKILL_BUNDLE_PATH_LENGTH_BYTES) in message:
+            raise SkillBundleValidationError(
+                "Skill artifact exceeds the maximum path length of "
+                f"{MAX_SKILL_BUNDLE_PATH_LENGTH_BYTES} bytes."
+            ) from exc
+        raise SkillBundleValidationError(
+            "Skill artifact must be a valid .tar.zst archive."
+        ) from exc
 
     return SkillBundleValidationReport(
         filename=normalized_filename,

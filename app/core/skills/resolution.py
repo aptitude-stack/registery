@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.governance import CallerIdentity, GovernancePolicy
-from app.core.ports import AuditPort, ExactSkillCoordinate, SkillRelationshipReadPort
+from app.core.ports import AuditPort, SkillCatalogRepository
 
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import SkillRelationshipSelector, SkillVersionNotFoundError
@@ -26,11 +26,11 @@ class SkillResolutionService:
     def __init__(
         self,
         *,
-        relationship_reader: SkillRelationshipReadPort,
+        repository: SkillCatalogRepository,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
     ) -> None:
-        self._relationship_reader = relationship_reader
+        self._repository = repository
         self._audit_recorder = audit_recorder
         self._governance_policy = governance_policy
 
@@ -42,14 +42,9 @@ class SkillResolutionService:
         version: str,
     ) -> ResolvedSkillDependencies:
         """Return authored direct `depends_on` selectors for one exact version."""
-        coordinate = ExactSkillCoordinate(slug=slug, version=version)
-        stored_sources = self._relationship_reader.get_relationship_sources_batch(
-            coordinates=(coordinate,),
-        )
-        if not stored_sources:
+        stored = self._repository.get_relationship_source(slug=slug, version=version)
+        if stored is None:
             raise SkillVersionNotFoundError(slug=slug, version=version)
-
-        stored = stored_sources[0]
         enforce_and_audit_exact_read(
             caller=caller,
             governance_policy=self._governance_policy,
@@ -66,16 +61,6 @@ class SkillResolutionService:
         resolved = ResolvedSkillDependencies(
             slug=stored.slug,
             version=stored.version,
-            depends_on=tuple(
-                SkillRelationshipSelector(
-                    slug=selector.slug,
-                    version=selector.version,
-                    version_constraint=selector.version_constraint,
-                    optional=selector.optional,
-                    markers=selector.markers,
-                )
-                for selector in stored.relationships
-                if selector.edge_type == "depends_on"
-            ),
+            depends_on=stored.relationships,
         )
         return resolved

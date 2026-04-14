@@ -101,6 +101,20 @@ class SkillContentDocument:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillContentRecord:
+    """Internal exact-read content record including governance state."""
+
+    slug: str
+    version: str
+    payload: bytes
+    checksum: SkillChecksum
+    media_type: str
+    size_bytes: int
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
+
+
+@dataclass(frozen=True, slots=True)
 class SkillMetadata:
     """Normalized structured metadata returned to clients."""
 
@@ -142,11 +156,33 @@ class SkillVersionSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillVersionListEntry:
+    """Internal version-list row used before visibility/default selection."""
+
+    slug: str
+    version: str
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
+    published_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class SkillVersionList:
     """Visible immutable versions for one skill identity."""
 
     slug: str
     versions: tuple[SkillVersionSummary, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SkillRelationshipSource:
+    """Internal exact-read relationship source including governance state."""
+
+    slug: str
+    version: str
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
+    relationships: tuple[SkillRelationshipSelector, ...]
 
 
 @dataclass(frozen=True, slots=True)

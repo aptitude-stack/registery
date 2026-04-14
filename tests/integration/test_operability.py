@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
+from app.core.skills.bundle_archive import build_skill_bundle
 from app.main import create_app
 
 
@@ -46,7 +47,7 @@ def _request(version: str) -> dict[str, object]:
 
 
 def _bundle(markdown: str) -> bytes:
-    return f"opaque-tar-zst:{markdown}".encode()
+    return build_skill_bundle(markdown)
 
 
 def _query_audit_events(database_url: str) -> list[dict[str, Any]]:

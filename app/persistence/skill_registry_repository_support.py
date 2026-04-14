@@ -1,4 +1,4 @@
-"""Shared SQL and projection helpers for the SQLAlchemy registry repository."""
+"""Shared SQL and projection helpers for the SQLAlchemy catalog repository."""
 
 from __future__ import annotations
 
@@ -11,15 +11,26 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.governance import LifecycleStatus, ProvenanceMetadata, TrustTier
 from app.core.ports import (
+    DuplicateSkillSlugPersistenceError,
+    DuplicateSkillVersionPersistenceError,
     GovernanceRecordInput,
     MetadataRecordInput,
     RelationshipEdgeType,
     SkillRegistryPersistenceError,
-    StoredRelationshipSelector,
-    StoredSkillVersion,
 )
-from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
-from app.persistence.models.skill_search_document import SkillSearchDocument
+from app.core.skills.models import (
+    SHA256_ALGORITHM,
+    SkillChecksum,
+    SkillContentRecord,
+    SkillContentSummary,
+    SkillMetadata,
+    SkillRelationshipSelector,
+    SkillRelationshipSource,
+    SkillVersionDetail,
+    SkillVersionListEntry,
+    SkillVersionStatusUpdate,
+)
+from app.core.skills.normalization import normalize_search_text, normalize_tag_list
 from app.persistence.models.skill_version import SkillVersion
 
 RELATIONSHIP_EDGE_ORDER: dict[RelationshipEdgeType, int] = {
@@ -157,52 +168,108 @@ SEARCH_CANDIDATES_SQL = text(
 )
 
 
-def to_stored_selector(selector: SkillRelationshipSelector) -> StoredRelationshipSelector:
-    """Project one selector ORM row into the stored selector model."""
-    return StoredRelationshipSelector(
-        edge_type=cast(RelationshipEdgeType, selector.edge_type),
-        ordinal=selector.ordinal,
-        slug=selector.target_slug,
-        version=selector.target_version,
-        version_constraint=selector.version_constraint,
-        optional=selector.optional,
-        markers=tuple(selector.markers),
-    )
-
-
-def to_stored_skill_version(entity: SkillVersion) -> StoredSkillVersion:
-    """Project one eagerly loaded ORM version into the stored detail model."""
-    return StoredSkillVersion(
+def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
+    """Project one eagerly loaded ORM version into the core detail model."""
+    return SkillVersionDetail(
         slug=entity.skill.slug,
         version=entity.version,
         install_count=entity.skill.install_count,
-        version_checksum_digest=entity.checksum_digest,
-        content_checksum_digest=entity.content.checksum_digest,
-        content_media_type=entity.content.media_type,
-        content_size_bytes=entity.content.storage_size_bytes,
-        name=entity.metadata_row.name,
-        description=entity.metadata_row.description,
-        tags=tuple(entity.metadata_row.tags),
-        inputs_schema=entity.metadata_row.inputs_schema,
-        outputs_schema=entity.metadata_row.outputs_schema,
-        token_estimate=entity.metadata_row.token_estimate,
-        maturity_score=entity.metadata_row.maturity_score,
-        security_score=entity.metadata_row.security_score,
+        version_checksum=SkillChecksum(
+            algorithm=SHA256_ALGORITHM,
+            digest=entity.checksum_digest,
+        ),
+        content=SkillContentSummary(
+            checksum=SkillChecksum(
+                algorithm=SHA256_ALGORITHM,
+                digest=entity.content.checksum_digest,
+            ),
+            media_type=entity.content.media_type,
+            size_bytes=entity.content.storage_size_bytes,
+        ),
+        metadata=SkillMetadata(
+            name=entity.metadata_row.name,
+            description=entity.metadata_row.description,
+            tags=tuple(entity.metadata_row.tags),
+            inputs_schema=entity.metadata_row.inputs_schema,
+            outputs_schema=entity.metadata_row.outputs_schema,
+            token_estimate=entity.metadata_row.token_estimate,
+            maturity_score=entity.metadata_row.maturity_score,
+            security_score=entity.metadata_row.security_score,
+        ),
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),
         provenance=to_provenance(entity),
-        lifecycle_changed_at=entity.lifecycle_changed_at,
-        published_at=entity.published_at,
+        published_at=ensure_datetime(entity.published_at),
+    )
+
+
+def to_skill_content_record(entity: SkillVersion) -> SkillContentRecord:
+    """Project one ORM version into the core content-read model."""
+    return SkillContentRecord(
+        slug=entity.skill.slug,
+        version=entity.version,
+        payload=entity.content.payload,
+        checksum=SkillChecksum(
+            algorithm=SHA256_ALGORITHM,
+            digest=entity.content.checksum_digest,
+        ),
+        media_type=entity.content.media_type,
+        size_bytes=entity.content.storage_size_bytes,
+        lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
+        trust_tier=cast(TrustTier, entity.trust_tier),
+    )
+
+
+def to_skill_version_list_entry(entity: SkillVersion) -> SkillVersionListEntry:
+    """Project one ORM version into the internal version-list row."""
+    return SkillVersionListEntry(
+        slug=entity.skill.slug,
+        version=entity.version,
+        lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
+        trust_tier=cast(TrustTier, entity.trust_tier),
+        published_at=ensure_datetime(entity.published_at),
+    )
+
+
+def to_skill_relationship_source(entity: SkillVersion) -> SkillRelationshipSource:
+    """Project one ORM version into the core relationship source model."""
+    return SkillRelationshipSource(
+        slug=entity.skill.slug,
+        version=entity.version,
+        lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
+        trust_tier=cast(TrustTier, entity.trust_tier),
         relationships=tuple(
-            to_stored_selector(selector)
+            SkillRelationshipSelector(
+                slug=selector.target_slug,
+                version=selector.target_version,
+                version_constraint=selector.version_constraint,
+                optional=selector.optional,
+                markers=tuple(selector.markers),
+            )
             for selector in sort_relationship_selectors(entity.relationship_selectors)
+            if selector.edge_type == "depends_on"
         ),
     )
 
 
-def sort_relationship_selectors(
-    selectors: list[SkillRelationshipSelector],
-) -> list[SkillRelationshipSelector]:
+def to_skill_version_status_update(
+    *,
+    entity: SkillVersion,
+    lifecycle_changed_at: datetime,
+    is_current_default: bool,
+) -> SkillVersionStatusUpdate:
+    """Project a lifecycle update result into the core status-update model."""
+    return SkillVersionStatusUpdate(
+        slug=entity.skill.slug,
+        version=entity.version,
+        status=cast(LifecycleStatus, entity.lifecycle_status),
+        trust_tier=cast(TrustTier, entity.trust_tier),
+        lifecycle_changed_at=lifecycle_changed_at,
+        is_current_default=is_current_default,
+    )
+
+
+def sort_relationship_selectors(selectors: list[Any]) -> list[Any]:
     """Return selectors in stable public edge/ordinal order."""
     return sorted(
         selectors,
@@ -222,18 +289,20 @@ def build_search_document(
     governance: GovernanceRecordInput,
     published_at: datetime | None,
     content_size_bytes: int,
-) -> SkillSearchDocument:
+) -> Any:
     """Build the denormalized search row for one immutable version."""
+    from app.persistence.models.skill_search_document import SkillSearchDocument
+
     return SkillSearchDocument(
         skill_version_fk=skill_version_id,
         slug=slug,
-        normalized_slug=normalize_text(slug),
+        normalized_slug=normalize_search_text(slug) or "",
         version=version,
         name=metadata.name,
-        normalized_name=normalize_text(metadata.name),
+        normalized_name=normalize_search_text(metadata.name) or "",
         description=metadata.description,
         tags=list(metadata.tags),
-        normalized_tags=sorted({normalize_text(tag) for tag in metadata.tags if tag.strip()}),
+        normalized_tags=list(normalize_tag_list(metadata.tags)),
         lifecycle_status="published",
         trust_tier=governance.trust_tier,
         search_vector=cast(
@@ -251,17 +320,21 @@ def build_search_document(
 
 def build_search_document_source(*, slug: str, metadata: MetadataRecordInput) -> str:
     """Combine immutable searchable fields into one deterministic text source."""
-    parts = [normalize_text(slug), normalize_text(metadata.name)]
+    parts = [normalize_search_text(slug) or "", normalize_search_text(metadata.name) or ""]
     if metadata.description is not None:
-        parts.append(normalize_text(metadata.description))
-    parts.extend(normalize_text(tag) for tag in metadata.tags)
+        parts.append(normalize_search_text(metadata.description) or "")
+    parts.extend(normalize_tag_list(metadata.tags))
     return " ".join(part for part in parts if part)
 
 
-def is_duplicate_skill_version_error(error: IntegrityError) -> bool:
-    """Return whether an integrity error represents the immutable version key."""
-    message = str(error.orig).lower()
-    return "uq_skill_versions_skill_fk_version" in message
+def classify_integrity_error(error: IntegrityError) -> SkillRegistryPersistenceError:
+    """Return the typed persistence error that best matches an integrity failure."""
+    constraint_name = _constraint_name(error)
+    if constraint_name == "uq_skill_versions_skill_fk_version":
+        return DuplicateSkillVersionPersistenceError("Immutable skill version already exists.")
+    if constraint_name == "uq_skills_slug":
+        return DuplicateSkillSlugPersistenceError("Skill slug already exists.")
+    return SkillRegistryPersistenceError("Failed to persist immutable skill version.")
 
 
 def ensure_string_list(raw: object) -> list[str]:
@@ -278,11 +351,6 @@ def ensure_datetime(value: datetime | None) -> datetime:
     if value is None:
         raise SkillRegistryPersistenceError("Published timestamp is missing.")
     return value
-
-
-def normalize_text(value: str) -> str:
-    """Normalize a search document field into a compact lowercase value."""
-    return " ".join(value.split()).strip().lower()
 
 
 def build_contains_pattern(value: str | None) -> str | None:
@@ -304,3 +372,10 @@ def to_provenance(entity: SkillVersion) -> ProvenanceMetadata | None:
         publisher_identity=entity.provenance_publisher_identity,
         policy_profile=entity.policy_profile_at_publish,
     )
+
+
+def _constraint_name(error: IntegrityError) -> str | None:
+    orig = error.orig
+    diag = getattr(orig, "diag", None)
+    constraint_name = getattr(diag, "constraint_name", None)
+    return constraint_name if isinstance(constraint_name, str) else None

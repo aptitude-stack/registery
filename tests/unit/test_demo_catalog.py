@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import tarfile
 from io import BytesIO
-from zipfile import ZipFile
+
+import zstandard
 
 from app.bootstrap.demo_catalog import build_demo_catalog
+from app.core.skills.bundle_archive import (
+    SKILL_ARTIFACT_MEDIA_TYPE,
+    SKILL_BUNDLE_MARKDOWN_PATH,
+)
 
 
 def test_demo_catalog_contains_expected_versions_relationships_and_sections() -> None:
@@ -66,9 +72,16 @@ def test_demo_catalog_contains_expected_versions_relationships_and_sections() ->
     assert bundle_v1.command.relationships.extends[0].version == "1.1.0"
 
     for entry in catalog:
-        assert entry.command.content.media_type == "application/zip"
-        with ZipFile(BytesIO(entry.command.content.payload)) as archive:
-            markdown = archive.read("skill-bundle/SKILL.md").decode("utf-8")
+        assert entry.command.content.media_type == SKILL_ARTIFACT_MEDIA_TYPE
+        payload = BytesIO(entry.command.content.payload)
+        with zstandard.ZstdDecompressor().stream_reader(payload) as reader:
+            with tarfile.open(fileobj=reader, mode="r|") as archive:
+                member = archive.next()
+                assert member is not None
+                extracted = archive.extractfile(member)
+                assert extracted is not None
+                markdown = extracted.read().decode("utf-8")
+                assert member.name == SKILL_BUNDLE_MARKDOWN_PATH
         assert len(markdown) > 900
         assert "# " in markdown
         assert "## Purpose" in markdown

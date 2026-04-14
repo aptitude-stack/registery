@@ -21,16 +21,9 @@ Implements core persistence ports for:
 ## Key Files
 
 - `db.py`: engine/session lifecycle and readiness probe adapter.
-- `skill_registry_repository.py`: composed SQLAlchemy adapter that exposes the
-  existing repository class name while delegating behavior to port-aligned
-  mixins.
-- `skill_registry_repository_base.py`: shared session and helper logic for the
-  repository mixins.
-- `skill_registry_repository_writes.py`: publish/write-side repository methods.
-- `skill_registry_repository_reads.py`: version-list, exact version/content, and
-  relationship read methods.
-- `skill_registry_repository_search.py`: advisory search candidate retrieval.
-- `skill_registry_repository_status.py`: lifecycle-status update methods.
+- `skill_registry_repository.py`: unified SQLAlchemy catalog repository for
+  publish, exact reads, advisory search, install counting, and lifecycle
+  status updates.
 - `skill_registry_repository_support.py`: shared projections, query helpers, and
   search SQL.
 - `models/`: ORM models.

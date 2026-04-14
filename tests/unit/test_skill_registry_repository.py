@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from sqlalchemy.exc import IntegrityError
 
-from app.core.ports import MetadataRecordInput
+from app.core.ports import (
+    DuplicateSkillVersionPersistenceError,
+    MetadataRecordInput,
+)
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.skill_registry_repository_support import (
     build_contains_pattern,
     build_search_document_source,
-    is_duplicate_skill_version_error,
+    classify_integrity_error,
     sort_relationship_selectors,
 )
 
@@ -63,21 +68,15 @@ def test_build_search_document_source_combines_searchable_fields() -> None:
     assert "hard-cut" in source
 
 
-def test_is_duplicate_skill_version_error_matches_only_version_constraint() -> None:
-    version_message = (
-        'duplicate key value violates unique constraint "uq_skill_versions_skill_fk_version"'
-    )
-    slug_message = 'duplicate key value violates unique constraint "uq_skills_slug"'
+def test_classify_integrity_error_returns_typed_duplicate_version_error() -> None:
     version_conflict = IntegrityError(
         statement="INSERT INTO skill_versions ...",
         params={},
-        orig=Exception(version_message),
-    )
-    slug_conflict = IntegrityError(
-        statement="INSERT INTO skills ...",
-        params={},
-        orig=Exception(slug_message),
+        orig=SimpleNamespace(
+            diag=SimpleNamespace(constraint_name="uq_skill_versions_skill_fk_version")
+        ),
     )
 
-    assert is_duplicate_skill_version_error(version_conflict) is True
-    assert is_duplicate_skill_version_error(slug_conflict) is False
+    classified = classify_integrity_error(version_conflict)
+
+    assert isinstance(classified, DuplicateSkillVersionPersistenceError)
