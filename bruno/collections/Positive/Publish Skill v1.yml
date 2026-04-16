@@ -9,71 +9,74 @@ http:
   headers:
     - name: Accept
       value: application/json
-    - name: Content-Type
-      value: application/json
     - name: Authorization
       value: bearer {{publishToken}}
   body:
-    type: json
-    data: |-
-      {
-        "intent": "create_skill",
-        "version": "{{sanity_version_1}}",
-        "content": {
-          "raw_markdown": "# Postman Primary Skill v1\n\nRun `{{runId}}` primary skill version 1.\n"
-        },
-        "metadata": {
-          "name": "Postman Primary Skill",
-          "description": "Primary sanity skill for collection coverage",
-          "tags": ["postman", "sanity", "primary"],
-          "inputs_schema": {
-            "type": "object"
-          },
-          "outputs_schema": {
-            "type": "object"
-          },
-          "token_estimate": 200,
-          "maturity_score": 0.9,
-          "security_score": 0.95
-        },
-        "governance": {
-          "trust_tier": "internal",
-          "provenance": {
-            "repo_url": "https://github.com/example/skills",
-            "commit_sha": "1111111111111111111111111111111111111111",
-            "tree_path": "skills/postman-primary",
-            "publisher_identity": "postman/manual-qa"
+    type: multipart-form
+    data:
+      - name: metadata
+        type: text
+        value: |-
+          {
+            "intent": "create_skill",
+            "version": "{{sanity_version_1}}",
+            "metadata": {
+              "name": "Postman Primary Skill",
+              "description": "Primary sanity skill for collection coverage",
+              "tags": ["postman", "sanity", "primary"],
+              "inputs_schema": {
+                "type": "object"
+              },
+              "outputs_schema": {
+                "type": "object"
+              },
+              "token_estimate": 200,
+              "maturity_score": 0.9,
+              "security_score": 0.95
+            },
+            "governance": {
+              "trust_tier": "internal",
+              "provenance": {
+                "repo_url": "https://github.com/example/skills",
+                "commit_sha": "1111111111111111111111111111111111111111",
+                "tree_path": "skills/postman-primary",
+                "publisher_identity": "postman/manual-qa"
+              }
+            },
+            "relationships": {
+              "depends_on": [
+                {
+                  "slug": "{{sanity_dependency_slug}}",
+                  "version": "{{sanity_version_1}}",
+                  "optional": false,
+                  "markers": ["linux"]
+                }
+              ],
+              "extends": [
+                {
+                  "slug": "{{sanity_extension_slug}}",
+                  "version": "{{sanity_version_1}}"
+                }
+              ],
+              "conflicts_with": [
+                {
+                  "slug": "postman.conflict.{{runId}}",
+                  "version": "9.9.9"
+                }
+              ],
+              "overlaps_with": [
+                {
+                  "slug": "{{sanity_overlap_slug}}",
+                  "version": "{{sanity_version_1}}"
+                }
+              ]
+            }
           }
-        },
-        "relationships": {
-          "depends_on": [
-            {
-              "slug": "{{sanity_dependency_slug}}",
-              "version": "{{sanity_version_1}}",
-              "optional": false,
-              "markers": ["linux"]
-            }
-          ],
-          "extends": [
-            {
-              "slug": "{{sanity_extension_slug}}",
-              "version": "{{sanity_version_1}}"
-            }
-          ],
-          "conflicts_with": [
-            {
-              "slug": "postman.conflict.{{runId}}",
-              "version": "9.9.9"
-            }
-          ],
-          "overlaps_with": [
-            {
-              "slug": "{{sanity_overlap_slug}}",
-              "version": "{{sanity_version_1}}"
-            }
-          ]
-        }
-      }
+      - name: bundle
+        type: file
+        value:
+          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/primary-v1.tar.zst
+        contentType: application/zstd
 
 runtime:
   scripts:
@@ -130,13 +133,13 @@ runtime:
           expect(json.version).to.eql(bru.getVar('sanity_version_1'));
           expect(json.version_checksum.algorithm).to.eql('sha256');
           expect(json.content.checksum.algorithm).to.eql('sha256');
+          expect(json.content.media_type).to.eql('application/zstd');
           expect(json.lifecycle_status).to.eql('published');
           expect(json.trust_tier).to.eql('internal');
           expect(json.provenance.repo_url).to.eql('https://github.com/example/skills');
           expect(json.provenance.publisher_identity).to.eql('postman/manual-qa');
           expect(json.provenance.trust_context.trust_tier).to.eql('internal');
           expect(json.published_at).to.be.a('string').and.not.empty;
-          expect(json).to.not.have.property('content_download_path');
           expect(json).to.not.have.property('relationships');
         });
 

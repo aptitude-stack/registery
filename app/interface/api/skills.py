@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Request, status
+from fastapi import APIRouter, File, Form, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from app.core.dependencies import (
@@ -24,7 +24,9 @@ from app.interface.api.response_docs import ApiResponses, invalid_request_respon
 from app.interface.api.skill_api_support_fetch import to_metadata_response
 from app.interface.api.skill_api_support_lifecycle import to_version_status_response
 from app.interface.api.skill_api_support_publish import (
+    parse_publish_request_metadata,
     to_create_command,
+    validate_publish_bundle,
 )
 from app.interface.dto.errors import ErrorEnvelope
 from app.interface.dto.examples import (
@@ -42,7 +44,6 @@ from app.interface.dto.skills_lifecycle import (
     SkillVersionStatusResponse,
     SkillVersionStatusUpdateRequest,
 )
-from app.interface.dto.skills_publish import SkillVersionCreateRequest
 from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
 
 router = APIRouter(tags=["skills"])
@@ -110,16 +111,44 @@ STATUS_RESPONSES: ApiResponses = {
     operation_id="createSkillVersion",
     summary="Publish an immutable skill version",
     description=(
-        "Create a new immutable skill version for the slug in the path from a normalized "
-        "JSON payload containing markdown content, structured metadata, and authored "
-        "relationships."
+        "Create a new immutable skill version for the slug in the path from a "
+        "`multipart/form-data` request containing one JSON metadata part and "
+        "one `.tar.zst` artifact."
     ),
     response_model=SkillVersionMetadataResponse,
     response_model_exclude_unset=True,
     status_code=status.HTTP_201_CREATED,
     responses=PUBLISH_RESPONSES,
     openapi_extra={
-        "requestBody": {"content": {"application/json": {"example": PUBLISH_REQUEST_EXAMPLE}}}
+        "requestBody": {
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["metadata", "bundle"],
+                        "properties": {
+                            "metadata": {
+                                "type": "string",
+                                "description": "JSON-encoded publish metadata payload.",
+                            },
+                            "bundle": {
+                                "type": "string",
+                                "format": "binary",
+                                "description": "Validated immutable `.tar.zst` skill artifact.",
+                            },
+                        },
+                    },
+                    "encoding": {
+                        "metadata": {"contentType": "application/json"},
+                        "bundle": {"contentType": "application/zstd"},
+                    },
+                    "example": {
+                        "metadata": PUBLISH_REQUEST_EXAMPLE,
+                    },
+                }
+            },
+        }
     },
 )
 def create_skill_version(
@@ -128,15 +157,35 @@ def create_skill_version(
         str,
         Path(pattern=SLUG_PATTERN, description="Stable public slug for the skill identity."),
     ],
-    request: SkillVersionCreateRequest,
+    metadata: Annotated[
+        str,
+        Form(description="JSON-encoded publish metadata and relationship declarations."),
+    ],
+    bundle: Annotated[
+        UploadFile,
+        File(description="Opaque `.tar.zst` artifact persisted exactly as uploaded."),
+    ],
     registry_service: SkillRegistryServiceDep,
     caller: PublishCallerDep,
 ) -> SkillVersionMetadataResponse | JSONResponse:
     """Publish one immutable normalized skill version."""
+    request = parse_publish_request_metadata(metadata)
+    bundle_bytes = bundle.file.read()
+    bundle_media_type = validate_publish_bundle(
+        bundle_bytes=bundle_bytes,
+        filename=bundle.filename,
+        media_type=bundle.content_type,
+    )
+
     try:
         stored = registry_service.publish_version(
             caller=caller,
-            command=to_create_command(slug, request),
+            command=to_create_command(
+                slug,
+                request,
+                bundle_bytes=bundle_bytes,
+                bundle_media_type=bundle_media_type,
+            ),
         )
         return to_metadata_response(stored)
     except DuplicateSkillVersionError as exc:

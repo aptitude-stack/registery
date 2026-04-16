@@ -11,7 +11,7 @@ persistence references.
 Implements core persistence ports for:
 
 - PostgreSQL metadata persistence (SQLAlchemy)
-- digest-addressed immutable markdown storage in PostgreSQL
+- digest-addressed immutable bundle storage in PostgreSQL
 - authored relationship selector preservation for exact dependency reads
 - identity-level version listing plus exact immutable metadata/content lookup
   for one `slug@version`
@@ -21,16 +21,9 @@ Implements core persistence ports for:
 ## Key Files
 
 - `db.py`: engine/session lifecycle and readiness probe adapter.
-- `skill_registry_repository.py`: composed SQLAlchemy adapter that exposes the
-  existing repository class name while delegating behavior to port-aligned
-  mixins.
-- `skill_registry_repository_base.py`: shared session and helper logic for the
-  repository mixins.
-- `skill_registry_repository_writes.py`: publish/write-side repository methods.
-- `skill_registry_repository_reads.py`: version-list, exact version/content, and
-  relationship read methods.
-- `skill_registry_repository_search.py`: advisory search candidate retrieval.
-- `skill_registry_repository_status.py`: lifecycle-status update methods.
+- `skill_registry_repository.py`: unified SQLAlchemy catalog repository for
+  publish, exact reads, advisory search, install counting, and lifecycle
+  status updates.
 - `skill_registry_repository_support.py`: shared projections, query helpers, and
   search SQL.
 - `models/`: ORM models.
@@ -44,6 +37,7 @@ Persistence adapters that need skill-domain errors or service-facing models
 should import them from `app.core.skills.*`, while preserving the same
 layering boundary against the rest of core.
 Canonical short summary text lives on `skill_metadata.description`; deduplicated
-`skill_contents` rows persist only markdown plus checksum and size metadata.
+`skill_contents` rows persist the exact opaque artifact bytes plus checksum, media type,
+and size metadata.
 Current-default recomputation reuses the shared core ordering helper so slug
 listing and lifecycle updates cannot drift on tie-break behavior.

@@ -1,6 +1,6 @@
 # app.core.skills module
 
-Skill-domain services, models, and projections within the core layer.
+Skill-domain services, models, and shared helpers within the core layer.
 
 ## Purpose
 
@@ -19,8 +19,10 @@ changing the top-level server layering.
 - `search.py`: advisory search query/result models and implementation reused by
   discovery.
 - `models.py`: skill-domain commands, result models, and domain errors.
-- `projections.py`: stored-to-domain projections for immutable version details
-  and version-list summaries.
+- `bundle_archive.py`: deterministic `.tar.zst` bundle build/inspection helpers
+  shared by validation, fixtures, and tests.
+- `normalization.py`: shared slug/name/tag normalization used by search and
+  persistence indexing.
 - `exact_read.py`: shared exact-read policy and audit orchestration reused by
   fetch and resolution.
 - `version_ordering.py`: canonical ordering and current-default selection for

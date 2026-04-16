@@ -8,23 +8,39 @@ http:
   headers:
   - name: Accept
     value: application/json
-  - name: Content-Type
-    value: application/json
   - name: Authorization
     value: Bearer {{publishToken}}
   body:
-    type: json
-    data: "{\n  \"intent\": \"publish_version\",\n  \"version\": \"1.0.0\",\n  \"\
-      content\": {\n    \"raw_markdown\": \"# Duplicate Seed Skill\\n\\nInitial version\
-      \ used to provoke a duplicate publish.\\n\"\n  },\n  \"metadata\": {\n    \"\
-      name\": \"Duplicate Seed Skill\",\n    \"description\": \"Seed version for duplicate\
-      \ publish coverage\",\n    \"tags\": [\"postman\", \"negative\", \"duplicate\"\
-      ],\n    \"headers\": {\n      \"runtime\": \"python\"\n    },\n    \"inputs_schema\"\
-      : {\n      \"type\": \"object\"\n    },\n    \"outputs_schema\": {\n      \"\
-      type\": \"object\"\n    },\n    \"token_estimate\": 75,\n    \"maturity_score\"\
-      : 0.7,\n    \"security_score\": 0.8\n  },\n  \"relationships\": {\n    \"depends_on\"\
-      : [],\n    \"extends\": [],\n    \"conflicts_with\": [],\n    \"overlaps_with\"\
-      : []\n  }\n}"
+    type: multipart-form
+    data:
+    - name: metadata
+      value: |-
+        {
+          "intent": "publish_version",
+          "version": "1.0.0",
+          "metadata": {
+            "name": "Duplicate Seed Skill",
+            "description": "Seed version for duplicate publish coverage",
+            "tags": ["postman", "negative", "duplicate"],
+            "inputs_schema": {
+              "type": "object"
+            },
+            "outputs_schema": {
+              "type": "object"
+            },
+            "token_estimate": 75,
+            "maturity_score": 0.7,
+            "security_score": 0.8
+          },
+          "relationships": {
+            "depends_on": [],
+            "extends": [],
+            "conflicts_with": [],
+            "overlaps_with": []
+          }
+        }
+    - name: bundle
+      value: "@file(../../fixtures/duplicate.tar.zst)"
 runtime:
   scripts:
   - type: before-request

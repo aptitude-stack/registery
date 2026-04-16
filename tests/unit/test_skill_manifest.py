@@ -15,7 +15,6 @@ def _request() -> dict[str, object]:
     return {
         "intent": "create_skill",
         "version": "1.2.3",
-        "content": {"raw_markdown": "# Python Lint\n"},
         "metadata": {"name": "Python Lint", "tags": ["python", "lint"]},
         "governance": {"trust_tier": "untrusted"},
         "relationships": {
@@ -159,10 +158,7 @@ def test_publish_request_rejects_rendered_summary_field() -> None:
         SkillVersionCreateRequest.model_validate(
             {
                 **_request(),
-                "content": {
-                    "raw_markdown": "# Python Lint\n",
-                    "rendered_summary": "Legacy summary field",
-                },
+                "content": {"raw_markdown": "# Python Lint\n"},
             }
         )
 

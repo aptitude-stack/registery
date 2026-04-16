@@ -1,40 +1,36 @@
-"""Core exact fetch service for immutable metadata and markdown reads."""
+"""Core exact fetch service for immutable metadata and bundle reads."""
 
 from __future__ import annotations
 
 from app.core.audit_events import build_version_list_audit_event
 from app.core.governance import CallerIdentity, GovernancePolicy
-from app.core.ports import AuditPort, SkillInstallCounterPort, SkillVersionReadPort
+from app.core.ports import AuditPort, SkillCatalogRepository
 
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import (
-    SHA256_ALGORITHM,
-    SkillChecksum,
-    SkillContentDocument,
+    SkillContentRecord,
     SkillNotFoundError,
     SkillVersionDetail,
     SkillVersionList,
     SkillVersionNotFoundError,
+    SkillVersionSummary,
 )
-from .projections import to_skill_version_detail, to_skill_version_summary
 from .version_ordering import select_current_default_version, sort_versions_for_listing
 
 
 class SkillFetchService:
-    """Read-only service for exact immutable metadata and markdown access."""
+    """Read-only service for exact immutable metadata and bundle access."""
 
     def __init__(
         self,
         *,
-        version_reader: SkillVersionReadPort,
+        repository: SkillCatalogRepository,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
-        install_counter: SkillInstallCounterPort,
     ) -> None:
-        self._version_reader = version_reader
+        self._repository = repository
         self._audit_recorder = audit_recorder
         self._governance_policy = governance_policy
-        self._install_counter = install_counter
 
     def get_version_metadata(
         self,
@@ -44,7 +40,7 @@ class SkillFetchService:
         version: str,
     ) -> SkillVersionDetail:
         """Return immutable version metadata for one exact coordinate."""
-        stored = self._version_reader.get_version(slug=slug, version=version)
+        stored = self._repository.get_version_detail(slug=slug, version=version)
         if stored is None:
             raise SkillVersionNotFoundError(slug=slug, version=version)
 
@@ -60,8 +56,7 @@ class SkillFetchService:
             ),
             surface="metadata",
         )
-        detail = to_skill_version_detail(stored=stored)
-        return detail
+        return stored
 
     def get_content(
         self,
@@ -69,9 +64,9 @@ class SkillFetchService:
         caller: CallerIdentity,
         slug: str,
         version: str,
-    ) -> SkillContentDocument:
-        """Return immutable markdown content for one exact coordinate."""
-        stored = self._version_reader.get_version_content(slug=slug, version=version)
+    ) -> SkillContentRecord:
+        """Return immutable bundle content for one exact coordinate."""
+        stored = self._repository.get_version_content(slug=slug, version=version)
         if stored is None:
             raise SkillVersionNotFoundError(slug=slug, version=version)
 
@@ -87,16 +82,8 @@ class SkillFetchService:
             ),
             surface="content",
         )
-        document = SkillContentDocument(
-            raw_markdown=stored.raw_markdown,
-            checksum=SkillChecksum(
-                algorithm=SHA256_ALGORITHM,
-                digest=stored.checksum_digest,
-            ),
-            size_bytes=stored.size_bytes,
-        )
-        self._install_counter.record_install(slug=stored.slug, version=stored.version)
-        return document
+        self._repository.record_install(slug=stored.slug, version=stored.version)
+        return stored
 
     def list_versions(
         self,
@@ -105,7 +92,7 @@ class SkillFetchService:
         slug: str,
     ) -> SkillVersionList:
         """Return visible immutable versions for one skill identity."""
-        stored_versions = self._version_reader.list_versions(slug=slug)
+        stored_versions = self._repository.list_versions(slug=slug)
         if not stored_versions:
             raise SkillNotFoundError(slug=slug)
 
@@ -123,8 +110,11 @@ class SkillFetchService:
         visible_versions = sort_versions_for_listing(visible_versions)
         current_default = select_current_default_version(visible_versions)
         versions = tuple(
-            to_skill_version_summary(
-                stored=stored,
+            SkillVersionSummary(
+                version=stored.version,
+                lifecycle_status=stored.lifecycle_status,
+                trust_tier=stored.trust_tier,
+                published_at=stored.published_at,
                 is_current_default=current_default is not None
                 and stored.version == current_default.version,
             )

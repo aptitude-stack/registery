@@ -86,14 +86,6 @@ class ExactRelationshipSelectorRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class SkillVersionContentRequest(BaseModel):
-    """Markdown body provided at publish time."""
-
-    raw_markdown: str = Field(description="Canonical markdown body for this immutable version.")
-
-    model_config = ConfigDict(extra="forbid")
-
-
 class SkillVersionMetadataRequest(BaseModel):
     """Structured query metadata provided at publish time."""
 
@@ -187,7 +179,7 @@ class SkillGovernanceRequest(BaseModel):
 
 
 class SkillVersionCreateRequest(BaseModel):
-    """Normalized JSON publish body for one immutable version under a slug path."""
+    """Structured publish metadata for one immutable version under a slug path."""
 
     intent: PublishIntent = Field(
         description=(
@@ -199,7 +191,6 @@ class SkillVersionCreateRequest(BaseModel):
         pattern=SEMVER_PATTERN,
         description="Immutable semantic version being published.",
     )
-    content: SkillVersionContentRequest
     metadata: SkillVersionMetadataRequest
     governance: SkillGovernanceRequest = Field(default_factory=SkillGovernanceRequest)
     relationships: SkillVersionRelationshipsRequest = Field(

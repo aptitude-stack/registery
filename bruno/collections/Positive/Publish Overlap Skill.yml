@@ -9,40 +9,43 @@ http:
   headers:
     - name: Accept
       value: application/json
-    - name: Content-Type
-      value: application/json
     - name: Authorization
       value: Bearer {{publishToken}}
   body:
-    type: json
-    data: |-
-      {
-        "intent": "create_skill",
-        "version": "{{sanity_version_1}}",
-        "content": {
-          "raw_markdown": "# Postman Overlap Skill\n\nRun `{{runId}}` overlap version 1.\n"
-        },
-        "metadata": {
-          "name": "Postman Overlap Skill",
-          "description": "Overlap seed for relationship coverage",
-          "tags": ["postman", "sanity", "overlap"],
-          "inputs_schema": {
-            "type": "object"
-          },
-          "outputs_schema": {
-            "type": "object"
-          },
-          "token_estimate": 130,
-          "maturity_score": 0.83,
-          "security_score": 0.92
-        },
-        "relationships": {
-          "depends_on": [],
-          "extends": [],
-          "conflicts_with": [],
-          "overlaps_with": []
-        }
-      }
+    type: multipart-form
+    data:
+      - name: metadata
+        type: text
+        value: |-
+          {
+            "intent": "create_skill",
+            "version": "{{sanity_version_1}}",
+            "metadata": {
+              "name": "Postman Overlap Skill",
+              "description": "Overlap seed for relationship coverage",
+              "tags": ["postman", "sanity", "overlap"],
+              "inputs_schema": {
+                "type": "object"
+              },
+              "outputs_schema": {
+                "type": "object"
+              },
+              "token_estimate": 130,
+              "maturity_score": 0.83,
+              "security_score": 0.92
+            },
+            "relationships": {
+              "depends_on": [],
+              "extends": [],
+              "conflicts_with": [],
+              "overlaps_with": []
+            }
+          }
+      - name: bundle
+        type: file
+        value:
+          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/overlap.tar.zst
+        contentType: application/zstd
 
 runtime:
   scripts:
@@ -97,6 +100,7 @@ runtime:
         test('Overlap skill publish returns the created version', function () {
           expect(json.slug).to.eql(bru.getVar('sanity_overlap_slug'));
           expect(json.version).to.eql(bru.getVar('sanity_version_1'));
+          expect(json.content.media_type).to.eql('application/zstd');
         });
 
         bru.runner.setNextRequest(res.getStatus() === 201 ? 'Publish Skill v1' : null);

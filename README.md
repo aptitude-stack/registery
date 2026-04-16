@@ -152,7 +152,7 @@ Local URLs:
 
 - API: `http://127.0.0.1:8000`
 - Swagger docs: `http://127.0.0.1:8000/docs`
-- Metrics: `http://127.0.0.1:8000/metrics`
+- Metrics: `http://127.0.0.1:3000`
 
 For the full setup flow, observability profile, verification commands, and troubleshooting entrypoints, use [`docs/contributors/development-setup.md`](docs/contributors/development-setup.md) and [`docs/reference/operations/README.md`](docs/reference/operations/README.md).
 

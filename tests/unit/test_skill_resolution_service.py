@@ -10,12 +10,11 @@ from app.core.governance import (
     PolicyViolation,
     build_default_policy_profile,
 )
-from app.core.ports import (
-    ExactSkillCoordinate,
-    StoredRelationshipSelector,
-    StoredSkillRelationshipSource,
+from app.core.skills.models import (
+    SkillRelationshipSelector,
+    SkillRelationshipSource,
+    SkillVersionNotFoundError,
 )
-from app.core.skills.models import SkillVersionNotFoundError
 from app.core.skills.resolution import SkillResolutionService
 
 
@@ -30,55 +29,41 @@ class FakeAuditRecorder:
         self.events.append(event_type)
 
 
-class FakeRelationshipReader:
-    """Stub relationship source reader keyed by exact coordinate."""
+class FakeCatalogRepository:
+    """Stub relationship source repository keyed by exact coordinate."""
 
-    def __init__(self, *sources: StoredSkillRelationshipSource) -> None:
+    def __init__(self, *sources: SkillRelationshipSource) -> None:
         self._sources = {(item.slug, item.version): item for item in sources}
 
-    def get_relationship_sources_batch(
+    def get_relationship_source(
         self,
         *,
-        coordinates: tuple[ExactSkillCoordinate, ...],
-    ) -> tuple[StoredSkillRelationshipSource, ...]:
-        return tuple(
-            source
-            for coordinate in coordinates
-            if (source := self._sources.get((coordinate.slug, coordinate.version))) is not None
-        )
+        slug: str,
+        version: str,
+    ) -> SkillRelationshipSource | None:
+        return self._sources.get((slug, version))
 
 
 @pytest.mark.unit
 def test_get_direct_dependencies_returns_only_depends_on_selectors() -> None:
     audit_recorder = FakeAuditRecorder()
-    source = StoredSkillRelationshipSource(
+    source = SkillRelationshipSource(
         slug="python.source",
         version="1.0.0",
         lifecycle_status="published",
         trust_tier="internal",
         relationships=(
-            StoredRelationshipSelector(
-                edge_type="depends_on",
-                ordinal=0,
+            SkillRelationshipSelector(
                 slug="python.dep",
                 version="2.0.0",
                 version_constraint=None,
                 optional=True,
                 markers=("linux",),
             ),
-            StoredRelationshipSelector(
-                edge_type="extends",
-                ordinal=0,
-                slug="python.base",
-                version="1.0.0",
-                version_constraint=None,
-                optional=None,
-                markers=(),
-            ),
         ),
     )
     service = SkillResolutionService(
-        relationship_reader=FakeRelationshipReader(source),
+        repository=FakeCatalogRepository(source),
         audit_recorder=audit_recorder,
         governance_policy=GovernancePolicy(profile=build_default_policy_profile()),
     )
@@ -102,7 +87,7 @@ def test_get_direct_dependencies_returns_only_depends_on_selectors() -> None:
 @pytest.mark.unit
 def test_get_direct_dependencies_raises_not_found_for_unknown_coordinate() -> None:
     service = SkillResolutionService(
-        relationship_reader=FakeRelationshipReader(),
+        repository=FakeCatalogRepository(),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=GovernancePolicy(profile=build_default_policy_profile()),
     )
@@ -119,8 +104,8 @@ def test_get_direct_dependencies_raises_not_found_for_unknown_coordinate() -> No
 def test_get_direct_dependencies_audits_denied_exact_reads() -> None:
     audit_recorder = FakeAuditRecorder()
     service = SkillResolutionService(
-        relationship_reader=FakeRelationshipReader(
-            StoredSkillRelationshipSource(
+        repository=FakeCatalogRepository(
+            SkillRelationshipSource(
                 slug="python.source",
                 version="1.0.0",
                 lifecycle_status="archived",

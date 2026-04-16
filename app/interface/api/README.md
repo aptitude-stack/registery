@@ -18,7 +18,7 @@ adapter layer between FastAPI and core services.
 - `resolution.py`: exact first-degree dependency read route at
   `/resolution/{slug}/{version}`.
 - `fetch.py`: identity-level version listing plus exact immutable metadata and
-  markdown fetch routes under `/skills/{slug}` and `/skills/{slug}/{version}`.
+  artifact fetch routes under `/skills/{slug}` and `/skills/{slug}/{version}`.
 - `skills.py`: publish and lifecycle-status routes.
 - `errors.py`: stable JSON error envelope helpers and FastAPI exception
   handlers.
@@ -42,7 +42,7 @@ adapter layer between FastAPI and core services.
   declarations for one immutable version.
 - `GET /skills/{slug}/{version}`: immutable metadata fetch for one
   exact coordinate.
-- `GET /skills/{slug}/{version}/content`: immutable markdown fetch for
+- `GET /skills/{slug}/{version}/content`: immutable artifact fetch for
   one exact coordinate.
 - `POST /skills/{slug}`: immutable skill version publication.
 - `PATCH /skills/{slug}/{version}/status`: lifecycle-status transition
@@ -71,8 +71,8 @@ matches, solve dependencies, or plan execution.
 `GET /resolution/{slug}/{version}` returns direct authored dependencies only;
 it does not expand transitive graphs or select versions for constraints.
 The exact fetch routes intentionally separate exact metadata responses from
-immutable markdown bytes so metadata reads stay JSON-oriented while raw content
-reads preserve cache-friendly markdown delivery headers.
+immutable artifact bytes so metadata reads stay JSON-oriented while exact content
+reads preserve cache-friendly artifact delivery headers.
 `GET /skills/{slug}` returns a summary list only; callers still use the exact
 metadata/content routes for per-version detail.
 Publisher-supplied provenance may appear only on publish/exact metadata

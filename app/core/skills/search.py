@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from app.core.audit_events import build_search_audit_event
 from app.core.governance import CallerIdentity, GovernancePolicy, LifecycleStatus, TrustTier
-from app.core.ports import AuditPort, SearchCandidatesRequest, SkillSearchPort
+from app.core.ports import AuditPort, SearchCandidatesRequest, SkillCatalogRepository
 from app.intelligence.search_ranking import (
     build_search_audit_payload,
     build_search_explanation,
@@ -55,11 +55,11 @@ class SkillSearchService:
     def __init__(
         self,
         *,
-        search_port: SkillSearchPort,
+        repository: SkillCatalogRepository,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
     ) -> None:
-        self._search_port = search_port
+        self._repository = repository
         self._audit_recorder = audit_recorder
         self._governance_policy = governance_policy
 
@@ -85,7 +85,7 @@ class SkillSearchService:
         trust_tiers = self._governance_policy.resolve_discovery_trust_tiers(
             requested_trust_tiers=query.trust_tier,
         )
-        stored_results = self._search_port.search_candidates(
+        stored_results = self._repository.search_candidates(
             request=SearchCandidatesRequest(
                 query_text=normalized_request.query_text,
                 required_tags=normalized_request.effective_tags,

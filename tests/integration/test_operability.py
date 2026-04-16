@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
+from app.core.skills.bundle_archive import build_skill_bundle
 from app.main import create_app
 
 
@@ -24,7 +25,7 @@ def _request(version: str) -> dict[str, object]:
     return {
         "intent": "create_skill",
         "version": version,
-        "content": {"raw_markdown": "# Python Lint\n\nLint Python files.\n"},
+        "bundle_raw_markdown": "# Python Lint\n\nLint Python files.\n",
         "metadata": {
             "name": "Python Lint",
             "description": "Linting skill",
@@ -43,6 +44,10 @@ def _request(version: str) -> dict[str, object]:
             "overlaps_with": [],
         },
     }
+
+
+def _bundle(markdown: str) -> bytes:
+    return build_skill_bundle(markdown)
 
 
 def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
@@ -119,9 +124,14 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
     slug = f"python.operability.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
+        payload = _request("1.0.0")
+        raw_markdown = str(payload.pop("bundle_raw_markdown"))
         publish = client.post(
             f"/skills/{slug}",
-            json=_request("1.0.0"),
+            files={
+                "metadata": (None, json.dumps(payload), "application/json"),
+                "bundle": ("skill.tar.zst", _bundle(raw_markdown), "application/zstd"),
+            },
             headers=_headers("publisher-token", request_id="req-publish"),
         )
         metrics = client.get("/metrics")

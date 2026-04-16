@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from app.bootstrap.demo_catalog import build_demo_catalog
 from app.bootstrap.seed_demo import seed_demo_catalog
+from app.core.skills.bundle_archive import SKILL_ARTIFACT_MEDIA_TYPE
 from app.core.skills.models import (
     DuplicateSkillVersionError,
     SkillAlreadyExistsError,
@@ -101,6 +102,7 @@ def _detail_for(
         version_checksum=SkillChecksum(algorithm="sha256", digest="0" * 64),
         content=SkillContentSummary(
             checksum=SkillChecksum(algorithm="sha256", digest="1" * 64),
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
             size_bytes=123,
         ),
         metadata=SkillMetadata(
