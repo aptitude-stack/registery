@@ -161,7 +161,6 @@ Structured, queryable metadata for discovery and ranking.
 | `name` | `text` | `NOT NULL` | Display name |
 | `description` | `text` | nullable | Canonical author-owned short description used for discovery and exact metadata reads |
 | `tags` | `text[]` | `NOT NULL`, default empty array | Primary categorical filters |
-| `headers` | `jsonb` | nullable | Legacy compatibility column left in storage; not populated or returned by the current public API |
 | `inputs_schema` | `jsonb` | nullable | Structured input contract |
 | `outputs_schema` | `jsonb` | nullable | Structured output contract |
 | `token_estimate` | `integer` | nullable | Approximate token footprint |

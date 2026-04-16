@@ -12,4 +12,5 @@ This directory holds forward-looking technical direction.
 
 - [`requirements-and-phases.md`](requirements-and-phases.md)
 - [`near-term-evolution.md`](near-term-evolution.md)
+- [`registry-feature-rationale.md`](registry-feature-rationale.md)
 - [`drafts/`](drafts/)

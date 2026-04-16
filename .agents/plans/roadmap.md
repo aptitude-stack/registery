@@ -35,7 +35,7 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 9. `09-public-api-simplification-and-contract-freeze.md`
 10. `10-governance-provenance-and-audit-completion.md`
 11. `11-operability-and-release-readiness.md`
-12. `12-optional-evaluation-signals-and-snapshotting.md`
+12. `12-full-skill-directory-bundle-support.md`
 13. `13-environment-profiles-and-runtime-separation.md`
 14. `14-minimal-auth-boundary-and-token-governance.md`
 15. `15-hybrid-semantic-and-co-usage-discovery.md`
@@ -46,7 +46,7 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 - `Read-contract simplification`: milestone 07.
 - `v2.0` prep (prd): milestones 08-10.
 - `Release readiness`: milestone 11.
-- `Post-launch optional discovery enhancements`: milestone 12.
+- `Bundle artifact model reset`: milestone 12.
 - `Environment profile separation`: milestone 13.
 - `Security boundary hardening`: milestone 14.
 - `Post-launch hybrid semantic and co-usage discovery`: milestone 15.
