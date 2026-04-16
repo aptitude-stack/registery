@@ -11,11 +11,12 @@ import pytest
 @pytest.mark.parametrize(
     ("module_name", "symbol_name"),
     [
+        ("app.core.skills.bundle_archive", "build_skill_bundle"),
         ("app.core.skills.discovery", "SkillDiscoveryService"),
         ("app.core.skills.exact_read", "enforce_and_audit_exact_read"),
         ("app.core.skills.fetch", "SkillFetchService"),
         ("app.core.skills.models", "SkillVersionDetail"),
-        ("app.core.skills.projections", "to_skill_version_detail"),
+        ("app.core.skills.normalization", "normalize_search_text"),
         ("app.core.skills.registry", "SkillRegistryService"),
         ("app.core.skills.resolution", "SkillResolutionService"),
         ("app.core.skills.search", "SkillSearchService"),

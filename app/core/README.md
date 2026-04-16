@@ -7,18 +7,17 @@ server-vs-resolver boundary.
 
 ## Purpose
 
-Defines business behavior for immutable skill catalog operations and the ports
-that infrastructure layers implement.
+Defines business behavior for immutable skill catalog operations and the small
+set of infrastructure contracts those services depend on.
 
 ## Structure
 
 - `skills/`: skill-domain bounded context containing publish, discovery, exact
-  fetch, resolution, advisory search, shared projections, and skill-domain
-  models/errors.
+  fetch, resolution, advisory search, bundle/archive helpers, shared
+  normalization, and skill-domain models/errors.
 - `audit_events.py`: typed audit-event builders shared by publish, discovery,
   list/fetch, resolution, and lifecycle flows.
-- `ports.py`: protocol contracts for publish, identity-level version lists,
-  exact version reads, relationship reads, discovery, artifacts, audit, and
+- `ports.py`: protocol contracts for the unified catalog repository, audit, and
   readiness.
 - `dependencies.py`: FastAPI dependency providers and typed aliases
   (`SettingsDep`, `ReadinessServiceDep`, `SkillRegistryServiceDep`, `SkillDiscoveryServiceDep`, `SkillResolutionServiceDep`, `SkillFetchServiceDep`) that read process-scoped services from the typed runtime service container at `app.state.services`.

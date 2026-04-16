@@ -30,9 +30,10 @@ class SkillRelationshipSelector:
 
 @dataclass(frozen=True, slots=True)
 class SkillContentInput:
-    """Publish-time markdown content."""
+    """Publish-time bundle artifact content."""
 
-    raw_markdown: str
+    payload: bytes
+    media_type: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,19 +83,35 @@ class SkillChecksum:
 
 @dataclass(frozen=True, slots=True)
 class SkillContentSummary:
-    """Compact content metadata returned without the full markdown body."""
+    """Compact artifact metadata returned without the full bundle payload."""
 
     checksum: SkillChecksum
+    media_type: str
     size_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
 class SkillContentDocument:
-    """Full markdown content document."""
+    """Full immutable bundle artifact document."""
 
-    raw_markdown: str
+    payload: bytes
     checksum: SkillChecksum
+    media_type: str
     size_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class SkillContentRecord:
+    """Internal exact-read content record including governance state."""
+
+    slug: str
+    version: str
+    payload: bytes
+    checksum: SkillChecksum
+    media_type: str
+    size_bytes: int
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +130,7 @@ class SkillMetadata:
 
 @dataclass(frozen=True, slots=True)
 class SkillVersionDetail:
-    """Detailed immutable metadata projection without the raw markdown body."""
+    """Detailed immutable metadata projection without the bundle payload."""
 
     slug: str
     version: str
@@ -139,11 +156,33 @@ class SkillVersionSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillVersionListEntry:
+    """Internal version-list row used before visibility/default selection."""
+
+    slug: str
+    version: str
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
+    published_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class SkillVersionList:
     """Visible immutable versions for one skill identity."""
 
     slug: str
     versions: tuple[SkillVersionSummary, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SkillRelationshipSource:
+    """Internal exact-read relationship source including governance state."""
+
+    slug: str
+    version: str
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
+    relationships: tuple[SkillRelationshipSelector, ...]
 
 
 @dataclass(frozen=True, slots=True)

@@ -59,10 +59,11 @@ class ChecksumResponse(BaseModel):
 
 
 class SkillContentSummaryResponse(BaseModel):
-    """Compact content metadata returned without the full markdown body."""
+    """Compact bundle metadata returned without the full bundle payload."""
 
     checksum: ChecksumResponse
-    size_bytes: int = Field(description="UTF-8 byte length of the stored markdown.")
+    media_type: str = Field(description="Media type of the stored immutable artifact.")
+    size_bytes: int = Field(description="Byte length of the stored immutable artifact.")
 
 
 class SkillMetadataResponse(BaseModel):

@@ -8,7 +8,7 @@ http:
   url: "{{baseUrl}}/skills/{{sanity_primary_slug}}/{{sanity_version_2}}/content"
   headers:
     - name: Accept
-      value: text/markdown
+      value: application/zstd
     - name: Authorization
       value: Bearer {{readToken}}
 
@@ -56,9 +56,6 @@ runtime:
         }
     - type: tests
       code: |-
-        const body = res.getBody();
-        const runId = bru.getVar('runId');
-        const expected = `# Postman Primary Skill v2\n\nRun \`${runId}\` primary skill version 2 with a larger body for discovery and content checks.\n`;
         const getHeader = (name) =>
           res.getHeader?.(name) ??
           res.getHeader?.(name.toLowerCase()) ??
@@ -69,20 +66,19 @@ runtime:
           expect(res.getStatus()).to.equal(200);
         });
 
-        test('Exact content fetch returns immutable markdown with cache headers', function () {
+        test('Exact content fetch returns immutable zstd bundle content with cache headers', function () {
           const contentType = getHeader('Content-Type');
           const cacheControl = getHeader('Cache-Control');
           const etag = getHeader('ETag');
           const contentLength = getHeader('Content-Length');
 
           expect(contentType).to.be.a('string');
-          expect(contentType).to.include('text/markdown; charset=utf-8');
+          expect(contentType).to.include('application/zstd');
           expect(cacheControl).to.eql('public, immutable');
           expect(etag).to.eql(
             bru.getVar('sanity_primary_content_digest'),
           );
-          expect(contentLength).to.eql(String(expected.length));
-          expect(body).to.eql(expected);
+          expect(Number(contentLength)).to.be.greaterThan(0);
         });
 
         bru.runner.setNextRequest(

@@ -12,7 +12,7 @@ from app.persistence.models.base import Base
 
 
 class SkillMetadata(Base):
-    """Stores queryable metadata separately from markdown content."""
+    """Stores queryable metadata separately from bundle content."""
 
     __tablename__ = "skill_metadata"
 

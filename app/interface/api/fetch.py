@@ -1,4 +1,4 @@
-"""HTTP contract for exact metadata and immutable markdown fetch endpoints."""
+"""HTTP contract for exact metadata and immutable bundle fetch endpoints."""
 
 from __future__ import annotations
 
@@ -47,11 +47,12 @@ METADATA_RESPONSES: ApiResponses = {
 
 CONTENT_RESPONSES: ApiResponses = {
     status.HTTP_200_OK: {
-        "description": "Immutable markdown content returned successfully.",
+        "description": "Immutable artifact content returned successfully.",
         "content": {
-            "text/markdown": {
+            "application/zstd": {
                 "schema": {
                     "type": "string",
+                    "format": "binary",
                 }
             }
         },
@@ -150,8 +151,8 @@ def get_version_metadata(
 @router.get(
     "/skills/{slug}/{version}/content",
     operation_id="getImmutableContent",
-    summary="Fetch immutable markdown content",
-    description="Return the immutable markdown body for one exact `slug@version`.",
+    summary="Fetch immutable artifact content",
+    description="Return the immutable stored `.tar.zst` artifact for one exact `slug@version`.",
     response_model=None,
     responses=CONTENT_RESPONSES,
 )
@@ -171,7 +172,7 @@ def get_version_content(
     fetch_service: SkillFetchServiceDep,
     caller: ReadCallerDep,
 ) -> Response | JSONResponse:
-    """Return the immutable markdown body for one exact coordinate."""
+    """Return the immutable bundle bytes for one exact coordinate."""
     try:
         document = fetch_service.get_content(
             caller=caller,
@@ -188,8 +189,8 @@ def get_version_content(
         )
 
     return Response(
-        content=document.raw_markdown.encode("utf-8"),
-        media_type="text/markdown; charset=utf-8",
+        content=document.payload,
+        media_type=document.media_type,
         headers={
             "ETag": document.checksum.digest,
             "Cache-Control": "public, immutable",

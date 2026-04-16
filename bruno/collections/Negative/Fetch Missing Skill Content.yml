@@ -7,7 +7,7 @@ http:
   url: '{{baseUrl}}/skills/{{negative_missing_slug}}/{{negative_missing_version}}/content'
   headers:
   - name: Accept
-    value: text/markdown
+    value: application/zstd
   - name: Authorization
     value: Bearer {{readToken}}
 runtime:

@@ -32,7 +32,11 @@ def to_metadata_response(detail: SkillVersionDetail) -> SkillVersionMetadataResp
         version=detail.version,
         install_count=detail.install_count,
         version_checksum=_checksum_response(detail.version_checksum),
-        content=_content_summary_response(detail.content.checksum, detail.content.size_bytes),
+        content=_content_summary_response(
+            detail.content.checksum,
+            media_type=detail.content.media_type,
+            size_bytes=detail.content.size_bytes,
+        ),
         metadata=_metadata_response(detail.metadata),
         lifecycle_status=detail.lifecycle_status,
         trust_tier=detail.trust_tier,
@@ -55,10 +59,13 @@ def _checksum_response(checksum: SkillChecksum) -> ChecksumResponse:
 
 def _content_summary_response(
     checksum: SkillChecksum,
+    *,
+    media_type: str,
     size_bytes: int,
 ) -> SkillContentSummaryResponse:
     return SkillContentSummaryResponse(
         checksum=_checksum_response(checksum),
+        media_type=media_type,
         size_bytes=size_bytes,
     )
 

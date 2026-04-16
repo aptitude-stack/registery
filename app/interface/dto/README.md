@@ -33,5 +33,5 @@ lifecycle-status APIs.
   publishing a version to an existing one.
 - Advisory provenance fields are publisher-supplied on publish, while
   server-derived trust context is returned only on immutable metadata reads.
-- Raw markdown content fetch is modeled directly as an HTTP response, so this
-  module keeps the exact metadata response model but not a markdown-body DTO.
+- Exact bundle content fetch is modeled directly as an HTTP response, so this
+  module keeps the exact metadata response model but not a bundle-body DTO.

@@ -12,6 +12,7 @@ from app.core.governance import (
     ProvenanceMetadata,
     SkillGovernanceInput,
 )
+from app.core.skills.bundle_archive import SKILL_ARTIFACT_MEDIA_TYPE, build_skill_bundle
 from app.core.skills.models import (
     CreateSkillVersionCommand,
     SkillContentInput,
@@ -670,7 +671,10 @@ def _entry(
             slug=slug,
             intent="create_skill" if version in {"1.0.0", "0.9.0"} else "publish_version",
             version=version,
-            content=SkillContentInput(raw_markdown=content),
+            content=SkillContentInput(
+                payload=_bundle_content(content),
+                media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+            ),
             metadata=SkillMetadataInput(
                 name=name,
                 description=description,
@@ -792,7 +796,7 @@ search projection ranking, provenance rendering, and lifecycle-aware listings in
 ## When To Use
 {when_to_use}
 
-The primary goal of this markdown body is to give local Docker and smoke-test environments a
+The primary goal of this authored skill document is to give local Docker and smoke-test environments a
 non-trivial skill document with enough structure to validate content integrity, storage sizing,
 and downstream rendering.
 
@@ -806,7 +810,7 @@ tested with realistic documentation rather than placeholder filler text.
 {inputs}
 
 Input contracts are mirrored in the structured metadata schema, but the prose here is useful for
-exact markdown reads and for validating that the registry stores comprehensive authored content.
+exact bundle reads and for validating that the registry stores comprehensive authored content.
 
 ## Outputs
 {outputs}
@@ -818,7 +822,7 @@ stronger descriptions to rank and return.
 {steps}
 
 The step sequence is verbose on purpose. It gives the demo catalog a realistic body size and helps
-validate that the service can preserve meaningful long-form markdown content in PostgreSQL.
+validate that the service can preserve meaningful long-form skill content in PostgreSQL.
 
 ## Examples
 {examples}
@@ -838,3 +842,7 @@ to ensure the seeded catalog covers richer documentation patterns than a minimal
 Future demo updates should extend this section rather than rewriting history so version-to-version
 differences remain easy to inspect through the immutable fetch APIs.
 """
+
+
+def _bundle_content(markdown: str) -> bytes:
+    return build_skill_bundle(markdown)

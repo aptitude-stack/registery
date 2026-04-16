@@ -17,31 +17,35 @@ from app.core.governance import (
 from app.core.ports import (
     AuditEventRecord,
     CreateSkillVersionRecord,
-    SkillRegistryPersistenceError,
-    StoredSkillVersion,
-    StoredSkillVersionStatus,
+    DuplicateSkillSlugPersistenceError,
+    DuplicateSkillVersionPersistenceError,
 )
-from app.core.skills.registry import (
+from app.core.skills.bundle_archive import SKILL_ARTIFACT_MEDIA_TYPE, build_skill_bundle
+from app.core.skills.models import (
     CreateSkillVersionCommand,
-    DuplicateSkillVersionError,
     SkillAlreadyExistsError,
+    SkillChecksum,
     SkillContentInput,
+    SkillContentSummary,
+    SkillMetadata,
     SkillMetadataInput,
     SkillNotFoundError,
-    SkillRegistryService,
     SkillRelationshipsInput,
+    SkillVersionDetail,
+    SkillVersionNotFoundError,
+    SkillVersionStatusUpdate,
+)
+from app.core.skills.registry import (
+    DuplicateSkillVersionError,
+    SkillRegistryService,
 )
 
 
-class _SlugConflictCause(Exception):
-    """Synthetic DB cause carrying the skills.slug constraint name."""
-
-
-class FakeRegistry:
+class FakeCatalogRepository:
     """In-memory stub for core registry tests."""
 
     def __init__(self) -> None:
-        self._records: dict[tuple[str, str], StoredSkillVersion] = {}
+        self._records: dict[tuple[str, str], SkillVersionDetail] = {}
         self.audit_events: list[AuditEventRecord] = []
 
     def skill_exists(self, *, slug: str) -> bool:
@@ -55,38 +59,47 @@ class FakeRegistry:
         *,
         record: CreateSkillVersionRecord,
         audit_events: tuple[AuditEventRecord, ...] = (),
-    ) -> StoredSkillVersion:
+    ) -> SkillVersionDetail:
         key = (record.slug, record.version)
         if key in self._records:
-            raise DuplicateSkillVersionError(slug=record.slug, version=record.version)
+            raise DuplicateSkillVersionPersistenceError("duplicate immutable version")
 
-        stored = StoredSkillVersion(
+        stored = SkillVersionDetail(
             slug=record.slug,
             version=record.version,
             install_count=0,
-            version_checksum_digest=record.version_checksum_digest,
-            content_checksum_digest=record.content.checksum_digest,
-            content_size_bytes=record.content.size_bytes,
-            name=record.metadata.name,
-            description=record.metadata.description,
-            tags=record.metadata.tags,
-            inputs_schema=record.metadata.inputs_schema,
-            outputs_schema=record.metadata.outputs_schema,
-            token_estimate=record.metadata.token_estimate,
-            maturity_score=record.metadata.maturity_score,
-            security_score=record.metadata.security_score,
+            version_checksum=SkillChecksum(
+                algorithm="sha256",
+                digest=record.version_checksum_digest,
+            ),
+            content=SkillContentSummary(
+                checksum=SkillChecksum(
+                    algorithm="sha256",
+                    digest=record.content.checksum_digest,
+                ),
+                media_type=record.content.media_type,
+                size_bytes=record.content.size_bytes,
+            ),
+            metadata=SkillMetadata(
+                name=record.metadata.name,
+                description=record.metadata.description,
+                tags=record.metadata.tags,
+                inputs_schema=record.metadata.inputs_schema,
+                outputs_schema=record.metadata.outputs_schema,
+                token_estimate=record.metadata.token_estimate,
+                maturity_score=record.metadata.maturity_score,
+                security_score=record.metadata.security_score,
+            ),
             lifecycle_status="published",
             trust_tier=record.governance.trust_tier,
             provenance=record.governance.provenance,
-            lifecycle_changed_at=datetime.now(tz=UTC),
             published_at=datetime.now(tz=UTC),
-            relationships=(),
         )
         self._records[key] = stored
         self.audit_events.extend(audit_events)
         return stored
 
-    def get_version(self, *, slug: str, version: str) -> StoredSkillVersion | None:
+    def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
         return self._records.get((slug, version))
 
     def update_version_status(
@@ -96,40 +109,30 @@ class FakeRegistry:
         version: str,
         lifecycle_status: str,
         audit_events: tuple[AuditEventRecord, ...] = (),
-    ) -> StoredSkillVersionStatus | None:
+    ) -> SkillVersionStatusUpdate | None:
         record = self._records.get((slug, version))
         if record is None:
             return None
-        updated = StoredSkillVersion(
+        updated = SkillVersionDetail(
             slug=record.slug,
             version=record.version,
             install_count=record.install_count,
-            version_checksum_digest=record.version_checksum_digest,
-            content_checksum_digest=record.content_checksum_digest,
-            content_size_bytes=record.content_size_bytes,
-            name=record.name,
-            description=record.description,
-            tags=record.tags,
-            inputs_schema=record.inputs_schema,
-            outputs_schema=record.outputs_schema,
-            token_estimate=record.token_estimate,
-            maturity_score=record.maturity_score,
-            security_score=record.security_score,
+            version_checksum=record.version_checksum,
+            content=record.content,
+            metadata=record.metadata,
             lifecycle_status=lifecycle_status,
             trust_tier=record.trust_tier,
             provenance=record.provenance,
-            lifecycle_changed_at=datetime.now(tz=UTC),
             published_at=record.published_at,
-            relationships=record.relationships,
         )
         self._records[(slug, version)] = updated
         self.audit_events.extend(audit_events)
-        return StoredSkillVersionStatus(
+        return SkillVersionStatusUpdate(
             slug=slug,
             version=version,
-            lifecycle_status=lifecycle_status,
+            status=lifecycle_status,
             trust_tier=updated.trust_tier,
-            lifecycle_changed_at=updated.lifecycle_changed_at,
+            lifecycle_changed_at=datetime.now(tz=UTC),
             is_current_default=True,
         )
 
@@ -141,22 +144,21 @@ class FakeAuditRecorder:
         self.events: list[str] = []
 
     def record_event(self, *, event_type: str, payload: dict[str, object] | None = None) -> None:
+        del payload
         self.events.append(event_type)
 
 
-class SlugConflictRegistry(FakeRegistry):
-    """Registry stub that simulates a slug uniqueness race during persistence."""
+class SlugConflictRepository(FakeCatalogRepository):
+    """Repository stub that simulates a slug uniqueness race during persistence."""
 
     def create_version(
         self,
         *,
         record: CreateSkillVersionRecord,
         audit_events: tuple[AuditEventRecord, ...] = (),
-    ) -> StoredSkillVersion:
+    ) -> SkillVersionDetail:
         del record, audit_events
-        raise SkillRegistryPersistenceError(
-            "Failed to persist immutable skill version."
-        ) from _SlugConflictCause('duplicate key value violates unique constraint "uq_skills_slug"')
+        raise DuplicateSkillSlugPersistenceError("skills.slug already exists")
 
 
 def _command(
@@ -169,7 +171,10 @@ def _command(
         slug=slug,
         intent=intent,
         version=version,
-        content=SkillContentInput(raw_markdown="# Python Lint\n"),
+        content=SkillContentInput(
+            payload=build_skill_bundle("# Python Lint\n"),
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+        ),
         metadata=SkillMetadataInput(
             name="Python Lint",
             description="Linting skill",
@@ -189,10 +194,10 @@ def _publish_caller() -> CallerIdentity:
 
 @pytest.mark.unit
 def test_publish_version_returns_checksum_and_records_audit() -> None:
-    registry = FakeRegistry()
+    repository = FakeCatalogRepository()
     audit_recorder = FakeAuditRecorder()
     service = SkillRegistryService(
-        registry=registry,
+        repository=repository,
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
     )
@@ -205,19 +210,20 @@ def test_publish_version_returns_checksum_and_records_audit() -> None:
     assert response.slug == "python.lint"
     assert response.version == "1.0.0"
     assert response.version_checksum.algorithm == "sha256"
-    assert response.content.size_bytes == len(b"# Python Lint\n")
-    assert "skill.version_published" in [event.event_type for event in registry.audit_events]
+    assert response.content.media_type == SKILL_ARTIFACT_MEDIA_TYPE
+    assert response.content.size_bytes == len(build_skill_bundle("# Python Lint\n"))
+    assert "skill.version_published" in [event.event_type for event in repository.audit_events]
 
 
 @pytest.mark.unit
 def test_publish_version_uses_stable_checksum_for_same_immutable_payload() -> None:
     first_service = SkillRegistryService(
-        registry=FakeRegistry(),
+        repository=FakeCatalogRepository(),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
     second_service = SkillRegistryService(
-        registry=FakeRegistry(),
+        repository=FakeCatalogRepository(),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
@@ -232,9 +238,9 @@ def test_publish_version_uses_stable_checksum_for_same_immutable_payload() -> No
 
 @pytest.mark.unit
 def test_publish_version_distinguishes_version_checksum_from_content_checksum() -> None:
-    registry = FakeRegistry()
+    repository = FakeCatalogRepository()
     service = SkillRegistryService(
-        registry=registry,
+        repository=repository,
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
@@ -249,7 +255,10 @@ def test_publish_version_distinguishes_version_checksum_from_content_checksum() 
             slug="python.lint",
             intent="publish_version",
             version="2.0.0",
-            content=SkillContentInput(raw_markdown="# Python Lint\n"),
+            content=SkillContentInput(
+                payload=build_skill_bundle("# Python Lint\n"),
+                media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+            ),
             metadata=SkillMetadataInput(
                 name="Python Lint v2",
                 description="Linting skill with richer metadata",
@@ -265,9 +274,9 @@ def test_publish_version_distinguishes_version_checksum_from_content_checksum() 
 
 @pytest.mark.unit
 def test_publish_version_rejects_duplicates() -> None:
-    registry = FakeRegistry()
+    repository = FakeCatalogRepository()
     service = SkillRegistryService(
-        registry=registry,
+        repository=repository,
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
@@ -285,9 +294,9 @@ def test_publish_version_rejects_duplicates() -> None:
 
 @pytest.mark.unit
 def test_create_skill_intent_rejects_existing_slug() -> None:
-    registry = FakeRegistry()
+    repository = FakeCatalogRepository()
     service = SkillRegistryService(
-        registry=registry,
+        repository=repository,
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
@@ -305,9 +314,9 @@ def test_create_skill_intent_rejects_existing_slug() -> None:
 
 @pytest.mark.unit
 def test_publish_version_intent_rejects_missing_slug() -> None:
-    registry = FakeRegistry()
+    repository = FakeCatalogRepository()
     service = SkillRegistryService(
-        registry=registry,
+        repository=repository,
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
@@ -321,10 +330,10 @@ def test_publish_version_intent_rejects_missing_slug() -> None:
 
 @pytest.mark.unit
 def test_publish_version_denied_by_policy_records_audit_event() -> None:
-    registry = FakeRegistry()
+    repository = FakeCatalogRepository()
     audit_recorder = FakeAuditRecorder()
     service = SkillRegistryService(
-        registry=registry,
+        repository=repository,
         audit_recorder=audit_recorder,
         governance_policy=_governance_policy(),
     )
@@ -336,7 +345,10 @@ def test_publish_version_denied_by_policy_records_audit_event() -> None:
                 slug="python.lint",
                 intent="create_skill",
                 version="1.0.0",
-                content=SkillContentInput(raw_markdown="# Python Lint\n"),
+                content=SkillContentInput(
+                    payload=build_skill_bundle("# Python Lint\n"),
+                    media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+                ),
                 metadata=SkillMetadataInput(
                     name="Python Lint",
                     description="Linting skill",
@@ -360,7 +372,7 @@ def test_publish_version_denied_by_policy_records_audit_event() -> None:
 @pytest.mark.unit
 def test_publish_version_maps_slug_uniqueness_race_to_skill_already_exists() -> None:
     service = SkillRegistryService(
-        registry=SlugConflictRegistry(),
+        repository=SlugConflictRepository(),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
@@ -369,4 +381,21 @@ def test_publish_version_maps_slug_uniqueness_race_to_skill_already_exists() -> 
         service.publish_version(
             caller=_publish_caller(),
             command=_command(slug="python.race", version="1.0.0"),
+        )
+
+
+@pytest.mark.unit
+def test_update_version_status_raises_for_missing_version() -> None:
+    service = SkillRegistryService(
+        repository=FakeCatalogRepository(),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+    )
+
+    with pytest.raises(SkillVersionNotFoundError):
+        service.update_version_status(
+            caller=CallerIdentity(token="admin", scopes=frozenset({"admin"})),
+            slug="python.lint",
+            version="1.0.0",
+            lifecycle_status="deprecated",
         )

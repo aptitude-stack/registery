@@ -8,24 +8,44 @@ http:
   headers:
   - name: Accept
     value: application/json
-  - name: Content-Type
-    value: application/json
   - name: Authorization
     value: Bearer {{publishToken}}
   body:
-    type: json
-    data: "{\n  \"intent\": \"create_skill\",\n  \"version\": \"1.0.0\",\n  \"content\"\
-      : {\n    \"raw_markdown\": \"# Invalid Postman Skill\\n\\nThis publish request\
-      \ should fail validation.\\n\",\n    \"rendered_summary\": \"Invalid request\
-      \ payload.\"\n  },\n  \"metadata\": {\n    \"name\": \"Invalid Postman Skill\"\
-      ,\n    \"description\": \"Invalid publish payload for negative coverage\",\n\
-      \    \"tags\": [\"postman\", \"negative\"],\n    \"inputs_schema\": {\n      \"type\": \"object\"\n\
-      \    },\n    \"outputs_schema\": {\n      \"type\": \"object\"\n    },\n   \
-      \ \"token_estimate\": 50,\n    \"maturity_score\": 0.5,\n    \"security_score\"\
-      : 0.5\n  },\n  \"relationships\": {\n    \"depends_on\": [\n      {\n      \
-      \  \"slug\": \"{{sanity_dependency_slug}}\",\n        \"version_constraint\"\
-      : \"latest\"\n      }\n    ],\n    \"extends\": [],\n    \"conflicts_with\"\
-      : [],\n    \"overlaps_with\": []\n  }\n}"
+    type: multipart-form
+    data:
+    - name: metadata
+      value: |-
+        {
+          "intent": "create_skill",
+          "version": "1.0.0",
+          "metadata": {
+            "name": "Invalid Postman Skill",
+            "description": "Invalid publish payload for negative coverage",
+            "tags": ["postman", "negative"],
+            "inputs_schema": {
+              "type": "object"
+            },
+            "outputs_schema": {
+              "type": "object"
+            },
+            "token_estimate": 50,
+            "maturity_score": 0.5,
+            "security_score": 0.5
+          },
+          "relationships": {
+            "depends_on": [
+              {
+                "slug": "{{sanity_dependency_slug}}",
+                "version_constraint": "latest"
+              }
+            ],
+            "extends": [],
+            "conflicts_with": [],
+            "overlaps_with": []
+          }
+        }
+    - name: bundle
+      value: "@file(../../fixtures/invalid.tar.zst)"
 runtime:
   scripts:
   - type: before-request
@@ -52,7 +72,9 @@ runtime:
     code: "const json = res.getBody();\n\ntest('Status is 422', function () {\n  expect(res.getStatus()).to.equal(422);\n\
       });\n\ntest('Invalid publish returns the normalized API error envelope', function\
       \ () {\n  expect(json.error.code).to.eql('INVALID_REQUEST');\n  expect(json.error.details.errors).to.be.an('array').and.not.empty;\n\
-      });\n\nbru.runner.setNextRequest(res.getStatus() === 422 ? 'Seed Duplicate Skill\
-      \ Version' : null);"
+      \  expect(\n    json.error.details.errors.some(\n      (item) =>\n        Array.isArray(item.loc) &&\n\
+        item.loc.includes('body') &&\n        item.loc.includes('metadata'),\n    ),\n\
+      \  ).to.eql(true);\n});\n\nbru.runner.setNextRequest(res.getStatus() === 422\
+      \ ? 'Seed Duplicate Skill Version' : null);"
 settings:
   encodeUrl: true
