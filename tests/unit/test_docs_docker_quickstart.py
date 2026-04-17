@@ -12,15 +12,11 @@ def test_readme_quick_start_documents_docker_profiles_and_demo_seed_flow() -> No
 
     assert "## Quick Start" in readme
     assert "Docker" in readme
-    assert "### Clean Run" in readme
-    assert "### Demo Run" in readme
-    assert "### Observability Run" in readme
-    assert "make stack" in readme
-    assert "make stack-demo" in readme
-    assert "make stack-observability" in readme
-    assert "make tests-integration-container" in readme
+    assert "make run-dev" in readme
+    assert "make run-prod" in readme
+    assert "make test" in readme
     assert "127.0.0.1:5433/aptitude_test" in readme
-    assert "make stack-down" in readme
+    assert "docker compose --profile observability down -v" in readme
     assert "Database only:" not in readme
 
 
@@ -28,10 +24,8 @@ def test_development_setup_documents_demo_seed_flow() -> None:
     guide = (REPO_ROOT / "docs/contributors/development-setup.md").read_text(encoding="utf-8")
 
     assert "demo profile" in guide.lower()
-    assert "make stack" in guide
-    assert "make stack-demo" in guide
-    assert "make stack-observability" in guide
-    assert "make stack-observability-demo" in guide
-    assert "make db-test" in guide
-    assert "make tests-integration-container" in guide
+    assert "make run-dev" in guide
+    assert "make run-prod" in guide
+    assert "make test" in guide
+    assert "make quality" in guide
     assert "127.0.0.1:5433" in guide

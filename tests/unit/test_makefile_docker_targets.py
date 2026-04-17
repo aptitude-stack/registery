@@ -16,7 +16,7 @@ def test_docker_build_push_bootstraps_and_uses_named_builder() -> None:
         [
             "make",
             "-n",
-            "image-push",
+            "build",
             "DOCKER_BUILDER=ci-builder",
             "DOCKER_IMAGE=example/image",
             "DOCKER_TAG=test",
@@ -40,16 +40,12 @@ def test_docker_build_push_bootstraps_and_uses_named_builder() -> None:
 
 
 @pytest.mark.unit
-def test_demo_make_targets_run_profiled_demo_seed_and_demo_stack() -> None:
+def test_run_dev_bootstraps_demo_seed_and_observability() -> None:
     result = subprocess.run(
         [
             "make",
             "-n",
-            "stack",
-            "stack-demo",
-            "stack-observability",
-            "stack-observability-demo",
-            "smoke-demo",
+            "run-dev",
         ],
         cwd=REPO_ROOT,
         check=True,
@@ -57,22 +53,23 @@ def test_demo_make_targets_run_profiled_demo_seed_and_demo_stack() -> None:
         text=True,
     )
 
+    assert "APP_ENV=dev docker compose up -d db" in result.stdout
+    assert "APP_ENV=dev docker compose build server migrate demo-seed" in result.stdout
     assert "docker compose --profile demo run --rm demo-seed" in result.stdout
-    assert result.stdout.count("docker compose --profile demo run --rm demo-seed") >= 2
-    assert "docker compose up -d server" in result.stdout
-    assert "docker compose up -d db" in result.stdout
-    assert "docker compose --profile observability up -d server observability" in result.stdout
-    assert result.stdout.count("docker compose rm -f -s migrate") >= 2
+    assert (
+        "APP_ENV=dev docker compose --profile observability up -d server observability"
+        in result.stdout
+    )
+    assert "APP_ENV=dev docker compose rm -f -s migrate" in result.stdout
 
 
 @pytest.mark.unit
-def test_integration_db_make_targets_manage_dedicated_test_database() -> None:
+def test_run_prod_omits_demo_seed_but_keeps_observability() -> None:
     result = subprocess.run(
         [
             "make",
             "-n",
-            "db-test",
-            "tests-integration-container",
+            "run-prod",
         ],
         cwd=REPO_ROOT,
         check=True,
@@ -80,27 +77,23 @@ def test_integration_db_make_targets_manage_dedicated_test_database() -> None:
         text=True,
     )
 
-    assert "docker compose --profile test up -d test-db" in result.stdout
+    assert "APP_ENV=prod docker compose up -d db" in result.stdout
+    assert "APP_ENV=prod docker compose build server migrate" in result.stdout
+    assert "APP_ENV=prod docker compose build server migrate demo-seed" not in result.stdout
+    assert "docker compose --profile demo run --rm demo-seed" not in result.stdout
     assert (
-        "docker compose --profile test exec -T test-db pg_isready -U postgres -d aptitude_test"
+        "APP_ENV=prod docker compose --profile observability up -d server observability"
         in result.stdout
     )
-    assert (
-        "TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
-        in result.stdout
-    )
-    assert "python -m pytest tests/integration" in result.stdout
-    assert "docker compose --profile test rm -f -s -v test-db" in result.stdout
-    assert "docker volume rm -f aptitude-test-postgres-data" in result.stdout
 
 
 @pytest.mark.unit
-def test_tests_runs_full_suite_with_managed_test_database() -> None:
+def test_test_runs_full_suite_with_managed_test_database() -> None:
     result = subprocess.run(
         [
             "make",
             "-n",
-            "tests",
+            "test",
         ],
         cwd=REPO_ROOT,
         check=True,

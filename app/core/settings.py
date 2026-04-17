@@ -27,6 +27,7 @@ class PublishRuleSettings(BaseModel):
 
 
 SETTINGS_ENV_FILE_ENV_VAR = "APP_SETTINGS_ENV_FILE"
+AppEnv = Literal["dev", "prod"]
 
 
 def _default_publish_rules() -> dict[TrustTier, PublishRuleSettings]:
@@ -71,7 +72,7 @@ class Settings(BaseSettings):
     """Application configuration values."""
 
     database_url: str = Field(alias="DATABASE_URL")
-    app_env: str = Field(default="dev", alias="APP_ENV")
+    app_env: AppEnv = Field(default="dev", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")
     log_file_path: str | None = Field(default=None, alias="LOG_FILE_PATH")

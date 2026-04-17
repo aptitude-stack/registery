@@ -14,7 +14,7 @@ def test_healthz_returns_expected_payload(
     require_integration_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", require_integration_database)
-    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ENV", "prod")
     monkeypatch.setenv("APP_NAME", "aptitude-test")
 
     with TestClient(create_app()) as client:
@@ -24,7 +24,7 @@ def test_healthz_returns_expected_payload(
     assert response.json() == {
         "status": "ok",
         "service": "aptitude-test",
-        "environment": "test",
+        "environment": "prod",
     }
 
 

@@ -37,13 +37,13 @@ jobs:
         run: uv sync --extra dev --frozen
 
       - name: Run quality gate
-        run: make ci-quality
+        run: make _ci-quality
 
       - name: Run test gate
-        run: make ci-tests
+        run: make _ci-test
 
       - name: Run observability gate
-        run: make ci-observability
+        run: make _ci-observability
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -52,11 +52,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image for smoke test
-        run: make ci-image
+        run: make _ci-image
 
       - name: Run smoke gate
-        run: APP_IMAGE=y0ncha/aptitude-registry:latest make ci-smoke
+        run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke
 
       - name: Tear down compose services
         if: always()
-        run: make stack-down
+        run: make _ci-down

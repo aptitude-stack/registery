@@ -10,66 +10,26 @@ This guide shows the simplest way to run `Aptitude Registry` locally for develop
 - [uv](https://docs.astral.sh/uv/)
 - Docker
 
-## 1. Start PostgreSQL
+## 1. Install Dependencies
 
 ```bash
-make db
-```
-
-This starts PostgreSQL on `127.0.0.1:5432` with:
-
-- database: `aptitude`
-- user: `postgres`
-- password: `postgres`
-
-Integration tests should use the dedicated test database instead of the app database:
-
-```bash
-make db-test
-```
-
-This starts PostgreSQL on `127.0.0.1:5433` with:
-
-- database: `aptitude_test`
-- user: `postgres`
-- password: `postgres`
-
-## 2. Install Dependencies
-
-```bash
-uv venv
-source .venv/bin/activate
 uv sync --extra dev
 ```
 
-## 3. Configure Environment
+## 2. Run The Supported Stacks
+
+Use the public `make` surface only:
 
 ```bash
-export DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
-export TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
-export AUTH_TOKENS_JSON='{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
+make run-dev
+make run-prod
 ```
 
-Optional:
+`make run-dev` starts PostgreSQL, applies migrations, runs the API with `APP_ENV=dev`, seeds the demo profile, and starts observability.
 
-```bash
-export LOG_LEVEL="INFO"
-export LOG_FORMAT="auto"
-```
+`make run-prod` starts the same Compose stack with `APP_ENV=prod` and skips demo seeding.
 
-`LOG_FILE_PATH` is optional and only used by the Docker-based local observability profile.
-
-## 4. Run Migrations
-
-```bash
-uv run alembic upgrade head
-```
-
-## 5. Start The API
-
-```bash
-uv run python -m app.main
-```
+If you need the precise split between app runtime profiles, Docker Compose profiles, and test-only env vars, use [`../reference/runtime-profiles.md`](../reference/runtime-profiles.md).
 
 Local URLs:
 
@@ -77,30 +37,15 @@ Local URLs:
 - Swagger docs: `http://127.0.0.1:8000/docs`
 - Metrics: `http://127.0.0.1:8000/metrics`
 
-## 6. Common Commands
+Integration tests still use the dedicated PostgreSQL container on `127.0.0.1:5433`, but that lifecycle is intentionally behind the public `make test` entrypoint.
+
+## 3. Common Commands
 
 ```bash
-uv run --extra dev python -m pytest
-make tests
-make tests-unit
-make tests-integration-container
-uv run --extra dev ruff check .
-uv run --extra dev ruff format .
-uv run --extra dev python -m mypy app
-uv run alembic downgrade -1
-make stack
-make stack-demo
-make stack-observability
-make stack-down
-```
-
-Dedicated integration database flows:
-
-```bash
-make tests-integration-container
-make db-test
-make tests-integration
-make db-down
+make quality
+make test
+make format
+make build
 ```
 
 ## Quick Check
@@ -120,7 +65,7 @@ Clients may also send an `X-Request-ID` header. The API echoes it on every respo
 ## Optional Local Observability Profile
 
 ```bash
-make stack-observability
+make run-prod
 ```
 
 This starts the API plus:
@@ -135,26 +80,20 @@ This starts the API plus:
 
 ## Optional Demo Profile
 
-The demo profile is a one-shot Compose service that seeds a rich multi-version catalog after migrations. Use it when you want meaningful discovery, exact fetch, lifecycle, and dependency-resolution behavior without hand-publishing skills.
+The demo profile is a one-shot Compose service that seeds a rich multi-version catalog after migrations. Use it when you want meaningful discovery, exact fetch, lifecycle, and dependency-resolution behavior without hand-publishing skills. `make run-dev` is the public entrypoint that turns it on.
 
-Seed the running stack in place:
-
-```bash
-make stack-demo
-```
-
-Bring up the full observability stack with demo data already loaded:
+Bring up the dev stack with demo data and observability:
 
 ```bash
-make stack-observability-demo
+make run-dev
 ```
 
-The `demo` profile is opt-in. Normal `make stack` and `make stack-observability` flows stay bootstrap-only, while `make stack-demo` or `make stack-observability-demo` add the rich local catalog only when you ask for it.
+The `demo` profile remains opt-in. `make run-prod` stays bootstrap-only, while `make run-dev` adds the rich local catalog and switches the app runtime to `dev`.
 
 Shut the stack down with:
 
 ```bash
-make stack-down
+docker compose --profile observability down -v
 ```
 
 ### Verify Log Flow
