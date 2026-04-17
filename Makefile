@@ -9,8 +9,6 @@ RUFF := $(UV) run --extra dev ruff
 MYPY := $(UV) run --extra dev python -m mypy
 
 COMPOSE := docker compose
-COMPOSE_DEMO := $(COMPOSE) --profile demo
-COMPOSE_OBS := $(COMPOSE) --profile observability
 COMPOSE_TEST := $(COMPOSE) --profile test
 
 DOCKER_IMAGE ?= y0ncha/aptitude-registry
@@ -38,18 +36,18 @@ LOKI_SMOKE_REQUEST_ID ?= loki-smoke
 
 .PHONY: \
 	help \
-	run debug \
-	quality lint format format-check typecheck \
-	tests tests-unit tests-integration tests-integration-container \
-	db db-test db-down migrate-up migrate-down \
-	stack stack-demo stack-observability stack-observability-demo stack-down \
-	smoke smoke-demo \
-	image-build image-push \
-	ci-quality ci-tests ci-observability ci-image ci-smoke \
-	_test_db_up _test_db_wait _test_db_down _import_check _prometheus_check _observability_config_check \
-	_stack_bootstrap _stack_seed_demo _stack_start_server _stack_start_observability _stack_cleanup_migrate _stack_down \
-	_smoke_wait _smoke_verify _wait_app _wait_loki _wait_prometheus_targets _verify_service_endpoints _verify_loki_smoke \
-	_image_builder_bootstrap
+	run-dev run-prod quality test format build \
+	_ci-quality _ci-test _ci-observability _ci-image _ci-smoke _ci-down \
+	_format-check _lint _format _typecheck _test _import-check \
+	_test-db-up _test-db-wait _test-db-down \
+	_prometheus-check _observability-config-check \
+	_run-stack _stack-down _smoke-wait _smoke-verify \
+	_wait-app _wait-loki _wait-prometheus-targets _verify-service-endpoints _verify-loki-smoke \
+	_image-load _image-builder-bootstrap _image-push
+
+define compose_with_env
+APP_ENV=$(1) $(if $(strip $(2)),$(COMPOSE) $(2),$(COMPOSE))
+endef
 
 define wait_for_url
 for attempt in $$(seq 1 $(WAIT_ATTEMPTS)); do \
@@ -124,19 +122,27 @@ docker volume rm -f $(TEST_DB_VOLUME) >/dev/null 2>&1 || true
 endef
 
 define stack_bootstrap_commands
-$(COMPOSE) up -d db; \
+$(call compose_with_env,$(1)) up -d db; \
 if [ "$(APP_IMAGE)" = "$(APP_IMAGE_DEFAULT)" ]; then \
-	$(COMPOSE) build server migrate; \
+	$(call compose_with_env,$(1)) build server migrate$(if $(filter 1,$(2)), demo-seed); \
 fi; \
-$(COMPOSE) run --rm migrate
+$(call compose_with_env,$(1)) run --rm migrate
 endef
 
 define stack_seed_demo_commands
-$(COMPOSE_DEMO) run --rm demo-seed
+$(call compose_with_env,$(1),--profile demo) run --rm demo-seed
+endef
+
+define stack_start_commands
+$(call compose_with_env,$(1),--profile observability) up -d server observability
+endef
+
+define stack_cleanup_commands
+$(call compose_with_env,$(1)) rm -f -s migrate >/dev/null 2>&1 || true
 endef
 
 define stack_down_commands
-$(COMPOSE_OBS) down -v
+$(call compose_with_env,$(1),--profile observability) down -v
 endef
 
 define smoke_wait_commands
@@ -156,168 +162,122 @@ curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"otelcol"'; \
 ( $(call verify_loki_smoke) )
 endef
 
-##@ General
+#-----------------------------------------------------------------------------------
+
+## User
 help: ## Show available targets
-	@awk 'BEGIN {FS = ":.*## "}; /^##@/ {printf "\n%s\n", substr($$0, 5); next} /^[a-zA-Z0-9_.-]+:.*## / {printf "  %-28s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9][a-zA-Z0-9-]*:.*## / {printf "  %-10s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-##@ Local Development
-run: ## Start the FastAPI dev server with reload enabled
-	@printf "API %s\nDocs %s/docs\n" "$(APP_BASE_URL)" "$(APP_BASE_URL)"
-	@UVICORN_RELOAD=true $(PYTHON) -m app.main
+run-dev: RUN_APP_ENV := dev
+run-dev: RUN_DEMO := 1
+run-dev: _run-stack ## Start the Docker stack with APP_ENV=dev, demo data, and observability
 
-debug: ## Start the FastAPI dev server with debug logging
-	@printf "API %s\nDocs %s/docs\nLog level DEBUG\n" "$(APP_BASE_URL)" "$(APP_BASE_URL)"
-	@LOG_LEVEL=DEBUG UVICORN_RELOAD=false $(PYTHON) -m app.main
+run-prod: RUN_APP_ENV := prod
+run-prod: RUN_DEMO := 0
+run-prod: _run-stack ## Start the Docker stack with APP_ENV=prod and observability
 
-##@ Quality
-quality: format-check lint typecheck ## Run static quality checks
+quality: _format-check _lint _typecheck ## Run format check, lint, and type checks
 
-lint: ## Run Ruff lint checks
-	$(RUFF) check .
+test: _test ## Run the full test suite
 
-format: ## Format the codebase with Ruff
-	$(RUFF) format .
+format: _format ## Format the codebase with Ruff
 
-format-check: ## Check code formatting with Ruff
+build: _image-push ## Build and push the multi-platform Docker image
+
+#-----------------------------------------------------------------------------------
+
+## CI
+_ci-quality:
+	$(MAKE) quality
+	$(MAKE) _import-check
+
+_ci-test:
+	$(MAKE) test
+
+_ci-observability:
+	$(MAKE) _prometheus-check
+	$(MAKE) _observability-config-check
+
+_ci-image:
+	$(MAKE) _image-load
+
+_ci-smoke:
+	trap 'status=$$?; $(call stack_down_commands,prod); exit $$status' EXIT; \
+	$(call stack_bootstrap_commands,prod,0); \
+	$(call stack_start_commands,prod); \
+	$(call stack_cleanup_commands,prod); \
+	$(call smoke_wait_commands); \
+	$(call smoke_verify_commands)
+
+_ci-down:
+	$(call stack_down_commands,prod)
+
+#-----------------------------------------------------------------------------------
+
+## Helpers
+_format-check:
 	$(RUFF) format --check .
 
-typecheck: ## Run mypy type checks
+_lint:
+	$(RUFF) check .
+
+_format:
+	$(RUFF) format .
+
+_typecheck:
 	$(MYPY) app
 
-tests: ## Run the full test suite in one session against a managed test database
+_test:
 	trap 'status=$$?; $(call test_db_down_commands); exit $$status' EXIT; \
 	$(call test_db_up_commands); \
 	$(call test_db_wait_commands); \
 	TEST_DATABASE_URL=$(TEST_DATABASE_URL) $(PYTEST)
 
-tests-unit: ## Run the non-integration test suite
-	$(PYTEST) -m "not integration"
-
-tests-integration: ## Run the integration test suite against TEST_DATABASE_URL
-	TEST_DATABASE_URL=$(TEST_DATABASE_URL) $(PYTEST) tests/integration
-
-tests-integration-container: ## Run integration tests with a managed test database container
-	trap 'status=$$?; $(call test_db_down_commands); exit $$status' EXIT; \
-	$(call test_db_up_commands); \
-	$(call test_db_wait_commands); \
-	TEST_DATABASE_URL=$(TEST_DATABASE_URL) $(PYTEST) tests/integration
-
-##@ Database
-db: ## Start the local PostgreSQL service
-	$(COMPOSE) up -d db
-
-db-test: ## Start the dedicated PostgreSQL service for integration tests
-	$(COMPOSE_TEST) up -d test-db
-
-db-down: ## Stop and remove local Docker services and volumes
-	$(COMPOSE) down -v
-
-migrate-up: ## Apply the latest database migrations
-	$(UV) run alembic upgrade head
-
-migrate-down: ## Roll back the latest database migration
-	$(UV) run alembic downgrade -1
-
-##@ Docker Profiles
-stack: _stack_bootstrap _stack_start_server _stack_cleanup_migrate ## Start the local app stack with bootstrap data only
-
-stack-demo: _stack_bootstrap _stack_start_server _stack_seed_demo _stack_cleanup_migrate ## Start the local app stack and seed demo data
-
-stack-observability: _stack_bootstrap _stack_start_observability _stack_cleanup_migrate ## Start the local app and observability stack
-
-stack-observability-demo: _stack_bootstrap _stack_start_observability _stack_seed_demo _stack_cleanup_migrate ## Start the local app and observability stack with demo data
-
-stack-down: _stack_down ## Stop the local Docker stack and remove volumes
-
-smoke: ## Verify the local app and observability stack
-	trap 'status=$$?; $(call stack_down_commands); exit $$status' EXIT; \
-	$(call stack_bootstrap_commands); \
-	$(COMPOSE_OBS) up -d server observability; \
-	$(COMPOSE) rm -f -s migrate >/dev/null 2>&1 || true; \
-	$(call smoke_wait_commands); \
-	$(call smoke_verify_commands)
-
-smoke-demo: ## Verify the local app and observability stack with demo data
-	trap 'status=$$?; $(call stack_down_commands); exit $$status' EXIT; \
-	$(call stack_bootstrap_commands); \
-	$(COMPOSE_OBS) up -d server observability; \
-	$(call stack_seed_demo_commands); \
-	$(COMPOSE) rm -f -s migrate >/dev/null 2>&1 || true; \
-	$(call smoke_wait_commands); \
-	$(call smoke_verify_commands)
-
-##@ Images
-image-build: ## Build the CI image locally
-	docker buildx build --load -t $(DOCKER_IMAGE_REF) .
-
-image-push: _image_builder_bootstrap ## Build and push the multi-arch Docker image
-	docker buildx build --builder $(DOCKER_BUILDER) --platform $(DOCKER_PLATFORMS) --push -t $(DOCKER_IMAGE_REF) .
-
-##@ CI
-ci-quality: quality _import_check ## Run the CI quality gate
-
-ci-tests: tests ## Run the CI test gate
-
-ci-observability: _prometheus_check _observability_config_check ## Run the CI observability gate
-
-ci-image: image-build ## Build the CI smoke-test image
-
-ci-smoke: smoke ## Run the CI smoke gate
-
-_test_db_up:
-	$(call test_db_up_commands)
-
-_test_db_wait:
-	$(call test_db_wait_commands)
-
-_test_db_down:
-	@$(call test_db_down_commands)
-
-_import_check:
+_import-check:
 	$(PYTHON) -c "from app.main import app"
 
-_prometheus_check:
+_test-db-up:
+	$(call test_db_up_commands)
+
+_test-db-wait:
+	$(call test_db_wait_commands)
+
+_test-db-down:
+	@$(call test_db_down_commands)
+
+_prometheus-check:
 	docker run --rm \
 		--entrypoint promtool \
 		-v "$$PWD/ops/monitoring/prometheus:/etc/prometheus:ro" \
 		prom/prometheus:v3.5.1 \
 		check config /etc/prometheus/prometheus.yml
 
-_observability_config_check:
-	$(COMPOSE_OBS) config >/dev/null
+_observability-config-check:
+	$(call compose_with_env,prod,--profile observability) config >/dev/null
 
-_stack_bootstrap:
-	$(call stack_bootstrap_commands)
+_run-stack:
+	$(call stack_bootstrap_commands,$(RUN_APP_ENV),$(RUN_DEMO))
+	$(call stack_start_commands,$(RUN_APP_ENV))
+	$(if $(filter 1,$(RUN_DEMO)),$(call stack_seed_demo_commands,$(RUN_APP_ENV)))
+	$(call stack_cleanup_commands,$(RUN_APP_ENV))
 
-_stack_seed_demo:
-	$(call stack_seed_demo_commands)
+_stack-down:
+	$(call stack_down_commands,prod)
 
-_stack_start_server:
-	$(COMPOSE) up -d server
+_smoke-wait: _wait-app _wait-loki _wait-prometheus-targets
 
-_stack_start_observability:
-	$(COMPOSE_OBS) up -d server observability
+_smoke-verify: _verify-service-endpoints _verify-loki-smoke
 
-_stack_cleanup_migrate:
-	@$(COMPOSE) rm -f -s migrate >/dev/null 2>&1 || true
-
-_stack_down:
-	$(call stack_down_commands)
-
-_smoke_wait: _wait_app _wait_loki _wait_prometheus_targets
-
-_smoke_verify: _verify_service_endpoints _verify_loki_smoke
-
-_wait_app:
+_wait-app:
 	@$(call wait_for_url,$(APP_BASE_URL)/healthz)
 
-_wait_loki:
+_wait-loki:
 	@$(call wait_for_url,$(LOKI_URL)/ready)
 
-_wait_prometheus_targets:
+_wait-prometheus-targets:
 	@$(call wait_for_prometheus_targets)
 
-_verify_service_endpoints:
+_verify-service-endpoints:
 	curl --fail $(APP_BASE_URL)/healthz
 	curl --fail $(APP_BASE_URL)/readyz
 	curl --fail $(APP_BASE_URL)/metrics
@@ -326,9 +286,15 @@ _verify_service_endpoints:
 	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"loki"'
 	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"otelcol"'
 
-_verify_loki_smoke:
+_verify-loki-smoke:
 	@$(call verify_loki_smoke)
 
-_image_builder_bootstrap:
+_image-load:
+	docker buildx build --load -t $(DOCKER_IMAGE_REF) .
+
+_image-builder-bootstrap:
 	@docker buildx inspect $(DOCKER_BUILDER) >/dev/null 2>&1 || docker buildx create --name $(DOCKER_BUILDER) --driver docker-container >/dev/null
 	@docker buildx inspect --bootstrap $(DOCKER_BUILDER) >/dev/null
+
+_image-push: _image-builder-bootstrap
+	docker buildx build --builder $(DOCKER_BUILDER) --platform $(DOCKER_PLATFORMS) --push -t $(DOCKER_IMAGE_REF) .

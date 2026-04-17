@@ -205,6 +205,7 @@ def run_dev_server() -> None:
     """Run uvicorn with the centralized aptitude logging configuration."""
     import uvicorn
 
+    app_env = os.getenv("APP_ENV", "dev")
     log_level = os.getenv("LOG_LEVEL", "INFO")
     log_format = normalize_log_format(os.getenv("LOG_FORMAT"))
     print(STARTUP_BANNER)
@@ -222,6 +223,7 @@ def run_dev_server() -> None:
         log_config=build_logging_config(
             log_level,
             log_format=log_format,
+            app_env=app_env,
             log_file_path=os.getenv("LOG_FILE_PATH"),
         ),
     )

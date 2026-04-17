@@ -6,7 +6,7 @@ Use this guide when deciding what to run before calling work complete.
 
 ```bash
 make quality
-make tests
+make test
 ```
 
 ## What Counts As Verification

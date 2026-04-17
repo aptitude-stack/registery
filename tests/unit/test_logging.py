@@ -34,7 +34,7 @@ def _captured_handler_stream() -> Iterator[StringIO]:
 
 @pytest.mark.unit
 def test_build_logging_config_uses_shared_format_for_app_and_libraries() -> None:
-    config = build_logging_config("INFO", log_format="json", app_env="test", interactive=False)
+    config = build_logging_config("INFO", log_format="json", app_env="prod", interactive=False)
 
     assert config["formatters"]["default"]["()"] == "app.observability.logging.JsonLogFormatter"
     assert config["handlers"]["default"]["stream"] == "ext://sys.stdout"
@@ -54,7 +54,7 @@ def test_build_logging_config_uses_shared_format_for_app_and_libraries() -> None
 
 @pytest.mark.unit
 def test_configure_logging_wires_root_and_library_loggers_to_stdout() -> None:
-    configure_logging("invalid-level", log_format="json", app_env="test", interactive=False)
+    configure_logging("invalid-level", log_format="json", app_env="prod", interactive=False)
 
     root_logger = logging.getLogger()
     app_logger = logging.getLogger("app.main")
@@ -75,7 +75,7 @@ def test_configure_logging_wires_root_and_library_loggers_to_stdout() -> None:
 
 @pytest.mark.unit
 def test_build_logging_config_keeps_noisy_libraries_verbose_in_debug() -> None:
-    config = build_logging_config("DEBUG", log_format="json", app_env="test", interactive=False)
+    config = build_logging_config("DEBUG", log_format="json", app_env="prod", interactive=False)
 
     assert config["loggers"]["uvicorn.access"]["level"] == logging.DEBUG
     assert config["loggers"]["watchfiles"]["level"] == logging.DEBUG
@@ -98,8 +98,8 @@ def test_build_logging_config_auto_uses_pretty_for_local_interactive_runs() -> N
 
 
 @pytest.mark.unit
-def test_build_logging_config_auto_uses_json_for_container_runs() -> None:
-    config = build_logging_config("INFO", log_format="auto", app_env="container", interactive=True)
+def test_build_logging_config_auto_uses_json_for_prod_runs() -> None:
+    config = build_logging_config("INFO", log_format="auto", app_env="prod", interactive=True)
 
     assert config["formatters"]["default"]["()"] == "app.observability.logging.JsonLogFormatter"
 
@@ -134,7 +134,7 @@ def test_build_logging_config_adds_json_file_handler_when_log_file_path_is_set()
 
 @pytest.mark.unit
 def test_configured_logger_emits_json_with_request_context() -> None:
-    configure_logging("INFO", log_format="json", app_env="test", interactive=False)
+    configure_logging("INFO", log_format="json", app_env="prod", interactive=False)
     set_request_context(
         request_id="req-123",
         http_method="GET",
@@ -276,12 +276,12 @@ def test_configure_logging_rebinds_stdout_handler_when_stream_changes(
     second_stdout = StringIO()
 
     monkeypatch.setattr(sys, "stdout", first_stdout)
-    configure_logging("INFO", log_format="json", app_env="test", interactive=False)
+    configure_logging("INFO", log_format="json", app_env="prod", interactive=False)
     assert _app_handler().stream is first_stdout
     logging.getLogger("app.main").info("first log")
 
     monkeypatch.setattr(sys, "stdout", second_stdout)
-    configure_logging("INFO", log_format="json", app_env="test", interactive=False)
+    configure_logging("INFO", log_format="json", app_env="prod", interactive=False)
     assert _app_handler().stream is second_stdout
     logging.getLogger("app.main").info("second log")
 
@@ -297,7 +297,7 @@ def test_configure_logging_resets_descendant_logger_state() -> None:
     stale_logger.propagate = False
     stale_logger.setLevel(logging.ERROR)
 
-    configure_logging("INFO", log_format="json", app_env="test", interactive=False)
+    configure_logging("INFO", log_format="json", app_env="prod", interactive=False)
 
     assert stale_logger.handlers == []
     assert stale_logger.propagate is True

@@ -23,6 +23,7 @@ def test_run_dev_server_prints_banner_and_uses_centralized_logging(
         captured["kwargs"] = kwargs
 
     monkeypatch.setitem(sys.modules, "uvicorn", SimpleNamespace(run=fake_run))
+    monkeypatch.setenv("APP_ENV", "dev")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_FORMAT", "pretty")
     monkeypatch.setenv("PORT", "9000")
@@ -37,5 +38,5 @@ def test_run_dev_server_prints_banner_and_uses_centralized_logging(
         "host": "127.0.0.1",
         "port": 9000,
         "reload": False,
-        "log_config": build_logging_config("DEBUG", log_format="pretty"),
+        "log_config": build_logging_config("DEBUG", log_format="pretty", app_env="dev"),
     }

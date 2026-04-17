@@ -55,7 +55,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
       AUTH_TOKENS_JSON: '{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
-      APP_ENV: container
+      APP_ENV: ${APP_ENV:-prod}
       LOG_LEVEL: INFO
       LOG_FILE_PATH: /var/log/aptitude/app.jsonl
       PORT: 8000
@@ -80,7 +80,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
-      APP_ENV: container
+      APP_ENV: ${APP_ENV:-prod}
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
@@ -96,7 +96,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
-      APP_ENV: container
+      APP_ENV: ${APP_ENV:-prod}
     command: ["python", "-m", "app.bootstrap.seed_demo"]
     restart: "no"
 
