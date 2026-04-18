@@ -33,6 +33,19 @@ def test_public_route_surface_exposes_exact_get_fetch_routes() -> None:
 
 
 @pytest.mark.unit
+def test_public_route_surface_is_identical_across_runtime_profiles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("APP_ENV", "dev")
+    dev_routes = _routes()
+
+    monkeypatch.setenv("APP_ENV", "prod")
+    prod_routes = _routes()
+
+    assert dev_routes == prod_routes
+
+
+@pytest.mark.unit
 def test_public_route_surface_excludes_removed_route_families() -> None:
     routes = _routes()
 

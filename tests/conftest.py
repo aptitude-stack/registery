@@ -72,7 +72,7 @@ def dummy_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
             [
                 f"DATABASE_URL={DEFAULT_TEST_DATABASE_URL}",
                 f"AUTH_TOKENS_JSON={json.dumps(DEFAULT_AUTH_TOKENS)}",
-                "APP_ENV=test",
+                "APP_ENV=prod",
                 "LOG_LEVEL=DEBUG",
                 "APP_NAME=aptitude-test",
             ]
@@ -95,8 +95,7 @@ def require_integration_database(integration_database_url: str) -> str:
     if not _database_is_available(integration_database_url):
         pytest.skip(
             "PostgreSQL is not reachable for integration tests. "
-            "Run `make db-test` or `make tests-integration-container` and set "
-            "TEST_DATABASE_URL if needed.",
+            "Run `make test` or set TEST_DATABASE_URL to a reachable test database.",
         )
     return integration_database_url
 

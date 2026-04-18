@@ -87,72 +87,57 @@ Requirements:
 Local development:
 
 ```bash
-make db
-uv venv
-source .venv/bin/activate
 uv sync --extra dev
-export DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
-export TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
-export AUTH_TOKENS_JSON='{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
-uv run alembic upgrade head
-uv run python -m app.main
+make run-dev
 ```
 
-Integration tests use a separate PostgreSQL container on `127.0.0.1:5433` so the test cycle never resets the local app database on `127.0.0.1:5432`.
+`make run-dev` bootstraps the Docker stack with `APP_ENV=dev`, seeds demo data, and starts observability. Use `make run-prod` for the production-like variant with `APP_ENV=prod` and no demo seed.
+
+Integration tests use a separate PostgreSQL container on `127.0.0.1:5433` so the test cycle never resets the local app database on `127.0.0.1:5432`. The default test URL is `postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test`.
 
 ```bash
-make tests-integration-container
-```
-
-For faster local iteration, keep the dedicated test DB running and point `TEST_DATABASE_URL` at it:
-
-```bash
-make db-test
-make tests-integration
-make db-down
+make test
 ```
 
 Docker quick start:
 
-- `server` waits for `migrate`, so every server run applies the latest Alembic schema before the API starts.
+- `server` waits for `migrate`, so every stack run applies the latest Alembic schema before the API starts.
 
-### Clean Run
+### Dev Run
 
-Run the registry server with a clean database and no demo data.
+Run the registry server with `APP_ENV=dev`, demo data, and observability.
 
 ```bash
-make stack
+make run-dev
 ```
 
-### Demo Run
+### Prod Run
 
-Run the server and then seed the rich demo catalog for testing clients against realistic sample data.
-
-```bash
-make stack-demo
-```
-
-### Observability Run
-
-Run the server with Grafana, Prometheus, and logs/metrics tooling.
+Run the production-like stack with observability and no demo seed.
 
 ```bash
-make stack-observability
+make run-prod
 ```
 
 Teardown:
 
 ```bash
-make stack-down
+docker compose --profile observability down -v
 ```
 
-Use this for both simple and full-stack local flows.
+Other public commands:
+
+```bash
+make quality
+make format
+make build
+```
 
 Local URLs:
 
 - API: `http://127.0.0.1:8000`
 - Swagger docs: `http://127.0.0.1:8000/docs`
-- Metrics: `http://127.0.0.1:3000`
+- Metrics: `http://127.0.0.1:8000/metrics`
 
 For the full setup flow, observability profile, verification commands, and troubleshooting entrypoints, use [`docs/contributors/development-setup.md`](docs/contributors/development-setup.md) and [`docs/reference/operations/README.md`](docs/reference/operations/README.md).
 

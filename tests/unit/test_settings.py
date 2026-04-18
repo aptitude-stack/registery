@@ -13,12 +13,16 @@ from app.core.settings import Settings, get_settings
 
 
 @pytest.mark.unit
-def test_settings_load_valid_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("app_env", ["dev", "prod"])
+def test_settings_load_valid_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    app_env: str,
+) -> None:
     monkeypatch.setenv(
         "DATABASE_URL",
         "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
     )
-    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ENV", app_env)
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_FORMAT", "pretty")
     monkeypatch.setenv("APP_NAME", "aptitude-test")
@@ -27,7 +31,7 @@ def test_settings_load_valid_environment(monkeypatch: pytest.MonkeyPatch) -> Non
     default_policy = build_default_policy_profile()
 
     assert settings.database_url.endswith("/aptitude")
-    assert settings.app_env == "test"
+    assert settings.app_env == app_env
     assert settings.log_level == "DEBUG"
     assert settings.log_format == "pretty"
     assert settings.app_name == "aptitude-test"
@@ -42,6 +46,18 @@ def test_settings_require_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DATABASE_URL", raising=False)
 
     with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_settings_reject_invalid_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
+    )
+    monkeypatch.setenv("APP_ENV", "test")
+
+    with pytest.raises(ValidationError, match="APP_ENV"):
         Settings(_env_file=None)
 
 
@@ -91,7 +107,7 @@ def test_get_settings_uses_configured_dotenv_file(
             [
                 "DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
                 f"AUTH_TOKENS_JSON={json.dumps(auth_tokens)}",
-                "APP_ENV=test",
+                "APP_ENV=prod",
             ]
         ),
         encoding="utf-8",
@@ -105,4 +121,4 @@ def test_get_settings_uses_configured_dotenv_file(
         "reader-token": ("read",),
         "publisher-token": ("read", "publish"),
     }
-    assert settings.app_env == "test"
+    assert settings.app_env == "prod"

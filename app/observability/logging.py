@@ -343,7 +343,7 @@ def _resolve_log_format(
 ) -> Literal["json", "pretty"]:
     if log_format != "auto":
         return log_format
-    if app_env == "container":
+    if app_env == "prod":
         return "json"
     if interactive is None:
         interactive = sys.stdout.isatty()

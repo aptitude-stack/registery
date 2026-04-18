@@ -22,17 +22,17 @@ def test_ci_workflows_boot_runner_tests_from_compose_db(workflow_path: str) -> N
 
     assert "services:" not in document
     assert "docker compose --ansi=never --progress=plain up -d db" not in document
-    assert "run: make ci-quality" in document
-    assert "run: make ci-tests" in document
-    assert "run: make ci-observability" in document
-    assert "run: make ci-image" in document
+    assert "run: make _ci-quality" in document
+    assert "run: make _ci-test" in document
+    assert "run: make _ci-observability" in document
+    assert "run: make _ci-image" in document
     assert (
         "TEST_DATABASE_URL: "
         "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test" in document
     )
     assert "Run smoke gate" in document
-    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make ci-smoke" in document
-    assert "run: make stack-down" in document
+    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke" in document
+    assert "run: make _ci-down" in document
     assert "test-integration-docker" not in document
     assert "docker-smoke" not in document
     assert "observability-down" not in document
@@ -43,7 +43,7 @@ def test_release_ci_remains_image_focused_and_avoids_test_db_bootstrap() -> None
     document = (REPO_ROOT / ".github/workflows/release-ci.yml").read_text()
 
     assert "docker/build-push-action@v6" in document
-    assert "make ci-tests" not in document
+    assert "make _ci-test" not in document
     assert "docker compose --profile test" not in document
     assert "TEST_DATABASE_URL" not in document
     assert '      - "Dockerfile"' in document
