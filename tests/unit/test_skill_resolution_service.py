@@ -69,7 +69,7 @@ def test_get_direct_dependencies_returns_only_depends_on_selectors() -> None:
     )
 
     result = service.get_direct_dependencies(
-        caller=CallerIdentity(token="reader", scopes=frozenset({"read"})),
+        caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
         slug="python.source",
         version="1.0.0",
     )
@@ -94,7 +94,7 @@ def test_get_direct_dependencies_raises_not_found_for_unknown_coordinate() -> No
 
     with pytest.raises(SkillVersionNotFoundError):
         service.get_direct_dependencies(
-            caller=CallerIdentity(token="reader", scopes=frozenset({"read"})),
+            caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
             slug="python.missing",
             version="9.9.9",
         )
@@ -119,7 +119,7 @@ def test_get_direct_dependencies_audits_denied_exact_reads() -> None:
 
     with pytest.raises(PolicyViolation):
         service.get_direct_dependencies(
-            caller=CallerIdentity(token="reader", scopes=frozenset({"read"})),
+            caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
             slug="python.source",
             version="1.0.0",
         )

@@ -11,6 +11,13 @@ This repo has two different kinds of "profiles". They solve different problems a
 
 `APP_ENV` changes runtime posture such as logging and future environment-specific wiring. It does not change the public HTTP contract. The same routes, request shapes, and response shapes must exist in both profiles.
 
+Runtime posture changes that do apply today:
+
+- `dev` keeps `/docs`, `/redoc`, and `/openapi.json` enabled.
+- `prod` disables `/docs`, `/redoc`, and `/openapi.json`.
+- `prod` enforces `ALLOWED_HOSTS_JSON` through trusted-host validation.
+- protected routes require the same governed bearer-token auth in both `dev` and `prod`.
+
 There is no `test`, `container`, or `staging` runtime profile in the app.
 
 ## Compose Profiles
@@ -38,8 +45,32 @@ Tests and CI are execution environments, not runtime profiles.
 - `APP_ENV`: runtime profile for the app (`dev` or `prod`)
 - `DATABASE_URL`: primary application database
 - `TEST_DATABASE_URL`: dedicated database used by integration-test flows
-- `AUTH_TOKENS_JSON`: bearer tokens and scopes used by authenticated routes
+- `AUTH_SERVICE_TOKENS_JSON`: governed service-token registry records used by authenticated routes
+- `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`
+- `POLICY_PROFILES_JSON`: optional named governance-profile overrides merged over the built-in default profile
+- `ACTIVE_POLICY_PROFILE`: selects which policy profile is active at runtime; defaults to `default`
 - `LOG_LEVEL`, `LOG_FORMAT`, `LOG_FILE_PATH`: logging configuration
+- `APP_SETTINGS_ENV_FILE`: optional alternate dotenv file path for app-process startup; otherwise the app loads `.env`
+
+Service-token settings use this JSON shape:
+
+```json
+[
+  {
+    "token_id": "reader-token",
+    "secret_digest": "sha256-hex-of-secret",
+    "scopes": ["read"],
+    "active": true,
+    "expires_at": null
+  }
+]
+```
+
+Clients send the raw secret only over HTTP:
+
+```text
+Authorization: Bearer reader-token.dev-reader-secret
+```
 
 ## Practical Defaults
 
@@ -48,3 +79,5 @@ Tests and CI are execution environments, not runtime profiles.
 - raw `docker compose` usage defaults the checked-in app services to `APP_ENV=prod` unless you override `APP_ENV`
 - `make test` manages the dedicated `test` profile database container for the full test suite
 - `LOG_FORMAT=auto` prefers readable local logs in `dev` and structured JSON logs in `prod`
+- app-process startup reads `.env` unless `APP_SETTINGS_ENV_FILE` points to another dotenv file
+- forwarded proxy headers stay untrusted by default; enable them explicitly at the deploy entrypoint behind a trusted proxy

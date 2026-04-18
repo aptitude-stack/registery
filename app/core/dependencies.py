@@ -11,7 +11,8 @@ from typing import Annotated
 from fastapi import Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.core.governance import CallerIdentity
+from app.core.auth import AuthError, AuthorizationError, AuthService
+from app.core.governance import CallerIdentity, CallerScope
 from app.core.settings import Settings, get_settings
 from app.core.skills.discovery import SkillDiscoveryService
 from app.core.skills.fetch import SkillFetchService
@@ -41,6 +42,14 @@ def get_readiness_service(request: Request) -> ReadinessService:
 
 # Typed alias for injecting the readiness service via FastAPI dependencies.
 ReadinessServiceDep = Annotated[ReadinessService, Depends(get_readiness_service)]
+
+
+def get_auth_service(request: Request) -> AuthService:
+    """Return the process-scoped auth service from the service container."""
+    return _service_container(request).auth_service
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
 def get_skill_registry_service(request: Request) -> SkillRegistryService:
@@ -91,80 +100,68 @@ def _service_container(request: Request) -> ServiceContainer:
 def _caller_from_request(
     *,
     credentials: HTTPAuthorizationCredentials | None,
-    settings: Settings,
+    auth_service: AuthService,
 ) -> CallerIdentity:
-    if credentials is None:
+    try:
+        return auth_service.authenticate(
+            scheme=None if credentials is None else credentials.scheme,
+            credentials=None if credentials is None else credentials.credentials,
+        )
+    except AuthError as exc:
         raise ApiError(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            code="AUTHENTICATION_REQUIRED",
-            message="Bearer token is required.",
+            code=exc.code,
+            message=exc.message,
             headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if credentials.scheme.lower() != "bearer" or not credentials.credentials:
-        raise ApiError(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            code="INVALID_AUTH_TOKEN",
-            message="Authorization header must use the Bearer scheme.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    token = credentials.credentials
-    scopes = settings.auth_tokens.get(token)
-    if scopes is None:
-        raise ApiError(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            code="INVALID_AUTH_TOKEN",
-            message="Bearer token is not recognized.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return CallerIdentity(token=token, scopes=frozenset(scopes))
+        ) from exc
 
 
-def get_read_caller(credentials: BearerCredentialsDep, settings: SettingsDep) -> CallerIdentity:
-    """Authenticate a caller with read scope."""
-    caller = _caller_from_request(credentials=credentials, settings=settings)
-    if not caller.has_scope("read"):
+def _require_scope(
+    *,
+    caller: CallerIdentity,
+    auth_service: AuthService,
+    scope: CallerScope,
+) -> CallerIdentity:
+    try:
+        return auth_service.require_scope(caller=caller, scope=scope)
+    except AuthorizationError as exc:
         raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
             code="INSUFFICIENT_SCOPE",
-            message="Caller lacks the required scope.",
-            details={"required_scope": "read"},
-        )
-    return caller
+            message=str(exc),
+            details={"required_scope": exc.required_scope},
+        ) from exc
+
+
+def get_read_caller(
+    credentials: BearerCredentialsDep, auth_service: AuthServiceDep
+) -> CallerIdentity:
+    """Authenticate a caller with read scope."""
+    caller = _caller_from_request(credentials=credentials, auth_service=auth_service)
+    return _require_scope(caller=caller, auth_service=auth_service, scope="read")
 
 
 ReadCallerDep = Annotated[CallerIdentity, Depends(get_read_caller)]
 
 
-def get_publish_caller(credentials: BearerCredentialsDep, settings: SettingsDep) -> CallerIdentity:
+def get_publish_caller(
+    credentials: BearerCredentialsDep,
+    auth_service: AuthServiceDep,
+) -> CallerIdentity:
     """Authenticate a caller with publish scope."""
-    caller = _caller_from_request(credentials=credentials, settings=settings)
-    if not caller.has_scope("publish"):
-        raise ApiError(
-            status_code=status.HTTP_403_FORBIDDEN,
-            code="INSUFFICIENT_SCOPE",
-            message="Caller lacks the required scope.",
-            details={"required_scope": "publish"},
-        )
-    return caller
+    caller = _caller_from_request(credentials=credentials, auth_service=auth_service)
+    return _require_scope(caller=caller, auth_service=auth_service, scope="publish")
 
 
 PublishCallerDep = Annotated[CallerIdentity, Depends(get_publish_caller)]
 
 
-def get_admin_caller(credentials: BearerCredentialsDep, settings: SettingsDep) -> CallerIdentity:
+def get_admin_caller(
+    credentials: BearerCredentialsDep, auth_service: AuthServiceDep
+) -> CallerIdentity:
     """Authenticate a caller with admin scope."""
-    caller = _caller_from_request(credentials=credentials, settings=settings)
-    if not caller.has_scope("admin"):
-        raise ApiError(
-            status_code=status.HTTP_403_FORBIDDEN,
-            code="INSUFFICIENT_SCOPE",
-            message="Caller lacks the required scope.",
-            details={"required_scope": "admin"},
-        )
-    return caller
+    caller = _caller_from_request(credentials=credentials, auth_service=auth_service)
+    return _require_scope(caller=caller, auth_service=auth_service, scope="admin")
 
 
 AdminCallerDep = Annotated[CallerIdentity, Depends(get_admin_caller)]

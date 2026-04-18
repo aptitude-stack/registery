@@ -189,7 +189,7 @@ def _governance_policy() -> GovernancePolicy:
 
 
 def _publish_caller() -> CallerIdentity:
-    return CallerIdentity(token="publish", scopes=frozenset({"publish", "read"}))
+    return CallerIdentity(token_id="publish", scopes=frozenset({"publish", "read"}))
 
 
 @pytest.mark.unit
@@ -394,7 +394,7 @@ def test_update_version_status_raises_for_missing_version() -> None:
 
     with pytest.raises(SkillVersionNotFoundError):
         service.update_version_status(
-            caller=CallerIdentity(token="admin", scopes=frozenset({"admin"})),
+            caller=CallerIdentity(token_id="admin", scopes=frozenset({"admin"})),
             slug="python.lint",
             version="1.0.0",
             lifecycle_status="deprecated",

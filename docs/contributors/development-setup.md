@@ -16,6 +16,8 @@ This guide shows the simplest way to run `Aptitude Registry` locally for develop
 uv sync --extra dev
 ```
 
+The app settings layer loads `.env` by default for local process runs. If you need a different dotenv file for app startup or test runs, point `APP_SETTINGS_ENV_FILE` at it before starting the process.
+
 ## 2. Run The Supported Stacks
 
 Use the public `make` surface only:
@@ -30,12 +32,13 @@ make run-prod
 `make run-prod` starts the same Compose stack with `APP_ENV=prod` and skips demo seeding.
 
 If you need the precise split between app runtime profiles, Docker Compose profiles, and test-only env vars, use [`../reference/runtime-profiles.md`](../reference/runtime-profiles.md).
+If you need the auth token shape, scope rules, or current dev fixture tokens, use [`../reference/service-token-governance.md`](../reference/service-token-governance.md).
 
 Local URLs:
 
 - API: `http://127.0.0.1:8000`
-- Swagger docs: `http://127.0.0.1:8000/docs`
-- Metrics: `http://127.0.0.1:8000/metrics`
+- Swagger docs: `http://127.0.0.1:8000/docs` in `APP_ENV=dev` only
+- Metrics: `http://127.0.0.1:8000/metrics` with an admin bearer token
 
 Integration tests still use the dedicated PostgreSQL container on `127.0.0.1:5433`, but that lifecycle is intentionally behind the public `make test` entrypoint.
 
@@ -48,16 +51,31 @@ make format
 make build
 ```
 
+Current behavior:
+
+- `make quality` runs format-check, lint, and type-check gates.
+- `make test` manages the dedicated `test-db` lifecycle and then runs the full pytest suite.
+- `make format` applies Ruff formatting.
+- `make build` pushes the configured multi-platform image with `docker buildx`; it is a distribution command, not a local smoke-check command.
+
 ## Quick Check
 
 ```bash
 curl http://127.0.0.1:8000/healthz
 ```
 
-For authenticated routes, send one of the tokens from `AUTH_TOKENS_JSON` as:
+For protected routes, use one of the dev-only fixture bearer tokens from `AUTH_SERVICE_TOKENS_JSON`:
 
 ```bash
-Authorization: Bearer reader-token
+Authorization: Bearer reader-token.dev-reader-secret
+```
+
+Example metrics probe:
+
+```bash
+curl \
+  -H 'Authorization: Bearer admin-token.dev-admin-secret' \
+  http://127.0.0.1:8000/metrics
 ```
 
 Clients may also send an `X-Request-ID` header. The API echoes it on every response so logs, metrics, and audit rows can be correlated.
@@ -77,6 +95,7 @@ This starts the API plus:
 - Grafana at `http://127.0.0.1:3000`
 
 `server` depends on `migrate`, so Compose applies the latest Alembic schema before the API starts.
+Prometheus is preconfigured with the same dev-only admin bearer token so local scraping keeps working after auth hardening.
 
 ## Optional Demo Profile
 

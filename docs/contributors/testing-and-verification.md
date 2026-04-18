@@ -9,6 +9,14 @@ make quality
 make test
 ```
 
+For doc and contract sync work, the focused guardrails are:
+
+```bash
+UV_CACHE_DIR=.uv-cache uv run --extra dev pytest \
+  tests/unit/test_public_contract_docs.py \
+  tests/unit/test_api_contract_examples.py -q
+```
+
 ## What Counts As Verification
 
 - Doc-only changes: link/reference sweep plus manual review of the affected entrypoints.

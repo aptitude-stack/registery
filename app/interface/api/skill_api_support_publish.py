@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 
+from fastapi import UploadFile
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
+from app.core.skills.bundle_archive import MAX_SKILL_BUNDLE_SIZE_BYTES
 from app.core.skills.models import (
     CreateSkillVersionCommand,
     ProvenanceMetadata,
@@ -69,6 +71,26 @@ def validate_publish_bundle(
                 }
             ]
         ) from exc
+
+
+def read_publish_bundle_bytes(bundle: UploadFile) -> bytes:
+    """Read the uploaded artifact with a hard size cap before archive inspection."""
+    bundle_bytes = bundle.file.read(MAX_SKILL_BUNDLE_SIZE_BYTES + 1)
+    if len(bundle_bytes) > MAX_SKILL_BUNDLE_SIZE_BYTES:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "value_error",
+                    "loc": ("body", "bundle"),
+                    "msg": (
+                        "Skill artifact exceeds the maximum size of "
+                        f"{MAX_SKILL_BUNDLE_SIZE_BYTES} bytes."
+                    ),
+                    "input": None,
+                }
+            ]
+        )
+    return bundle_bytes
 
 
 def to_create_command(

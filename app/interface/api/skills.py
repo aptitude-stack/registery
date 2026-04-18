@@ -25,6 +25,7 @@ from app.interface.api.skill_api_support_fetch import to_metadata_response
 from app.interface.api.skill_api_support_lifecycle import to_version_status_response
 from app.interface.api.skill_api_support_publish import (
     parse_publish_request_metadata,
+    read_publish_bundle_bytes,
     to_create_command,
     validate_publish_bundle,
 )
@@ -170,7 +171,7 @@ def create_skill_version(
 ) -> SkillVersionMetadataResponse | JSONResponse:
     """Publish one immutable normalized skill version."""
     request = parse_publish_request_metadata(metadata)
-    bundle_bytes = bundle.file.read()
+    bundle_bytes = read_publish_bundle_bytes(bundle)
     bundle_media_type = validate_publish_bundle(
         bundle_bytes=bundle_bytes,
         filename=bundle.filename,

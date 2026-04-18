@@ -13,6 +13,9 @@ scrape_configs:
 
   - job_name: aptitude-registry
     metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials: admin-token.dev-admin-secret
     static_configs:
       - targets:
           - server:8000
