@@ -81,6 +81,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
+      ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
     command: ["alembic", "upgrade", "head"]
     restart: "no"
@@ -97,6 +98,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
+      ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
     command: ["python", "-m", "app.bootstrap.seed_demo"]
     restart: "no"
