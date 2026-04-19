@@ -20,6 +20,8 @@ Authorization: Bearer <token_id>.<token_secret>
 ## Settings
 
 `AUTH_SERVICE_TOKENS_JSON` is the governed token registry loaded at startup.
+For local development, define it in your local `.env` created from `.env.example`.
+For non-local deployments, inject it through deployment environment variables or secrets management.
 
 ```json
 [
