@@ -54,7 +54,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
-      AUTH_TOKENS_JSON: '{"reader-token":["read"],"publisher-token":["read","publish"],"admin-token":["read","publish","admin"]}'
+      AUTH_SERVICE_TOKENS_JSON: '[{"token_id":"reader-token","secret_digest":"5f2a948f1a0f51d636721e4381eaf64fc8032a03b540a12da0645e0edc564084","scopes":["read"],"active":true},{"token_id":"publisher-token","secret_digest":"99e880bea53395534bf471d5d086ac2b2f6d45c6fe7c6c9ac7f6225cbe19c559","scopes":["read","publish"],"active":true},{"token_id":"admin-token","secret_digest":"f0f642b692ba908c91a9afe3c53878700b32e66c8132fc071109b4af48625d46","scopes":["read","publish","admin"],"active":true}]'
+      ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
       LOG_LEVEL: INFO
       LOG_FILE_PATH: /var/log/aptitude/app.jsonl
@@ -80,6 +81,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
+      ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
     command: ["alembic", "upgrade", "head"]
     restart: "no"
@@ -96,6 +98,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
+      ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
     command: ["python", "-m", "app.bootstrap.seed_demo"]
     restart: "no"

@@ -151,3 +151,6 @@ For the full setup flow, observability profile, verification commands, and troub
 - [`docs/reference/README.md`](docs/reference/README.md): stable technical reference
 - [`docs/roadmap/README.md`](docs/roadmap/README.md): forward-looking technical direction
 - [`.agents/README.md`](.agents/README.md): agent-facing operating context
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/y0ncha/aptitude-server)
+

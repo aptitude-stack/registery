@@ -14,10 +14,12 @@ from uuid import uuid4
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ExceptionHandler
 
 from app.core.governance import PolicyViolation
-from app.core.settings import get_settings, reset_settings_cache
+from app.core.settings import Settings, get_settings, load_settings, reset_settings_cache
 from app.interface.api.discovery import router as discovery_router
 from app.interface.api.errors import (
     ApiError,
@@ -67,7 +69,7 @@ logger = logging.getLogger(__name__)
 API_VERSION = "1.0.0"
 API_DESCRIPTION = """
 Registry-first API for immutable skill publication, candidate discovery,
-exact dependency reads, immutable metadata fetch, immutable zip-bundle content
+exact dependency reads, immutable metadata fetch, immutable `.tar.zst` content
 fetch, and governed lifecycle updates.
 
 The server owns data-local registry operations only. Prompt interpretation,
@@ -87,11 +89,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app_env=settings.app_env,
         log_file_path=settings.log_file_path,
     )
-    if settings.auth_tokens:
-        logger.info("loaded %d auth token(s) from settings", len(settings.auth_tokens))
+    if settings.auth_service_tokens:
+        logger.info(
+            "loaded %d governed service token(s) from settings",
+            len(settings.auth_service_tokens),
+        )
     else:
         logger.warning(
-            "no auth tokens configured; authenticated endpoints will reject all bearer tokens"
+            "no service tokens configured; authenticated endpoints will reject all bearer tokens"
         )
     app.state.services = build_service_container(settings=settings)
     logger.info("service startup complete")
@@ -104,12 +109,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure a FastAPI application instance."""
+    app_settings = _load_app_settings_for_wiring()
+    app_env = "dev" if app_settings is None else app_settings.app_env
     app = FastAPI(
         title="Aptitude Registry Service",
         description=API_DESCRIPTION,
         version=API_VERSION,
         lifespan=lifespan,
+        docs_url="/docs" if app_env == "dev" else None,
+        redoc_url="/redoc" if app_env == "dev" else None,
+        openapi_url="/openapi.json" if app_env == "dev" else None,
     )
+    if app_settings is not None and app_settings.app_env == "prod":
+        app.add_middleware(
+            TrustedHostMiddleware,
+            allowed_hosts=list(app_settings.allowed_hosts),
+        )
 
     @app.middleware("http")
     async def observability_middleware(
@@ -198,9 +213,6 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
-
-
 def run_dev_server() -> None:
     """Run uvicorn with the centralized aptitude logging configuration."""
     import uvicorn
@@ -257,3 +269,13 @@ def _response_error_code(response: Response) -> str | None:
         return None
     code = error.get("code")
     return code if isinstance(code, str) else None
+
+
+def _load_app_settings_for_wiring() -> Settings | None:
+    try:
+        return load_settings()
+    except ValidationError:
+        return None
+
+
+app = create_app()

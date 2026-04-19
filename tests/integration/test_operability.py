@@ -12,10 +12,11 @@ from sqlalchemy import create_engine, text
 
 from app.core.skills.bundle_archive import build_skill_bundle
 from app.main import create_app
+from tests.conftest import DEFAULT_BEARER_TOKENS
 
 
 def _headers(token: str, *, request_id: str | None = None) -> dict[str, str]:
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS.get(token, token)}"}
     if request_id is not None:
         headers["X-Request-ID"] = request_id
     return headers
@@ -65,15 +66,19 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
 
 
 @pytest.mark.integration
-def test_metrics_endpoint_is_unauthenticated_and_exposes_prometheus_payload(
+def test_metrics_endpoint_requires_admin_token_and_exposes_prometheus_payload(
     monkeypatch: pytest.MonkeyPatch,
     require_integration_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", require_integration_database)
 
     with TestClient(create_app()) as client:
-        response = client.get("/metrics")
+        missing = client.get("/metrics")
+        reader = client.get("/metrics", headers=_headers("reader-token"))
+        response = client.get("/metrics", headers=_headers("admin-token"))
 
+    assert missing.status_code == 401
+    assert reader.status_code == 403
     assert response.status_code == 200
     assert "text/plain" in response.headers["content-type"]
     assert "aptitude_http_requests_total" in response.text
@@ -101,6 +106,19 @@ def test_request_id_is_echoed_on_success_and_error_responses(
 
 
 @pytest.mark.integration
+def test_prod_rejects_untrusted_host_header(
+    monkeypatch: pytest.MonkeyPatch,
+    require_integration_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", require_integration_database)
+
+    with TestClient(create_app()) as client:
+        response = client.get("/healthz", headers={"host": "evil.example"})
+
+    assert response.status_code == 400
+
+
+@pytest.mark.integration
 def test_readyz_initializes_database_readiness_metric(
     monkeypatch: pytest.MonkeyPatch,
     require_integration_database: str,
@@ -109,7 +127,7 @@ def test_readyz_initializes_database_readiness_metric(
 
     with TestClient(create_app()) as client:
         readyz = client.get("/readyz")
-        metrics = client.get("/metrics")
+        metrics = client.get("/metrics", headers=_headers("admin-token"))
 
     assert readyz.status_code == 200
     assert 'aptitude_readiness_status{dependency="database"} 1.0' in metrics.text
@@ -134,7 +152,7 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
             },
             headers=_headers("publisher-token", request_id="req-publish"),
         )
-        metrics = client.get("/metrics")
+        metrics = client.get("/metrics", headers=_headers("admin-token"))
 
     audit_events = _query_audit_events(migrated_integration_database)
 
@@ -142,6 +160,10 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
     assert publish.headers["X-Request-ID"] == "req-publish"
     assert any(
         event["payload"] is not None and event["payload"].get("request_id") == "req-publish"
+        for event in audit_events
+    )
+    assert any(
+        event["payload"] is not None and event["payload"].get("actor_token_id") == "publisher-token"
         for event in audit_events
     )
     assert "aptitude_registry_operation_total" in metrics.text

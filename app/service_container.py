@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.audit.recorder import SQLAlchemyAuditRecorder
+from app.core.auth import AuthService, InMemoryServiceTokenLookup
 from app.core.governance import GovernancePolicy
 from app.core.settings import Settings
 from app.core.skills.discovery import SkillDiscoveryService
@@ -20,6 +21,7 @@ from app.persistence.skill_registry_repository import SQLAlchemySkillCatalogRepo
 class ServiceContainer:
     """Process-scoped services created during application startup."""
 
+    auth_service: AuthService
     readiness_service: ReadinessService
     skill_registry_service: SkillRegistryService
     skill_discovery_service: SkillDiscoveryService
@@ -35,6 +37,9 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
     audit_recorder = SQLAlchemyAuditRecorder(session_factory=session_factory)
     governance_policy = GovernancePolicy(profile=settings.active_policy)
     return ServiceContainer(
+        auth_service=AuthService(
+            token_lookup=InMemoryServiceTokenLookup(records=settings.service_token_records),
+        ),
         readiness_service=ReadinessService(
             database_probe=SQLAlchemyDatabaseReadinessProbe(),
         ),

@@ -18,7 +18,7 @@ from app.persistence.db import dispose_engine
 from app.service_container import build_service_container
 
 _STATUS_CALLER = CallerIdentity(
-    token="demo-seed-admin",
+    token_id="demo-seed-admin",
     scopes=frozenset({"read", "publish", "admin"}),
 )
 

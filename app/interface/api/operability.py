@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response
 
+from app.core.dependencies import AdminCallerDep
 from app.observability.metrics import generate_latest, metrics_content_type
 
 router = APIRouter(tags=["operability"])
@@ -19,7 +20,7 @@ router = APIRouter(tags=["operability"])
     ),
     response_model=None,
 )
-def get_metrics() -> Response:
+def get_metrics(_caller: AdminCallerDep) -> Response:
     """Expose the current Prometheus metrics payload."""
     return Response(
         content=generate_latest(),

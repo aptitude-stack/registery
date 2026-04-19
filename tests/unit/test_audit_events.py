@@ -16,7 +16,7 @@ from app.observability.context import clear_request_context, set_request_context
 
 
 def _caller() -> CallerIdentity:
-    return CallerIdentity(token="publisher-token", scopes=frozenset({"publish", "read"}))
+    return CallerIdentity(token_id="publisher-token", scopes=frozenset({"publish", "read"}))
 
 
 @pytest.mark.unit
@@ -39,11 +39,10 @@ def test_publish_audit_event_includes_redacted_actor_and_provenance_summary() ->
 
     assert event.event_type == "skill.version_published"
     assert event.payload is not None
-    assert event.payload["actor_token_fingerprint"] != "publisher-token"
+    assert event.payload["actor_token_id"] == "publisher-token"
     assert event.payload["actor_scopes"] == ["publish", "read"]
     assert event.payload["publisher_identity"] == "ci/acme-release"
     assert event.payload["policy_profile_at_publish"] == "default"
-    assert "publisher-token" not in str(event.payload)
 
 
 @pytest.mark.unit

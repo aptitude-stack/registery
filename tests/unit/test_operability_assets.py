@@ -26,6 +26,9 @@ def test_prometheus_scrape_config_targets_metrics_endpoint() -> None:
 
     assert "/metrics" in document
     assert "aptitude-registry" in document
+    assert "authorization:" in document
+    assert "type: Bearer" in document
+    assert "admin-token.dev-admin-secret" in document
     assert "127.0.0.1:9090" in document
     assert "job_name: loki" in document
     assert "job_name: otelcol" in document
@@ -130,4 +133,6 @@ def test_observability_compose_profile_uses_single_otel_lgtm_container() -> None
     assert "grafana/otel-lgtm" in document
     assert "otelcol-config.yaml" in document
     assert "aptitude-observability" in document
+    assert "AUTH_SERVICE_TOKENS_JSON" in document
+    assert "ALLOWED_HOSTS_JSON" in document
     assert "http://127.0.0.1:8000/readyz" in document

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import pytest
 from fastapi.routing import APIRoute
+from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.conftest import DEFAULT_BEARER_TOKENS
 
 
 def _routes() -> set[tuple[str, str]]:
@@ -101,3 +103,59 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     assert "slug" not in publish_properties
     assert publish_encoding["bundle"]["contentType"] == "application/zstd"
     assert "application/zstd" in content_success
+
+
+@pytest.mark.unit
+def test_prod_disables_docs_and_openapi_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+
+    with TestClient(create_app()) as client:
+        docs = client.get("/docs")
+        redoc = client.get("/redoc")
+        openapi = client.get("/openapi.json")
+
+    assert docs.status_code == 404
+    assert redoc.status_code == 404
+    assert openapi.status_code == 404
+
+
+@pytest.mark.unit
+def test_dev_keeps_docs_and_openapi_routes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "dev")
+
+    with TestClient(create_app()) as client:
+        docs = client.get("/docs")
+        openapi = client.get("/openapi.json")
+
+    assert docs.status_code == 200
+    assert openapi.status_code == 200
+
+
+@pytest.mark.unit
+def test_prod_rejects_untrusted_host_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+
+    with TestClient(create_app()) as client:
+        response = client.get("/healthz", headers={"host": "evil.example"})
+
+    assert response.status_code == 400
+
+
+@pytest.mark.unit
+def test_metrics_requires_admin_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "prod")
+
+    with TestClient(create_app()) as client:
+        missing = client.get("/metrics")
+        reader = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS['reader-token']}"},
+        )
+        admin = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS['admin-token']}"},
+        )
+
+    assert missing.status_code == 401
+    assert reader.status_code == 403
+    assert admin.status_code == 200

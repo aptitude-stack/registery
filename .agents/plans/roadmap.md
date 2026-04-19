@@ -20,7 +20,7 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 - Server remains execution-agnostic and exposes governed APIs for publish, discovery, resolution, exact fetch, lifecycle, and provenance.
 - Server contracts are slug candidates, authored direct dependency declarations, immutable metadata/content envelopes, and governance results; the server does not return canonical solved bundles.
 - Discovery remains candidate generation only; resolution remains exact first-degree dependency retrieval only; resolver choice and lock output remain authoritative.
-- Plans 09-15 keep the public route families fixed: publish, discovery, resolution, exact metadata fetch, exact content fetch, and lifecycle/governance operations.
+- Plans 09-17 keep the public route families fixed: publish, discovery, resolution, exact metadata fetch, exact content fetch, and lifecycle/governance operations.
 - Later milestones extend behavior inside that route set instead of adding new public read route families, compatibility aliases, or batch-fetch detours.
 
 ## Milestones
@@ -38,7 +38,9 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 12. `12-full-skill-directory-bundle-support.md`
 13. `13-environment-profiles-and-runtime-separation.md`
 14. `14-minimal-auth-boundary-and-token-governance.md`
-15. `15-hybrid-semantic-and-co-usage-discovery.md`
+15. `15-enterprise-control-plane-and-supply-chain-trust.md` (intentional conceptual placement; numbering stays append-only)
+16. `16-hybrid-semantic-and-co-usage-discovery.md`
+17. `17-redis-caching-over-pg-read-models.md` (Optional - still in consideration)
 
 ## PRD Phase Mapping
 - `MVP` (prd): milestones 01-04.
@@ -49,11 +51,14 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 - `Bundle artifact model reset`: milestone 12.
 - `Environment profile separation`: milestone 13.
 - `Security boundary hardening`: milestone 14.
+- `Enterprise control plane and supply-chain trust`: milestone 17.
 - `Post-launch hybrid semantic and co-usage discovery`: milestone 15.
+- `Optional Redis L1 caching over PostgreSQL read models`: milestone 16.
 - Resolver-specific initiatives (prompt interpretation, deterministic solving, reranking, plugin chains, and lock replay) are tracked in resolver planning and are out of scope for this roadmap.
 
 ## Roadmap Rules
 - Roadmap numbering is append-only after the one-time pre-implementation renumbering that inserted Plan 07.
+- Plan 17 is intentionally placed conceptually after Plan 14 in the milestone order so the roadmap reflects strategic sequencing without renumbering existing files.
 - The Plan 07 insertion and 07-13 to 08-14 shift are intentional cleanup to keep the MVP path simple before implementation work is finalized.
 - Plan filenames and titles may be corrected before implementation when the existing milestone framing is architecturally wrong.
 - Completed plans are never renamed or renumbered.

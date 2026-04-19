@@ -143,7 +143,7 @@ Handles packaging, validation, benchmarking, security checks, and provenance cap
 
 Stores and serves skills as immutable, versioned artifacts.
 
-Handles technical validation, persistence, lifecycle states, access control, and exposes discovery and exact-fetch APIs.
+Handles technical validation, persistence, lifecycle states, governed service-token access control, and exposes discovery and exact-fetch APIs.
 
 **Resolver (aptitude-resolver)**
 
@@ -180,7 +180,7 @@ This separation ensures simplicity, determinism, and scalability.
 | **Component** | **Core Responsibility** | **Owns** | **Does NOT Own** |
 | --- | --- | --- | --- |
 | **Publisher (aptitude-publisher)** | Skill authoring, validation, and publication enforcement | Packaging, authoritative validation, benchmarking, security checks, provenance capture, publish requests, CI integration | Persistence, catalog storage, dependency resolution, runtime execution, global state |
-| **Registry (Aptitude Registry)** | Immutable storage, access control, and technical validation | Schema validation, immutability enforcement, lifecycle states, persistence (PostgreSQL), discovery APIs, exact fetch APIs, audit logs | Governance policy enforcement, dependency resolution, skill selection, execution planning |
+| **Registry (Aptitude Registry)** | Immutable storage, service-token access control, and technical validation | Schema validation, immutability enforcement, lifecycle states, governed bearer-token auth, trusted-host checks in `prod`, persistence (PostgreSQL), discovery APIs, exact fetch APIs, audit logs | Governance policy enforcement beyond route/service boundaries, dependency resolution, skill selection, execution planning |
 | **Resolver (aptitude-resolver)** | Skill selection, dependency resolution, and execution planning | Query interpretation, candidate selection, dependency graph resolution, policy-aware filtering, lockfile generation, local materialization, integrity verification | Publishing, persistence, lifecycle management, canonical validation, global governance enforcement |
 
 ---
@@ -205,6 +205,7 @@ This separation ensures simplicity, determinism, and scalability.
 | Metadata indexing | Indexes structured metadata | Enables fast and accurate discovery |
 | Discovery API | Returns candidate skills | Makes system usable programmatically |
 | Exact fetch | Returns specific versions | Enables deterministic execution |
+| Service-token auth boundary | Governs `read`, `publish`, and `admin` access with machine tokens | Keeps the server machine-oriented without adding user-account flows |
 | Dependency storage | Stores declared relationships | Preserves modularity without solving |
 | Lifecycle management | Controls visibility (published/deprecated) | Enables safe evolution of skills |
 | Provenance & audit | Tracks origin and activity | Supports trust and compliance |
