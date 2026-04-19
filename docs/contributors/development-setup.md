@@ -36,6 +36,12 @@ Create the local dotenv file first:
 cp .env.example .env
 ```
 
+What `.env` does here:
+
+- Docker Compose reads `.env` for variable substitution such as Postgres image, DB ports, and optional image overrides.
+- Local non-Docker process runs also load `.env` by default through `pydantic-settings`.
+- The checked-in Compose file still sets a few container-only app values explicitly, such as the dev fixture tokens and the internal prod host allowlist.
+
 ## 2. Run The Supported Stacks
 
 Use the public `make` surface only:
@@ -60,7 +66,75 @@ Local URLs:
 
 Integration tests still use the dedicated PostgreSQL container on `127.0.0.1:5433`, but that lifecycle is intentionally behind the public `make test` entrypoint.
 
-## 2a. Run Only The FastAPI Process
+## 2a. Run The Same Stack With `docker compose`
+
+Use this only when you need to bypass the public `make` entrypoints and control the startup sequence yourself. For normal local work, `make run-dev` and `make run-prod` remain the intended surface.
+
+The checked-in Compose file supports two useful runtime knobs:
+
+- `APP_ENV=dev|prod`: switches the app runtime profile inside the `server`, `migrate`, and `demo-seed` containers
+- `APP_IMAGE=<image-ref>`: switches `server`, `migrate`, and `demo-seed` from a locally built image to a prebuilt image
+
+Relevant Compose profiles:
+
+- default services: `db`, `migrate`, `server`
+- `observability`: Grafana, Prometheus, Loki, OTEL collector bundle
+- `demo`: one-shot catalog seeding container
+- `test`: dedicated integration-test PostgreSQL only; this is for `make test`, not normal app startup
+
+### Option 1: Local image build from the current checkout
+
+This matches what `make run-dev` and `make run-prod` do internally.
+
+Dev stack with observability and demo seed:
+
+```bash
+APP_ENV=dev docker compose up -d db
+APP_ENV=dev docker compose build server migrate demo-seed
+APP_ENV=dev docker compose run --rm migrate
+APP_ENV=dev docker compose --profile demo run --rm demo-seed
+APP_ENV=dev docker compose --profile observability up -d server observability
+```
+
+Prod-like stack with observability and no demo seed:
+
+```bash
+APP_ENV=prod docker compose up -d db
+APP_ENV=prod docker compose build server migrate
+APP_ENV=prod docker compose run --rm migrate
+APP_ENV=prod docker compose --profile observability up -d server observability
+```
+
+### Option 2: Run a prebuilt Docker image
+
+Use this when you want peers to pull and run a published image instead of building from source. Set `APP_IMAGE` to the published tag before the same Compose commands:
+
+```bash
+APP_IMAGE=y0ncha/aptitude-registry:latest APP_ENV=prod docker compose up -d db
+APP_IMAGE=y0ncha/aptitude-registry:latest APP_ENV=prod docker compose run --rm migrate
+APP_IMAGE=y0ncha/aptitude-registry:latest APP_ENV=prod docker compose --profile observability up -d server observability
+```
+
+If you use a prebuilt image, do not run `docker compose build ...` first. That would defeat the point and replace the published image with a local build.
+
+### Useful `.env` and Compose options
+
+The main knobs peers are likely to change in `.env` are:
+
+- `POSTGRES_IMAGE`: override the Postgres image tag
+- `POSTGRES_PORT`: change the local DB port for the app stack
+- `APP_PORT`: change the local API port
+- `GRAFANA_PORT`, `PROMETHEUS_PORT`, `LOKI_PORT`, `OTLP_GRPC_PORT`, `OTLP_HTTP_PORT`: move observability ports if they collide locally
+- `DATABASE_URL`: used by local non-Docker process runs; the Compose app containers use their internal `db` hostname instead
+- `ALLOWED_HOSTS_JSON`: required for local non-Docker `APP_ENV=prod` process runs; the Compose app containers already set the internal prod allowlist explicitly
+
+Shut the stack down with:
+
+```bash
+docker compose --profile observability down -v
+```
+
+## 2b. Run Only The FastAPI Process
 
 Use this path when you want to debug app startup, settings, or FastAPI wiring without
 bringing up the full Docker stack.
