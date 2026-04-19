@@ -27,7 +27,7 @@ def _governance_policy() -> GovernancePolicy:
 
 
 def _caller(*scopes: str) -> CallerIdentity:
-    return CallerIdentity(token="token", scopes=frozenset(scopes))
+    return CallerIdentity(token_id="token", scopes=frozenset(scopes))
 
 
 def _audit_info(*, lifecycle_status: str = "published") -> ExactReadAuditInfo:

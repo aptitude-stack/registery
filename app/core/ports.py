@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal, Protocol
 
-from app.core.governance import LifecycleStatus, ProvenanceMetadata, TrustTier
+from app.core.governance import CallerScope, LifecycleStatus, ProvenanceMetadata, TrustTier
 from app.core.skills.models import (
     SkillContentRecord,
     SkillRelationshipSource,
@@ -29,6 +29,17 @@ class AuditEventRecord:
 
     event_type: str
     payload: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceTokenRecord:
+    """One governed service-token record used for bearer authentication."""
+
+    token_id: str
+    secret_digest: str
+    scopes: frozenset[CallerScope]
+    active: bool
+    expires_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +210,13 @@ class AuditPort(Protocol):
 
     def record_event(self, *, event_type: str, payload: dict[str, Any] | None = None) -> None:
         """Persist a domain audit event."""
+
+
+class ServiceTokenLookupPort(Protocol):
+    """Lookup contract for governed service-token records."""
+
+    def get_token(self, *, token_id: str) -> ServiceTokenRecord | None:
+        """Return one governed service-token record by token id."""
 
 
 class DatabaseReadinessPort(Protocol):

@@ -13,6 +13,9 @@ Public routes:
 
 - `GET /healthz`
 - `GET /readyz`
+
+Protected routes:
+
 - `GET /metrics`
 - `POST /skills/{slug}`
 - `POST /discovery`
@@ -43,7 +46,7 @@ Required parts:
 | `metadata` | `application/json` | Queryable metadata, governance, and relationships |
 | `bundle` | `application/zstd` | Immutable `.tar.zst` skill artifact stored without unpacking |
 
-The server validates the uploaded zip structure at publish time and then stores one immutable digest-addressed bundle per version.
+The server validates the uploaded archive structure at publish time and then stores one immutable digest-addressed bundle per version.
 
 Current enforced bundle limits:
 
@@ -102,13 +105,55 @@ Rules:
 - Consumers must not assume markdown text from this route anymore.
 - `ETag` mirrors the stored content checksum digest for the immutable artifact.
 
+## Authentication And Prod Posture
+
+Protected routes require:
+
+- `Authorization: Bearer <token_id>.<token_secret>`
+- governed service-token scopes: `read`, `publish`, or `admin`
+
+Operational rules:
+
+- `GET /metrics` requires `admin` scope.
+- `/docs`, `/redoc`, and `/openapi.json` are available in `dev` and disabled in `prod`.
+- `prod` rejects unexpected `Host` headers with the configured allowlist.
+- Forwarded proxy headers are not trusted by default at the application boundary.
+
+The canonical auth details, scope semantics, and local dev fixture tokens live in [`service-token-governance.md`](service-token-governance.md).
+
+## Cross-Cutting HTTP Rules
+
+Request correlation:
+
+- Clients may send `X-Request-ID` on any route.
+- The server echoes `X-Request-ID` on both success and error responses.
+- If the client does not send one, the server generates a request id before routing.
+
+Error envelope:
+
+- API errors use a stable JSON shape:
+
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "Request validation failed.",
+    "details": {}
+  }
+}
+```
+
+- `401` authentication failures use stable codes such as `AUTHENTICATION_REQUIRED`, `MALFORMED_AUTH_TOKEN`, `INVALID_AUTH_TOKEN`, `INACTIVE_AUTH_TOKEN`, and `EXPIRED_AUTH_TOKEN`.
+- `403` authorization or governance failures use stable codes such as `INSUFFICIENT_SCOPE`, `POLICY_PUBLISH_FORBIDDEN`, `POLICY_PROVENANCE_REQUIRED`, `POLICY_STATUS_TRANSITION_FORBIDDEN`, and `POLICY_EXACT_READ_FORBIDDEN`.
+- `422` request-shape failures use `INVALID_REQUEST`.
+
 ## Endpoint Summary
 
 | Method | Path | Scope | Success | Notes |
 | --- | --- | --- | --- | --- |
 | `GET` | `/healthz` | none | `200` | Liveness probe |
 | `GET` | `/readyz` | none | `200` or `503` | Dependency readiness probe |
-| `GET` | `/metrics` | none | `200` | Prometheus-compatible operational metrics |
+| `GET` | `/metrics` | `admin` | `200` | Prometheus-compatible operational metrics |
 | `POST` | `/skills/{slug}` | `publish` | `201` | Publish one immutable `slug@version` via `multipart/form-data` |
 | `POST` | `/discovery` | `read` | `200` | Returns ordered candidate `slug` values only |
 | `GET` | `/skills/{slug}` | `read` | `200` | Returns visible immutable versions for one skill identity |

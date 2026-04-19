@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from typing import Any, Literal
 
 from app.core.governance import CallerIdentity, LifecycleStatus, ProvenanceMetadata, TrustTier
@@ -193,7 +192,7 @@ def _base_payload(
 ) -> dict[str, Any]:
     request_context = get_request_context()
     payload: dict[str, Any] = {
-        "actor_token_fingerprint": _token_fingerprint(caller.token),
+        "actor_token_id": caller.token_id,
         "actor_scopes": sorted(caller.scopes),
         "policy_profile": policy_profile,
         "surface": surface,
@@ -230,7 +229,3 @@ def _provenance_payload(provenance: ProvenanceMetadata) -> dict[str, Any]:
     if provenance.policy_profile is not None:
         payload["policy_profile_at_publish"] = provenance.policy_profile
     return payload
-
-
-def _token_fingerprint(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()

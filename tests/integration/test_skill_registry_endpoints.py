@@ -10,13 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event, text
 
-from app.core.skills.bundle_archive import build_skill_bundle
+from app.core.skills.bundle_archive import MAX_SKILL_BUNDLE_SIZE_BYTES, build_skill_bundle
 from app.main import create_app
 from app.persistence.db import get_session_factory
+from tests.conftest import DEFAULT_BEARER_TOKENS
 
 
 def _headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS.get(token, token)}"}
 
 
 def _request(
@@ -559,7 +560,13 @@ def test_authentication_and_scope_failures_are_enforced(
 
     with TestClient(create_app()) as client:
         missing = _publish_response(client, slug, payload, token=None)
-        invalid = _publish_response(client, slug, payload, token="not-a-real-token")
+        malformed = _publish_response(client, slug, payload, token="not-a-real-token")
+        invalid = _publish_response(
+            client,
+            slug,
+            payload,
+            token="unknown-token.dev-reader-secret",
+        )
         insufficient = _publish_response(client, slug, payload, token="reader-token")
         discovery_missing = client.post(
             "/discovery",
@@ -568,6 +575,8 @@ def test_authentication_and_scope_failures_are_enforced(
 
     assert missing.status_code == 401
     assert missing.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"
+    assert malformed.status_code == 401
+    assert malformed.json()["error"]["code"] == "MALFORMED_AUTH_TOKEN"
     assert invalid.status_code == 401
     assert invalid.json()["error"]["code"] == "INVALID_AUTH_TOKEN"
     assert insufficient.status_code == 403
@@ -929,6 +938,45 @@ def test_publish_rejects_invalid_bundle_structure(
         )
 
     assert response.status_code == 422
+
+
+@pytest.mark.integration
+def test_publish_rejects_oversized_bundle_before_persisting(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python.oversized.bundle.{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        payload = _request("1.0.0", intent="create_skill")
+        metadata = dict(payload)
+        metadata.pop("bundle_raw_markdown")
+        response = client.post(
+            f"/skills/{slug}",
+            files={
+                "metadata": (None, json.dumps(metadata), "application/json"),
+                "bundle": (
+                    "skill.tar.zst",
+                    b"x" * (MAX_SKILL_BUNDLE_SIZE_BYTES + 1),
+                    "application/zstd",
+                ),
+            },
+            headers=_headers("publisher-token"),
+        )
+
+    engine = create_engine(migrated_registry_database)
+    try:
+        with engine.connect() as connection:
+            persisted_count = connection.execute(
+                text("SELECT COUNT(*) FROM skills WHERE slug = :slug"),
+                {"slug": slug},
+            ).scalar_one()
+    finally:
+        engine.dispose()
+
+    assert response.status_code == 422
+    assert persisted_count == 0
 
 
 @pytest.mark.integration

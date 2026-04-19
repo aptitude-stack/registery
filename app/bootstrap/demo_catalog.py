@@ -22,11 +22,11 @@ from app.core.skills.models import (
 )
 
 _PUBLISHER_CALLER = CallerIdentity(
-    token="demo-seed-publisher",
+    token_id="demo-seed-publisher",
     scopes=frozenset({"read", "publish"}),
 )
 _ADMIN_CALLER = CallerIdentity(
-    token="demo-seed-admin",
+    token_id="demo-seed-admin",
     scopes=frozenset({"read", "publish", "admin"}),
 )
 

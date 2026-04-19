@@ -19,7 +19,7 @@ ALL_TRUST_TIERS: tuple[TrustTier, ...] = ("untrusted", "internal", "verified")
 class CallerIdentity:
     """Authenticated caller context available to the interface and core layers."""
 
-    token: str
+    token_id: str
     scopes: frozenset[CallerScope]
 
     def has_scope(self, scope: CallerScope) -> bool:

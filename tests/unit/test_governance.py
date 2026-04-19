@@ -12,18 +12,15 @@ from app.core.governance import (
     SkillGovernanceInput,
 )
 from app.core.settings import Settings
+from tests.conftest import DEFAULT_AUTH_SERVICE_TOKENS
 
 
 @pytest.mark.unit
-def test_settings_parse_auth_tokens_and_policy_profiles_from_json() -> None:
+def test_settings_parse_service_tokens_and_policy_profiles_from_json() -> None:
     settings = Settings.model_validate(
         {
             "DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
-            "AUTH_TOKENS_JSON": {
-                "reader": ["read"],
-                "publisher": ["publish"],
-                "admin": ["admin"],
-            },
+            "AUTH_SERVICE_TOKENS_JSON": DEFAULT_AUTH_SERVICE_TOKENS,
             "POLICY_PROFILES_JSON": {
                 "strict": {
                     "publish_rules": {
@@ -37,7 +34,7 @@ def test_settings_parse_auth_tokens_and_policy_profiles_from_json() -> None:
         }
     )
 
-    assert settings.auth_tokens["reader"] == ("read",)
+    assert settings.service_token_records[0].token_id == "reader-token"
     assert settings.active_policy_profile == "strict"
     assert (
         settings.effective_policy_profiles["strict"].publish_rules["untrusted"].required_scope
@@ -55,7 +52,7 @@ def test_governance_policy_blocks_missing_provenance_for_internal_publish() -> N
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.evaluate_publish(
-            caller=CallerIdentity(token="publisher", scopes=frozenset({"publish"})),
+            caller=CallerIdentity(token_id="publisher", scopes=frozenset({"publish"})),
             governance=SkillGovernanceInput(trust_tier="internal"),
         )
 
@@ -72,7 +69,7 @@ def test_governance_policy_rejects_archived_to_published_transition() -> None:
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.evaluate_transition(
-            caller=CallerIdentity(token="admin", scopes=frozenset({"admin"})),
+            caller=CallerIdentity(token_id="admin", scopes=frozenset({"admin"})),
             current_status="archived",
             next_status="published",
         )
@@ -89,7 +86,7 @@ def test_prepare_publish_governance_normalizes_provenance_and_attaches_policy_pr
     )
 
     governance = policy.prepare_publish_governance(
-        caller=CallerIdentity(token="publisher", scopes=frozenset({"publish"})),
+        caller=CallerIdentity(token_id="publisher", scopes=frozenset({"publish"})),
         governance=SkillGovernanceInput(
             trust_tier="internal",
             provenance=ProvenanceMetadata(
@@ -119,7 +116,7 @@ def test_prepare_publish_governance_rejects_blank_trimmed_provenance_fields() ->
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.prepare_publish_governance(
-            caller=CallerIdentity(token="publisher", scopes=frozenset({"publish"})),
+            caller=CallerIdentity(token_id="publisher", scopes=frozenset({"publish"})),
             governance=SkillGovernanceInput(
                 trust_tier="internal",
                 provenance=ProvenanceMetadata(

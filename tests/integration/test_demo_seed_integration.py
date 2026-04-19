@@ -8,10 +8,11 @@ from sqlalchemy import create_engine, text
 
 from app.bootstrap.seed_demo import run_demo_seed
 from app.main import create_app
+from tests.conftest import DEFAULT_BEARER_TOKENS
 
 
 def _headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS.get(token, token)}"}
 
 
 def _query_seeded_catalog_state(database_url: str) -> dict[str, object]:

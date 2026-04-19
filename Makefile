@@ -33,6 +33,7 @@ PROMETHEUS_URL ?= http://127.0.0.1:9090
 WAIT_ATTEMPTS ?= 30
 WAIT_SLEEP_SECONDS ?= 1
 LOKI_SMOKE_REQUEST_ID ?= loki-smoke
+METRICS_BEARER_TOKEN ?= admin-token.dev-admin-secret
 
 .PHONY: \
 	help \
@@ -154,7 +155,7 @@ endef
 define smoke_verify_commands
 curl --fail $(APP_BASE_URL)/healthz; \
 curl --fail $(APP_BASE_URL)/readyz; \
-curl --fail $(APP_BASE_URL)/metrics; \
+curl --fail -H 'Authorization: Bearer $(METRICS_BEARER_TOKEN)' $(APP_BASE_URL)/metrics; \
 curl --fail $(LOKI_URL)/ready; \
 curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"aptitude-registry"'; \
 curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"loki"'; \
@@ -280,7 +281,7 @@ _wait-prometheus-targets:
 _verify-service-endpoints:
 	curl --fail $(APP_BASE_URL)/healthz
 	curl --fail $(APP_BASE_URL)/readyz
-	curl --fail $(APP_BASE_URL)/metrics
+	curl --fail -H 'Authorization: Bearer $(METRICS_BEARER_TOKEN)' $(APP_BASE_URL)/metrics
 	curl --fail $(LOKI_URL)/ready
 	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"aptitude-registry"'
 	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"loki"'

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.governance import (
@@ -17,6 +18,7 @@ from app.core.governance import (
     TrustTier,
     build_default_policy_profile,
 )
+from app.core.ports import ServiceTokenRecord
 
 
 class PublishRuleSettings(BaseModel):
@@ -68,6 +70,55 @@ class PolicyProfileSettings(BaseModel):
     )
 
 
+class ServiceTokenSettings(BaseModel):
+    """One governed service-token record loaded from settings."""
+
+    token_id: str
+    secret_digest: str
+    scopes: tuple[CallerScope, ...]
+    active: bool = True
+    expires_at: datetime | None = None
+
+    @field_validator("token_id")
+    @classmethod
+    def validate_token_id(cls, value: str) -> str:
+        token_id = value.strip()
+        if not token_id:
+            raise ValueError("token_id must not be blank.")
+        if "." in token_id:
+            raise ValueError("token_id must not contain `.`.")
+        return token_id
+
+    @field_validator("secret_digest")
+    @classmethod
+    def validate_secret_digest(cls, value: str) -> str:
+        secret_digest = value.strip().lower()
+        if len(secret_digest) != 64 or any(
+            char not in "0123456789abcdef" for char in secret_digest
+        ):
+            raise ValueError("secret_digest must be a 64-character lowercase sha256 hex digest.")
+        return secret_digest
+
+    @field_validator("expires_at")
+    @classmethod
+    def validate_expires_at(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("expires_at must include a timezone offset.")
+        return value.astimezone(UTC)
+
+    def to_record(self) -> ServiceTokenRecord:
+        """Return the normalized service-token record used by the auth service."""
+        return ServiceTokenRecord(
+            token_id=self.token_id,
+            secret_digest=self.secret_digest,
+            scopes=frozenset(self.scopes),
+            active=self.active,
+            expires_at=self.expires_at,
+        )
+
+
 class Settings(BaseSettings):
     """Application configuration values."""
 
@@ -77,10 +128,11 @@ class Settings(BaseSettings):
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")
     log_file_path: str | None = Field(default=None, alias="LOG_FILE_PATH")
     app_name: str = Field(default="aptitude-registry", alias="APP_NAME")
-    auth_tokens: dict[str, tuple[CallerScope, ...]] = Field(
-        default_factory=dict,
-        alias="AUTH_TOKENS_JSON",
+    auth_service_tokens: tuple[ServiceTokenSettings, ...] = Field(
+        default_factory=tuple,
+        alias="AUTH_SERVICE_TOKENS_JSON",
     )
+    allowed_hosts: tuple[str, ...] = Field(default_factory=tuple, alias="ALLOWED_HOSTS_JSON")
     policy_profiles: dict[str, PolicyProfileSettings] = Field(
         default_factory=dict,
         alias="POLICY_PROFILES_JSON",
@@ -101,7 +153,22 @@ class Settings(BaseSettings):
                 f"Unknown active policy profile: {self.active_policy_profile!r}. "
                 "Define it in POLICY_PROFILES_JSON or use 'default'."
             )
+        if self.app_env == "prod" and not self.allowed_hosts:
+            raise ValueError("ALLOWED_HOSTS_JSON must define at least one host when APP_ENV=prod.")
+        token_ids = [token.token_id for token in self.auth_service_tokens]
+        duplicate_token_ids = {token_id for token_id in token_ids if token_ids.count(token_id) > 1}
+        if duplicate_token_ids:
+            duplicates = ", ".join(sorted(duplicate_token_ids))
+            raise ValueError(
+                f"AUTH_SERVICE_TOKENS_JSON contains duplicate token ids: {duplicates}."
+            )
         return self
+
+    @field_validator("allowed_hosts")
+    @classmethod
+    def normalize_allowed_hosts(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(host.strip() for host in value if host.strip())
+        return tuple(dict.fromkeys(normalized))
 
     @property
     def effective_policy_profiles(self) -> dict[str, PolicyProfileSettings]:
@@ -133,10 +200,20 @@ class Settings(BaseSettings):
             exact_read_statuses=configured.exact_read_statuses,
         )
 
+    @property
+    def service_token_records(self) -> tuple[ServiceTokenRecord, ...]:
+        """Return normalized governed service-token records."""
+        return tuple(token.to_record() for token in self.auth_service_tokens)
+
 
 @lru_cache
 def get_settings() -> Settings:
     """Return memoized settings for the running process."""
+    return load_settings()
+
+
+def load_settings() -> Settings:
+    """Return a fresh settings instance from the active environment and dotenv file."""
     return Settings(_env_file=os.getenv(SETTINGS_ENV_FILE_ENV_VAR, ".env"))  # type: ignore[call-arg]
 
 

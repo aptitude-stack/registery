@@ -17,11 +17,35 @@ from app.core.settings import SETTINGS_ENV_FILE_ENV_VAR, reset_settings_cache
 from app.persistence.db import dispose_engine
 
 DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test"
-DEFAULT_AUTH_TOKENS = {
-    "reader-token": ["read"],
-    "publisher-token": ["read", "publish"],
-    "admin-token": ["read", "publish", "admin"],
+DEFAULT_ALLOWED_HOSTS = ("testserver", "127.0.0.1", "localhost", "server")
+DEFAULT_SERVICE_TOKEN_SECRETS = {
+    "reader-token": "dev-reader-secret",
+    "publisher-token": "dev-publisher-secret",
+    "admin-token": "dev-admin-secret",
 }
+DEFAULT_BEARER_TOKENS = {
+    token_id: f"{token_id}.{secret}" for token_id, secret in DEFAULT_SERVICE_TOKEN_SECRETS.items()
+}
+DEFAULT_AUTH_SERVICE_TOKENS = (
+    {
+        "token_id": "reader-token",
+        "secret_digest": "5f2a948f1a0f51d636721e4381eaf64fc8032a03b540a12da0645e0edc564084",
+        "scopes": ["read"],
+        "active": True,
+    },
+    {
+        "token_id": "publisher-token",
+        "secret_digest": "99e880bea53395534bf471d5d086ac2b2f6d45c6fe7c6c9ac7f6225cbe19c559",
+        "scopes": ["read", "publish"],
+        "active": True,
+    },
+    {
+        "token_id": "admin-token",
+        "secret_digest": "f0f642b692ba908c91a9afe3c53878700b32e66c8132fc071109b4af48625d46",
+        "scopes": ["read", "publish", "admin"],
+        "active": True,
+    },
+)
 
 
 def _database_is_available(database_url: str) -> bool:
@@ -58,9 +82,13 @@ def clear_settings_cache() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
-def default_auth_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Provide explicit auth tokens for all tests exercising HTTP routes."""
-    monkeypatch.setenv("AUTH_TOKENS_JSON", json.dumps(DEFAULT_AUTH_TOKENS))
+def default_auth_service_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provide explicit governed service tokens for all tests exercising HTTP routes."""
+    monkeypatch.setenv(
+        "AUTH_SERVICE_TOKENS_JSON",
+        json.dumps(DEFAULT_AUTH_SERVICE_TOKENS),
+    )
+    monkeypatch.setenv("ALLOWED_HOSTS_JSON", json.dumps(DEFAULT_ALLOWED_HOSTS))
 
 
 @pytest.fixture(autouse=True)
@@ -71,7 +99,8 @@ def dummy_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         "\n".join(
             [
                 f"DATABASE_URL={DEFAULT_TEST_DATABASE_URL}",
-                f"AUTH_TOKENS_JSON={json.dumps(DEFAULT_AUTH_TOKENS)}",
+                f"AUTH_SERVICE_TOKENS_JSON={json.dumps(DEFAULT_AUTH_SERVICE_TOKENS)}",
+                f"ALLOWED_HOSTS_JSON={json.dumps(DEFAULT_ALLOWED_HOSTS)}",
                 "APP_ENV=prod",
                 "LOG_LEVEL=DEBUG",
                 "APP_NAME=aptitude-test",
