@@ -23,7 +23,7 @@ It is not a planner, not an agent runtime, and not a solver. It stores and serve
 The registry owns facts:
 
 - immutable skill identity and versions
-- immutable markdown content
+- immutable bundle artifacts
 - structured metadata
 - authored dependency selectors
 - lifecycle state
@@ -52,7 +52,7 @@ The correct question is whether the feature belongs on the data side or the deci
 
 | Layer | Question | Example |
 | --- | --- | --- |
-| Registry fact | What immutable record or policy-gated read should exist? | Publish `python.lint@1.2.3`, fetch its markdown, or read its authored `depends_on`. |
+| Registry fact | What immutable record or policy-gated read should exist? | Publish `python.lint@1.2.3`, fetch its bundle, or read its authored `depends_on`. |
 | Resolver decision | What should happen for this caller right now? | Choose between several candidates, solve the full graph, or produce a lockfile. |
 
 This is why the registry has a public `resolution` route but does not return solved bundles. Reading direct authored selectors is a fact. Solving them is a decision.
@@ -65,7 +65,7 @@ What it does:
 
 - Accepts a normalized publish payload for one `slug@version`.
 - Validates request shape, governance inputs, and authored relationships.
-- Persists immutable metadata, immutable content, and authored selectors.
+- Persists immutable metadata, one immutable `.tar.zst` bundle artifact, and authored selectors.
 - Rejects overwrite attempts for an existing `(slug, version)`.
 
 Why it exists:
@@ -173,8 +173,8 @@ What it does:
 Why it exists:
 
 - Consumers need a machine-readable, exact description of what one immutable coordinate means before they use or materialize it.
-- Metadata is valuable independently of markdown content for policy evaluation, debugging, and UI/CLI inspection.
-- Keeping metadata separate from raw markdown avoids dragging large text fields into every exact-read path.
+- Metadata is valuable independently of the stored bundle artifact for policy evaluation, debugging, and UI or CLI inspection.
+- Keeping metadata separate from artifact bytes avoids dragging large payloads into every exact-read path.
 
 Audience:
 
@@ -191,15 +191,15 @@ Quality bar:
 
 What it does:
 
-- Returns the raw immutable markdown body for one exact `slug@version`.
+- Returns the immutable stored `application/zstd` bundle for one exact `slug@version`.
 - Emits digest-based cache validation headers.
 - Increments usage/install counters through the exact fetch path.
 
 Why it exists:
 
-- Materialization and execution need the real authored content, not just metadata.
+- Materialization and execution need the real published artifact, not just metadata.
 - A separate content route lets discovery and metadata reads stay light while exact content fetch stays simple and cacheable.
-- Digest-backed reads make immutable content easy to verify and cheap to reuse.
+- Digest-backed reads make immutable artifacts easy to verify and cheap to reuse.
 
 Audience:
 
@@ -209,7 +209,7 @@ Audience:
 
 Quality bar:
 
-- Return raw markdown only.
+- Return the exact stored bundle only.
 - Keep immutable cache semantics explicit.
 - Avoid coupling content fetch to any search index or source repository checkout.
 
@@ -292,7 +292,7 @@ Why this route exists:
 
 Why it stays narrow:
 
-- It should not inline full markdown or become a bulk catalog endpoint.
+- It should not inline full bundle payloads or become a bulk catalog endpoint.
 
 ### `GET /resolution/{slug}/{version}`
 
@@ -314,7 +314,7 @@ Why this route exists:
 
 Why it is separate from content:
 
-- Metadata and markdown have different access patterns, response sizes, and cache characteristics.
+- Metadata and bundle delivery have different access patterns, response sizes, and cache characteristics.
 
 ### `GET /skills/{slug}/{version}/content`
 
@@ -323,9 +323,9 @@ Why this route exists:
 - Raw content delivery deserves its own exact, cacheable read path.
 - It keeps content materialization simple and lets metadata reads stay cheap.
 
-Why it returns markdown directly:
+Why it returns the bundle directly:
 
-- Wrapping the content in another JSON envelope would add overhead without adding meaning for the core use case.
+- Wrapping the artifact in another JSON envelope would add overhead without adding meaning for the core use case.
 
 ### `PATCH /skills/{slug}/{version}/status`
 

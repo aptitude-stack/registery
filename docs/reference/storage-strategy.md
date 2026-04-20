@@ -22,7 +22,7 @@ This is the simplest design that still preserves the right architectural boundar
 - Exact fetch stays precise because it returns the original `application/zstd` artifact.
 - Publish stays transactional because the registry still uses one storage system.
 - Deduplication stays cheap because identical artifacts share one digest-backed row.
-- Version identity stays stable because version checksums are derived from the content digest plus structured version data instead of raw markdown text.
+- Version identity stays stable because version checksums are derived from the content digest plus structured version data instead of unpacked artifact content.
 
 ## Rejected Alternatives
 
@@ -38,4 +38,4 @@ The registry is no longer markdown-content-centric.
 - Exact content fetch does not return `text/markdown`.
 - The authoritative stored artifact is a `.tar.zst` blob.
 - Structured metadata remains separately queryable and independently evolvable.
-- Search/document size fields now reflect stored artifact size, not extracted markdown length.
+- Search and document size fields now reflect stored artifact size, not extracted markdown length.

@@ -15,7 +15,7 @@
 [![DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-0A66C2?style=for-the-badge&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAAsVBMVEVHcEwmWMYZy38Akt0gwZoSaFIbYssUmr4gwJkBlN4WbNE4acofwZkBj9k4aMkBk94WgM0bsIM4aMkewJc2ZMM3Z8cbvIwYpHsewJYAftgBkt0fvpgBkt0cv44cv5wzYckAjtsCk90pasUboXsgwJkfwpYfwJg4aMoct44yXswAkd0BkN84Z8cBktwduZIjcO85lM4hwZo5acoBleA6a88iyaABmOQ8b9QhxZ0CnOoizaOW4DOvAAAAMHRSTlMAKCfW%2FAgWA%2F7%2FDfvMc9j7MU%2Frj3XBcRW%2FJMbe7kUxjI%2FlUzzz6tPQkJ%2BjVmW1oeulmmslAAAByUlEQVQ4y32Tia6jIBSGUVFcqliXtlq73rm3d50ERNC%2B%2F4PNQetoptMeE0PgC%2F9%2FFhCaBSH9Hz2J%2BONgPDl2DolSUWY%2FPL8oEQRCfPxHpFc3Ah5wHoiI6I05NXgjAOgQF3Jn1Dlo4XMPDDes09UE2d%2BREvl3lijBg4CrHNmrbcM2u9u5nwsRcAFfFHFY5sZ607Yua3GqpQiKE6G9cZHZThblZ4T2mLnMxde3ATASMUj72o0Pbs1fADDcLHqAjEDugJ3lC%2BztMGYTADcoLaFyH%2B02DP9%2BWS4ahrXE4laALFKcq8vZfscNY8312mxfr27bLJZjnsYhSDIHmUxLu9h9N%2Fep%2B7pazwoZQw%2B1Nwi33epu7c2p8RooeqCdAHMGoOJIq3CUwIMEniRIaHVe3ZVnO2Vgsh1MstEkQUXVUc%2BjXfk3zbemxS6%2BpQmlPtUeALJ8VKj4JHvAelBqFFdSS3h1SPzQKr%2F%2BaRa0%2B0cCIWtJLauG5U%2FfbgyG01uiNqQhyzA8ddKj1OvK28AsZyN3DKE4X6AEWrU1jJx9N7RFpdPxpHU%2FtMOQG9SjfTp3Yz8KgRVKpfx88Dqhpseq606h%2F%2Bzxfh6LJ8eEDKWbxx9XEDwqzP1SVgAAAABJRU5ErkJggg%3D%3D)](https://deepwiki.com/y0ncha/aptitude-server)
 ![Last Commit](https://img.shields.io/github/last-commit/y0ncha/aptitude-server?style=for-the-badge)
 
-`Aptitude Registry` is the registry backend in the Aptitude ecosystem. It stores immutable skill metadata, digest-addressed markdown content, lifecycle state, provenance snapshots, and audit data in PostgreSQL so callers can publish exact versions, discover candidate slugs, read direct authored dependencies, and fetch immutable metadata/content without crawling the full catalog.
+`Aptitude Registry` is the registry backend in the Aptitude ecosystem. It stores immutable skill metadata, digest-addressed bundle artifacts, lifecycle state, provenance snapshots, and audit data in PostgreSQL so callers can publish exact versions, discover candidate slugs, read direct authored dependencies, and fetch immutable metadata or the exact stored artifact without crawling the full catalog.
 
 ## Overview
 
@@ -48,7 +48,7 @@ flowchart LR
     Adapters <-->|reads / writes| Storage
 ```
 
-The registry is organized as a small layered service around PostgreSQL. The interface layer exposes publish, discovery, resolution, exact fetch, and operational endpoints. Those requests flow into core services that implement immutable catalog behavior, lifecycle governance, dependency declaration reads, and audit recording. Persistence and audit adapters translate the core contracts into relational reads and writes over the registry store, which holds versions, metadata, markdown content, search-facing projections, and audit history.
+The registry is organized as a small layered service around PostgreSQL. The interface layer exposes publish, discovery, resolution, exact fetch, and operational endpoints. Those requests flow into core services that implement immutable catalog behavior, lifecycle governance, dependency declaration reads, and audit recording. Persistence and audit adapters translate the core contracts into relational reads and writes over the registry store, which holds versions, normalized metadata, immutable bundle artifacts, search-facing projections, and audit history.
 
 The main boundary is between authoritative registry data and downstream execution decisions. The registry publishes and serves immutable skill records and authored dependency selectors, while resolver or client components remain responsible for interpreting intent, selecting candidates, solving full dependency graphs, and producing execution plans.
 
@@ -153,4 +153,3 @@ For the full setup flow, observability profile, verification commands, and troub
 - [`.agents/README.md`](.agents/README.md): agent-facing operating context
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/y0ncha/aptitude-server)
-
