@@ -22,7 +22,7 @@ This directory holds the registry PRD and forward-looking explanation.
 
 ## Contents
 
-- [`requirements-and-phases.md`](requirements-and-phases.md): canonical registry PRD
+- [`aptitude-registry-prd.md`](aptitude-registry-prd.md): canonical registry PRD
 - [`near-term-evolution.md`](near-term-evolution.md): upcoming hardening and capability themes
 - [`registry-feature-rationale.md`](registry-feature-rationale.md): explanation of the current feature boundary
 - [`../drafts/README.md`](../drafts/README.md): working draft index and status

@@ -49,7 +49,7 @@ Related entrypoints outside this directory:
 ### Review roadmap and history
 
 - [`roadmap/README.md`](roadmap/README.md): forward-looking documentation index
-- [`roadmap/requirements-and-phases.md`](roadmap/requirements-and-phases.md): canonical registry PRD
+- [`roadmap/requirements-and-phases.md`](roadmap/aptitude-registry-prd.md): canonical registry PRD
 - [`roadmap/near-term-evolution.md`](roadmap/near-term-evolution.md): next hardening and capability themes
 - [`roadmap/registry-feature-rationale.md`](roadmap/registry-feature-rationale.md): why the current registry feature surface exists and where its boundary should stay
 - [`drafts/README.md`](drafts/README.md): working draft index and classification

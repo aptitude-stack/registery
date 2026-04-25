@@ -5,7 +5,7 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 
 ## Alignment Sources
 - Scope boundary and ownership: [`../../docs/architecture/server-resolver-boundary.md`](../../docs/architecture/server-resolver-boundary.md)
-- Server requirements and KPIs: [`../../docs/roadmap/requirements-and-phases.md`](../../docs/roadmap/requirements-and-phases.md)
+- Server requirements and KPIs: [`../../docs/roadmap/requirements-and-phases.md`](../../docs/roadmap/aptitude-registry-prd.md)
 - Resolver ownership and dependency-solving responsibilities are out of scope for this repository and tracked in the resolver repository.
 
 ## Platform Defaults

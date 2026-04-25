@@ -22,4 +22,4 @@ Use this directory for working analysis that is intentionally not canonical.
 
 ## Consolidated Or Removed
 
-- The duplicate registry PRD draft was removed. Use [`../roadmap/requirements-and-phases.md`](../roadmap/requirements-and-phases.md) as the only registry PRD.
+- The duplicate registry PRD draft was removed. Use [`../roadmap/requirements-and-phases.md`](../roadmap/aptitude-registry-prd.md) as the only registry PRD.
