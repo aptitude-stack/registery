@@ -1,8 +1,8 @@
-"""Switch immutable content storage from markdown text to tar.zst bundles.
+"""Remove legacy zip skill artifacts from stored content.
 
-Revision ID: 0003_skill_bundle_storage
-Revises: 0002_skill_install_counts
-Create Date: 2026-04-12
+Revision ID: 0005_remove_zip_artifacts
+Revises: 0004_enterprise_governance
+Create Date: 2026-04-25
 """
 
 from __future__ import annotations
@@ -12,18 +12,19 @@ import json
 import tarfile
 from collections import defaultdict
 from io import BytesIO
+from zipfile import ZipFile
 
 import sqlalchemy as sa
 import zstandard
 
 from alembic import op
 
-# revision identifiers, used by Alembic.
-revision = "0003_skill_bundle_storage"
-down_revision = "0002_skill_install_counts"
+revision = "0005_remove_zip_artifacts"
+down_revision = "0004_enterprise_governance"
 branch_labels = None
 depends_on = None
 
+_LEGACY_MEDIA_TYPE = "application/zip"
 _MEDIA_TYPE = "application/zstd"
 _SKILL_BUNDLE_MARKDOWN_PATH = "skill-bundle/SKILL.md"
 _RELATIONSHIP_EDGE_ORDER = {
@@ -35,15 +36,23 @@ _RELATIONSHIP_EDGE_ORDER = {
 
 
 def upgrade() -> None:
-    op.add_column("skill_contents", sa.Column("payload", sa.LargeBinary(), nullable=True))
-    op.add_column("skill_contents", sa.Column("media_type", sa.Text(), nullable=True))
-
     connection = op.get_bind()
-    content_rows = connection.execute(
-        sa.text("SELECT id, raw_markdown FROM skill_contents ORDER BY id")
+    legacy_rows = connection.execute(
+        sa.text(
+            """
+            SELECT id, payload
+            FROM skill_contents
+            WHERE media_type = :legacy_media_type
+            ORDER BY id
+            """
+        ),
+        {"legacy_media_type": _LEGACY_MEDIA_TYPE},
     ).mappings()
-    for row in content_rows:
-        bundle_bytes = _bundle_markdown(str(row["raw_markdown"]))
+
+    converted_count = 0
+    for row in legacy_rows:
+        markdown = _extract_legacy_zip_markdown(bytes(row["payload"]))
+        bundle_bytes = _bundle_markdown(markdown)
         connection.execute(
             sa.text(
                 """
@@ -63,57 +72,51 @@ def upgrade() -> None:
                 "checksum_digest": _sha256(bundle_bytes),
             },
         )
+        converted_count += 1
 
-    op.alter_column("skill_contents", "payload", nullable=False)
-    op.alter_column("skill_contents", "media_type", nullable=False)
-
-    _recompute_version_checksums(connection)
-
-    connection.execute(
-        sa.text(
-            """
-            UPDATE skill_search_documents AS doc
-            SET content_size_bytes = content.storage_size_bytes
-            FROM skill_versions AS version_row
-            JOIN skill_contents AS content ON content.id = version_row.content_fk
-            WHERE doc.skill_version_fk = version_row.id
-            """
-        )
-    )
-
-    op.drop_column("skill_contents", "raw_markdown")
-
-
-def downgrade() -> None:
-    op.add_column("skill_contents", sa.Column("raw_markdown", sa.Text(), nullable=True))
-
-    connection = op.get_bind()
-    content_rows = connection.execute(
-        sa.text("SELECT id, payload FROM skill_contents ORDER BY id")
-    ).mappings()
-    for row in content_rows:
-        markdown = _extract_skill_markdown(bytes(row["payload"]))
+    if converted_count:
+        _recompute_version_checksums(connection)
         connection.execute(
             sa.text(
                 """
-                UPDATE skill_contents
-                SET raw_markdown = :raw_markdown,
-                    storage_size_bytes = :storage_size_bytes,
-                    checksum_digest = :checksum_digest
-                WHERE id = :content_id
+                UPDATE skill_search_documents AS doc
+                SET content_size_bytes = content.storage_size_bytes
+                FROM skill_versions AS version_row
+                JOIN skill_contents AS content ON content.id = version_row.content_fk
+                WHERE doc.skill_version_fk = version_row.id
                 """
-            ),
-            {
-                "content_id": row["id"],
-                "raw_markdown": markdown,
-                "storage_size_bytes": len(markdown.encode("utf-8")),
-                "checksum_digest": _sha256(markdown.encode("utf-8")),
-            },
+            )
         )
 
-    op.alter_column("skill_contents", "raw_markdown", nullable=False)
-    op.drop_column("skill_contents", "media_type")
-    op.drop_column("skill_contents", "payload")
+
+def downgrade() -> None:
+    """Do not recreate deprecated zip artifacts."""
+
+
+def _extract_legacy_zip_markdown(payload: bytes) -> str:
+    with ZipFile(BytesIO(payload)) as archive:
+        for name in archive.namelist():
+            if name.count("/") == 1 and name.endswith("/SKILL.md"):
+                return archive.read(name).decode("utf-8")
+    raise RuntimeError("Could not locate legacy SKILL.md while removing zip artifacts.")
+
+
+def _bundle_markdown(markdown: str) -> bytes:
+    tar_buffer = BytesIO()
+    payload = markdown.encode("utf-8")
+    with tarfile.open(fileobj=tar_buffer, mode="w") as archive:
+        info = tarfile.TarInfo(_SKILL_BUNDLE_MARKDOWN_PATH)
+        info.size = len(payload)
+        info.mode = 0o644
+        info.mtime = 0
+        info.uid = 0
+        info.gid = 0
+        info.uname = ""
+        info.gname = ""
+        archive.addfile(info, BytesIO(payload))
+
+    compressor = zstandard.ZstdCompressor()
+    return compressor.compress(tar_buffer.getvalue())
 
 
 def _recompute_version_checksums(connection: sa.Connection) -> None:
@@ -234,35 +237,6 @@ def _recompute_version_checksums(connection: sa.Connection) -> None:
             sa.text("UPDATE skill_versions SET checksum_digest = :checksum_digest WHERE id = :id"),
             {"id": row["id"], "checksum_digest": _sha256(canonical_json)},
         )
-
-
-def _bundle_markdown(markdown: str) -> bytes:
-    tar_buffer = BytesIO()
-    payload = markdown.encode("utf-8")
-    with tarfile.open(fileobj=tar_buffer, mode="w") as archive:
-        info = tarfile.TarInfo(_SKILL_BUNDLE_MARKDOWN_PATH)
-        info.size = len(payload)
-        info.mode = 0o644
-        info.mtime = 0
-        info.uid = 0
-        info.gid = 0
-        info.uname = ""
-        info.gname = ""
-        archive.addfile(info, BytesIO(payload))
-
-    compressor = zstandard.ZstdCompressor()
-    return compressor.compress(tar_buffer.getvalue())
-
-
-def _extract_skill_markdown(payload: bytes) -> str:
-    with zstandard.ZstdDecompressor().stream_reader(BytesIO(payload)) as reader:
-        with tarfile.open(fileobj=reader, mode="r|") as archive:
-            for member in archive:
-                if member.name == _SKILL_BUNDLE_MARKDOWN_PATH:
-                    extracted = archive.extractfile(member)
-                    if extracted is not None:
-                        return extracted.read().decode("utf-8")
-    raise RuntimeError("Could not locate SKILL.md while downgrading bundle storage.")
 
 
 def _sha256(value: bytes) -> str:

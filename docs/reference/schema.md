@@ -320,11 +320,13 @@ Exact fetch path:
 The canonical bundle transition is captured by [`alembic/versions/0003_skill_bundle_storage.py`](../../alembic/versions/0003_skill_bundle_storage.py):
 
 1. add `payload` and `media_type` to `skill_contents`
-2. rewrite legacy markdown rows into artifact blobs
+2. rewrite legacy markdown rows into `application/zstd` `.tar.zst` artifact blobs
 3. recompute content checksums from stored artifact bytes
 4. recompute version checksums from the artifact-aware canonical payload
 5. backfill `skill_search_documents.content_size_bytes` from stored bundle size
 6. drop the legacy markdown-only content column
+
+Legacy zip artifact rows are removed by [`alembic/versions/0005_remove_legacy_zip_skill_artifacts.py`](../../alembic/versions/0005_remove_legacy_zip_skill_artifacts.py). That migration converts existing `application/zip` rows to `application/zstd` `.tar.zst` rows and does not recreate zip artifacts on downgrade.
 
 Enterprise governance is captured by [`alembic/versions/0004_enterprise_governance.py`](../../alembic/versions/0004_enterprise_governance.py):
 
