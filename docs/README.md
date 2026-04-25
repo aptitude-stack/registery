@@ -40,6 +40,7 @@ Related entrypoints outside this directory:
 - [`reference/api-contract.md`](reference/api-contract.md): canonical HTTP contract
 - [`reference/runtime-profiles.md`](reference/runtime-profiles.md): runtime profiles, Compose profiles, and env-var roles
 - [`reference/service-token-governance.md`](reference/service-token-governance.md): bearer-token auth contract and prod auth posture
+- [`reference/enterprise-governance.md`](reference/enterprise-governance.md): namespace grants, promotion workflow, policy packs, trust evidence, and visibility rules
 - [`reference/publish-request-schema.md`](reference/publish-request-schema.md): publish request schema
 - [`reference/schema.md`](reference/schema.md): canonical PostgreSQL schema baseline
 - [`reference/storage-strategy.md`](reference/storage-strategy.md): current storage decision

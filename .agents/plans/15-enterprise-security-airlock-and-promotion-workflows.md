@@ -1,4 +1,4 @@
-# Plan 17 - Enterprise Security Airlock and Promotion Workflows
+# Plan 15 - Enterprise Security Airlock and Promotion Workflows
 
 ## Goal
 Turn the registry moat from strategy into concrete enterprise control-plane
@@ -6,9 +6,9 @@ capabilities: private ownership, artifact intake review, promotion channels,
 policy packs, and audit-backed trust state.
 
 ## Strategic Role
-This is the first implementation-facing milestone after Plan 15. It makes the
-registry the security airlock for agentic artifacts rather than only an
-immutable storage service.
+This is the first implementation-facing milestone after the enterprise
+control-plane anchor in `roadmap.md`. It makes the registry the security airlock
+for agentic artifacts rather than only an immutable storage service.
 
 The registry still does not become a solver, planner, gateway, identity
 directory, or execution runtime. It owns the governed facts and approval state

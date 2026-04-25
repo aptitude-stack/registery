@@ -11,9 +11,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.governance import (
+    ALL_NAMESPACE_ROLES,
     CallerScope,
     LifecycleStatus,
+    NamespaceGrant,
+    NamespaceRole,
     PolicyProfile,
+    PromotionChannel,
     PublishRule,
     TrustTier,
     build_default_policy_profile,
@@ -77,6 +81,7 @@ class ServiceTokenSettings(BaseModel):
     secret_digest: str
     scopes: tuple[CallerScope, ...]
     active: bool = True
+    namespace_grants: tuple[ServiceTokenNamespaceGrantSettings, ...] = ()
     expires_at: datetime | None = None
 
     @field_validator("token_id")
@@ -110,13 +115,67 @@ class ServiceTokenSettings(BaseModel):
 
     def to_record(self) -> ServiceTokenRecord:
         """Return the normalized service-token record used by the auth service."""
+        grants = (
+            tuple(grant.to_domain() for grant in self.namespace_grants)
+            if self.namespace_grants
+            else _default_namespace_grants(self.scopes)
+        )
         return ServiceTokenRecord(
             token_id=self.token_id,
             secret_digest=self.secret_digest,
             scopes=frozenset(self.scopes),
             active=self.active,
+            namespace_grants=grants,
             expires_at=self.expires_at,
         )
+
+
+class ServiceTokenNamespaceGrantSettings(BaseModel):
+    """One namespace grant loaded from a governed service-token setting."""
+
+    namespace: str
+    roles: tuple[NamespaceRole, ...]
+    promotion_channels: tuple[PromotionChannel | Literal["*"], ...]
+
+    @field_validator("namespace")
+    @classmethod
+    def validate_namespace(cls, value: str) -> str:
+        namespace = value.strip()
+        if not namespace:
+            raise ValueError("namespace must not be blank.")
+        if namespace != "*" and len(namespace) > 128:
+            raise ValueError("namespace must be at most 128 characters.")
+        return namespace
+
+    def to_domain(self) -> NamespaceGrant:
+        """Return the immutable namespace grant used by auth and governance."""
+        return NamespaceGrant(
+            namespace=self.namespace,
+            roles=frozenset(self.roles),
+            promotion_channels=frozenset(self.promotion_channels),
+        )
+
+
+def _default_namespace_grants(scopes: tuple[CallerScope, ...]) -> tuple[NamespaceGrant, ...]:
+    """Return backward-compatible namespace grants for existing token settings."""
+    if "admin" in scopes:
+        return (
+            NamespaceGrant(
+                namespace="*",
+                roles=frozenset(ALL_NAMESPACE_ROLES),
+                promotion_channels=frozenset({"*"}),
+            ),
+        )
+    roles = frozenset(scope for scope in scopes if scope in ALL_NAMESPACE_ROLES)
+    if not roles:
+        return ()
+    return (
+        NamespaceGrant(
+            namespace="public",
+            roles=roles,
+            promotion_channels=frozenset({"prod"}),
+        ),
+    )
 
 
 class Settings(BaseSettings):

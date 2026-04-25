@@ -47,7 +47,7 @@ from app.interface.dto.skills_lifecycle import (
 )
 from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
 
-router = APIRouter(tags=["publish", "lifecycle"])
+router = APIRouter(tags=["publish"])
 
 REQUEST_VALIDATION_ERROR_RESPONSE: ApiResponses = invalid_request_response(
     description="The request body, path parameters, or query parameters are invalid."

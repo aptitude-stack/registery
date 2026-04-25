@@ -32,6 +32,12 @@ def test_public_route_surface_exposes_exact_get_fetch_routes() -> None:
     assert ("/skills/{slug}/{version}", "GET") in routes
     assert ("/skills/{slug}/{version}/content", "GET") in routes
     assert ("/skills/{slug}/{version}/status", "PATCH") in routes
+    assert ("/admin/organizations", "POST") in routes
+    assert ("/admin/namespaces", "POST") in routes
+    assert ("/admin/policy-packs/{slug}", "PUT") in routes
+    assert ("/admin/skills/{slug}/ownership", "PATCH") in routes
+    assert ("/admin/skills/{slug}/{version}/governance", "PATCH") in routes
+    assert ("/admin/skills/{slug}/{version}/trust-evidence", "POST") in routes
 
 
 @pytest.mark.unit
@@ -83,6 +89,12 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     assert "/skills/{slug}" in paths
     assert "/skills/{slug}/{version}" in paths
     assert "/skills/{slug}/{version}/content" in paths
+    assert "/admin/organizations" in paths
+    assert "/admin/namespaces" in paths
+    assert "/admin/policy-packs/{slug}" in paths
+    assert "/admin/skills/{slug}/ownership" in paths
+    assert "/admin/skills/{slug}/{version}/governance" in paths
+    assert "/admin/skills/{slug}/{version}/trust-evidence" in paths
     assert "get" in paths["/metrics"]
     assert "post" in paths["/skills/{slug}"]
     assert "get" in paths["/skills/{slug}"]

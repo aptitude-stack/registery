@@ -1,0 +1,59 @@
+info:
+  name: Add Skill Version Trust Evidence
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{baseUrl}}/admin/skills/{{sanity_primary_slug}}/{{sanity_version_2}}/trust-evidence"
+  headers:
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{reviewToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "evidence_type": "signature",
+        "subject": "{{sanity_primary_slug}}@{{sanity_version_2}}",
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "uri": "https://example.com/evidence/{{runId}}",
+        "payload": {
+          "tool": "bruno",
+          "result": "manual-sanity"
+        }
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const json = res.getBody();
+
+        test('Status is 201', function () {
+          expect(res.getStatus()).to.equal(201);
+        });
+
+        test('Trust evidence response omits raw payload', function () {
+          expect(json.slug).to.eql(bru.getVar('sanity_primary_slug'));
+          expect(json.version).to.eql(bru.getVar('sanity_version_2'));
+          expect(json.evidence_type).to.eql('signature');
+          expect(json.subject).to.eql(`${bru.getVar('sanity_primary_slug')}@${bru.getVar('sanity_version_2')}`);
+          expect(json.digest).to.include('sha256:');
+          expect(json.uri).to.include('https://example.com/evidence/');
+          expect(json.created_at).to.be.a('string').and.not.empty;
+          expect(json).to.not.have.property('payload');
+        });
+
+        bru.runner.setNextRequest(
+          res.getStatus() === 201 ? 'List Published Skill Versions' : null,
+        );
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

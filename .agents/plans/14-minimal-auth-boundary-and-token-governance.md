@@ -177,8 +177,8 @@ After `dev` and `prod` are standardized in Plan 13, introduce a small but produc
 - The service still targets machine-to-machine auth, not user identity.
 - Because this is pre-prod, breaking token and operational-surface changes are preferred over preserving convenience semantics that weaken the production baseline.
 
-## Plan 15 Follow-On Note (2026-04-18)
-- Plan 15 does not widen the auth model introduced here. Semantic retrieval and
+## Plan 18 Follow-On Note (2026-04-18, renumbered 2026-04-25)
+- Plan 18 does not widen the auth model introduced here. Semantic retrieval and
   co-usage ranking remain governed by the same route-level `read` access model
   and existing discovery-policy enforcement.
 - Discovery enhancements must not become identity-personalized search behavior

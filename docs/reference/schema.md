@@ -7,23 +7,26 @@
 
 This document describes the canonical PostgreSQL baseline for the registry data model.
 
-It reflects the current runtime shape created by [`alembic/versions/0001_initial_schema.py`](../../alembic/versions/0001_initial_schema.py) and evolved by [`alembic/versions/0003_skill_bundle_storage.py`](../../alembic/versions/0003_skill_bundle_storage.py):
+It reflects the current runtime shape created by [`alembic/versions/0001_initial_schema.py`](../../alembic/versions/0001_initial_schema.py) and evolved through [`alembic/versions/0004_enterprise_governance.py`](../../alembic/versions/0004_enterprise_governance.py):
 
 - PostgreSQL is the only authoritative store.
 - versions are immutable.
 - discovery queries stay body-free.
 - exact content is stored as digest-deduplicated opaque artifacts.
-- identity, versioning, content, metadata, selectors, search projection, and audit records are modeled separately.
+- identity, versioning, content, metadata, selectors, enterprise workflow state, search projection, and audit records are modeled separately.
 
 ## Canonical Baseline
 
 The live schema is centered on immutable version rows, digest-backed bundle rows, authored selector rows, and a derived search projection.
 
-- `skills` stores the logical identity row and mutable install aggregate.
-- `skill_versions` binds immutable artifact, metadata, and governance state together.
+- `organizations` and `namespaces` define enterprise ownership boundaries.
+- `skills` stores the logical identity row, namespace ownership, and mutable install aggregate.
+- `skill_versions` binds immutable artifact, metadata, publish-time trust/provenance, and mutable workflow fields.
 - `skill_contents` stores the canonical `application/zstd` artifact bytes plus digest and size metadata.
+- `policy_packs` stores registry-enforced policy-pack references.
 - authored selectors live in `skill_relationship_selectors` and remain the only persisted dependency source of truth.
 - discovery uses `skill_search_documents` as a derived, governance-aware read model.
+- `trust_evidence` is append-only evidence attached to immutable version rows.
 - `audit_events` remains the append-only audit sink for registry actions.
 
 Removed compatibility artifacts:
@@ -57,9 +60,13 @@ Use PostgreSQL row storage and TOAST implicitly for artifact payloads.
 ```mermaid
 erDiagram
     skills ||--o{ skill_versions : has
+    organizations ||--o{ namespaces : owns
+    namespaces ||--o{ skills : contains
     skill_contents ||--o{ skill_versions : backs
     skill_metadata ||--o{ skill_versions : describes
+    policy_packs ||--o{ skill_versions : constrains
     skill_versions ||--o{ skill_relationship_selectors : preserves
+    skill_versions ||--o{ trust_evidence : records
     skill_versions ||--|| skill_search_documents : projects
 ```
 
@@ -78,6 +85,36 @@ Append-only audit log for registry-side events.
 | `payload` | `json` | nullable | Event-specific structured metadata. |
 | `created_at` | `timestamptz` | `NOT NULL`, server default | Event creation timestamp. |
 
+### `organizations`
+
+Enterprise organization owner for one or more namespaces.
+
+| Column | Type | Constraints | Purpose |
+| --- | --- | --- | --- |
+| `id` | `bigint` | PK | Internal organization key. |
+| `slug` | `text` | `NOT NULL`, unique | Stable organization identifier. |
+| `display_name` | `text` | `NOT NULL` | Human-readable organization name. |
+| `created_at` | `timestamptz` | `NOT NULL`, server default | Row creation time. |
+| `updated_at` | `timestamptz` | `NOT NULL`, server default | Last organization update. |
+
+### `namespaces`
+
+Namespace ownership boundary for skill identities.
+
+| Column | Type | Constraints | Purpose |
+| --- | --- | --- | --- |
+| `id` | `bigint` | PK | Internal namespace key. |
+| `organization_fk` | `bigint` | `NOT NULL`, FK -> `organizations.id` | Owning organization. |
+| `slug` | `text` | `NOT NULL`, unique | Stable namespace identifier. |
+| `visibility` | `text` | `NOT NULL`, check-constrained | `public` or `private`. |
+| `created_at` | `timestamptz` | `NOT NULL`, server default | Row creation time. |
+| `updated_at` | `timestamptz` | `NOT NULL`, server default | Last namespace update. |
+
+Constraints and indexes:
+
+- B-tree index on `organization_fk`
+- check constraint on `visibility`
+
 ### `skills`
 
 Stable identity row.
@@ -86,6 +123,7 @@ Stable identity row.
 | --- | --- | --- | --- |
 | `id` | `bigint` | PK | Internal identity key. |
 | `slug` | `text` | `NOT NULL`, unique | Stable public skill identifier. |
+| `namespace_fk` | `bigint` | `NOT NULL`, FK -> `namespaces.id` | Owning namespace for grant and visibility checks. |
 | `install_count` | `bigint` | `NOT NULL`, default `0` | Mutable aggregate install/download count across all versions of the skill. |
 | `created_at` | `timestamptz` | `NOT NULL`, server default | Row creation time. |
 | `updated_at` | `timestamptz` | `NOT NULL`, server default | Last identity-state update. |
@@ -93,11 +131,12 @@ Stable identity row.
 Constraints and indexes:
 
 - unique index on `slug`
+- B-tree index on `namespace_fk`
 - no `current_version_id` pointer is stored on this table
 
 ### `skill_versions`
 
-Immutable version rows binding identity, content, metadata, and governance together.
+Immutable version rows binding identity, content, metadata, publish-time trust/provenance, and mutable enterprise workflow state.
 
 | Column | Type | Constraints | Purpose |
 | --- | --- | --- | --- |
@@ -110,6 +149,10 @@ Immutable version rows binding identity, content, metadata, and governance toget
 | `lifecycle_status` | `text` | `NOT NULL`, default `published` | `published`, `deprecated`, or `archived`. |
 | `lifecycle_changed_at` | `timestamptz` | `NOT NULL`, server default | Most recent lifecycle transition time. |
 | `trust_tier` | `text` | `NOT NULL`, default `untrusted` | `untrusted`, `internal`, or `verified`. |
+| `artifact_origin` | `text` | `NOT NULL`, default `internal` | `internal`, `imported`, `verified`, or `restricted`. |
+| `review_state` | `text` | `NOT NULL`, default `approved` | `pending_review`, `approved`, or `rejected`. |
+| `promotion_channel` | `text` | `NOT NULL`, default `prod` | `dev`, `staging`, or `prod` enterprise promotion channel. |
+| `policy_pack_fk` | `bigint` | nullable, FK -> `policy_packs.id` | Optional policy-pack reference. |
 | `provenance_repo_url` | `text` | nullable | Minimal source repository provenance. |
 | `provenance_commit_sha` | `text` | nullable | Commit associated with the published version. |
 | `provenance_tree_path` | `text` | nullable | Optional repository subpath for the skill. |
@@ -120,8 +163,14 @@ Immutable version rows binding identity, content, metadata, and governance toget
 
 Checksum rule:
 
-- `checksum_digest` is derived from the content checksum plus normalized metadata, governance, and authored relationships.
-- changing artifact bytes, metadata, governance, or relationships creates a new immutable version row.
+- `checksum_digest` is derived from the content checksum plus normalized metadata, publish-time trust/provenance inputs, and authored relationships.
+- changing artifact bytes, metadata, or authored relationships creates a new immutable version row.
+- post-publish workflow changes to lifecycle, namespace ownership, review state, promotion channel, trust tier, policy pack, or trust evidence do not recompute `checksum_digest`; audit rows capture that mutable governance history.
+
+Constraints and indexes:
+
+- check constraints on `lifecycle_status`, `trust_tier`, `artifact_origin`, `review_state`, and `promotion_channel`
+- B-tree index on `policy_pack_fk`
 
 ### `skill_contents`
 
@@ -156,6 +205,19 @@ Structured, queryable metadata for discovery and ranking.
 | `token_estimate` | `integer` | nullable | Approximate token footprint. |
 | `maturity_score` | `float` | nullable | Quality or stability ranking input. |
 | `security_score` | `float` | nullable | Security or trust ranking input. |
+
+### `policy_packs`
+
+Registry-enforced policy-pack references.
+
+| Column | Type | Constraints | Purpose |
+| --- | --- | --- | --- |
+| `id` | `bigint` | PK | Internal policy-pack key. |
+| `slug` | `text` | `NOT NULL`, unique | Stable policy-pack identifier. |
+| `description` | `text` | nullable | Human-readable summary. |
+| `rules` | `jsonb` | `NOT NULL` | Registry-enforced visibility and trust rules. |
+| `created_at` | `timestamptz` | `NOT NULL`, server default | Row creation time. |
+| `updated_at` | `timestamptz` | `NOT NULL`, server default | Last policy-pack update. |
 
 ### `skill_relationship_selectors`
 
@@ -193,6 +255,11 @@ This table is derived from `skills`, `skill_versions`, `skill_metadata`, and `sk
 | `normalized_tags` | `text[]` | Lowercased tags for containment filters. |
 | `lifecycle_status` | `text` | Discovery visibility filter. |
 | `trust_tier` | `text` | Trust filter. |
+| `namespace` | `text` | Namespace grant filter. |
+| `artifact_origin` | `text` | Import/internal origin filter and response projection. |
+| `review_state` | `text` | Review visibility filter. |
+| `promotion_channel` | `text` | Promotion-channel visibility filter. |
+| `policy_pack_slug` | `text` | Optional policy-pack visibility filter. |
 | `search_vector` | `tsvector` | Full-text index target. |
 | `published_at` | `timestamptz` | Freshness ranking input. |
 | `content_size_bytes` | `bigint` | Ranking/filtering input based on stored bundle size. |
@@ -203,6 +270,27 @@ Rule:
 
 - do not store artifact payload bytes in this table
 
+Indexes:
+
+- B-tree indexes exist for equality filtering on namespace, lifecycle status, trust tier, review state, promotion channel, tags, and freshness/ranking fields.
+
+### `trust_evidence`
+
+Append-only evidence attached to one immutable version.
+
+| Column | Type | Constraints | Purpose |
+| --- | --- | --- | --- |
+| `id` | `bigint` | PK | Internal evidence key. |
+| `skill_version_fk` | `bigint` | `NOT NULL`, FK -> `skill_versions.id` | Version that evidence supports. |
+| `evidence_type` | `text` | `NOT NULL` | Evidence discriminator, such as `slsa` or `signature`. |
+| `subject` | `text` | `NOT NULL` | Evidence subject. |
+| `digest` | `text` | nullable | Digest for external evidence material. |
+| `uri` | `text` | nullable | External evidence location. |
+| `payload` | `jsonb` | nullable | Raw structured evidence retained server-side. |
+| `created_at` | `timestamptz` | `NOT NULL`, server default | Evidence append time. |
+
+The API response deliberately omits `payload`; callers receive only the evidence metadata needed to correlate the append.
+
 ## Query Path Separation
 
 The schema is intentionally optimized around three read paths.
@@ -210,17 +298,20 @@ The schema is intentionally optimized around three read paths.
 Discovery path:
 
 - hit `skill_search_documents`
+- apply namespace, lifecycle, review-state, promotion-channel, trust-tier, and policy-pack visibility filters
 - rely on canonical `skills`, `skill_versions`, `skill_metadata`, and `skill_contents` only through the derived projection refresh path
 - do not hit `skill_contents.payload`
 
 Resolution path:
 
 - resolve exact authored relationship selectors from `skill_relationship_selectors`
+- apply the same exact-read visibility policy before returning selectors
 - preserve relationship payloads as authored instead of materializing solved edges
 
 Exact fetch path:
 
 - resolve `(slug, version)` through `skills` and `skill_versions`
+- apply namespace, lifecycle, review-state, promotion-channel, trust-tier, and policy-pack visibility checks
 - load `skill_contents.payload`
 - return checksum metadata from `skill_versions.checksum_digest` and `skill_contents.checksum_digest`
 
@@ -235,6 +326,15 @@ The canonical bundle transition is captured by [`alembic/versions/0003_skill_bun
 5. backfill `skill_search_documents.content_size_bytes` from stored bundle size
 6. drop the legacy markdown-only content column
 
+Enterprise governance is captured by [`alembic/versions/0004_enterprise_governance.py`](../../alembic/versions/0004_enterprise_governance.py):
+
+1. create `organizations`, `namespaces`, `policy_packs`, and `trust_evidence`
+2. insert and backfill the default `public` organization and namespace
+3. attach `skills.namespace_fk`
+4. add `artifact_origin`, `review_state`, `promotion_channel`, and `policy_pack_fk` to `skill_versions`
+5. project namespace/workflow fields into `skill_search_documents`
+6. add B-tree indexes for equality filters used by visibility checks
+
 ## Non-Goals
 
 - storing exact artifacts as markdown text
@@ -242,3 +342,5 @@ The canonical bundle transition is captured by [`alembic/versions/0003_skill_bun
 - joining the content table for every search/list request
 - making derived search tables the source of truth
 - persisting compatibility tables or legacy markdown-only read semantics
+- using Postgres RLS for this milestone
+- rewriting immutable artifact bytes for post-publish governance changes

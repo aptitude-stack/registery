@@ -53,6 +53,10 @@ class SkillFetchService:
                 version=stored.version,
                 lifecycle_status=stored.lifecycle_status,
                 trust_tier=stored.trust_tier,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                policy_pack=stored.policy_pack,
             ),
             surface="metadata",
         )
@@ -79,6 +83,10 @@ class SkillFetchService:
                 version=stored.version,
                 lifecycle_status=stored.lifecycle_status,
                 trust_tier=stored.trust_tier,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                policy_pack=stored.policy_pack,
             ),
             surface="content",
         )
@@ -102,6 +110,11 @@ class SkillFetchService:
             if self._governance_policy.is_visible_in_list(
                 caller=caller,
                 lifecycle_status=stored.lifecycle_status,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                trust_tier=stored.trust_tier,
+                policy_pack=stored.policy_pack,
             )
         )
         if not visible_versions:
@@ -114,6 +127,11 @@ class SkillFetchService:
                 version=stored.version,
                 lifecycle_status=stored.lifecycle_status,
                 trust_tier=stored.trust_tier,
+                namespace=stored.namespace,
+                artifact_origin=stored.artifact_origin,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                policy_pack_slug=None if stored.policy_pack is None else stored.policy_pack.slug,
                 published_at=stored.published_at,
                 is_current_default=current_default is not None
                 and stored.version == current_default.version,

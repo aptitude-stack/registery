@@ -64,5 +64,6 @@ The registry now stores one immutable artifact per version instead of reconstruc
 The checksum model changed with that storage shape:
 
 - content checksums are now `sha256` over stored artifact bytes
-- version checksums are recomputed from the artifact content digest plus normalized metadata, governance, and authored relationships
+- version checksums are computed from the artifact content digest plus normalized metadata, publish-time trust/provenance inputs, and authored relationships
+- mutable enterprise governance changes after publish do not rewrite artifact bytes or recompute version checksums
 - search-document `content_size_bytes` now reflects stored artifact size rather than extracted markdown length

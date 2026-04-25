@@ -5,11 +5,31 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import BigInteger, DateTime, Integer, Text, bindparam, func, literal_column, text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Integer,
+    Text,
+    bindparam,
+    func,
+    literal_column,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.exc import IntegrityError
 
-from app.core.governance import LifecycleStatus, ProvenanceMetadata, TrustTier
+from app.core.governance import (
+    ArtifactOrigin,
+    LifecycleStatus,
+    PromotionChannel,
+    ProvenanceMetadata,
+    ReviewState,
+    TrustTier,
+)
+from app.core.governance import (
+    PolicyPack as DomainPolicyPack,
+)
 from app.core.ports import (
     DuplicateSkillSlugPersistenceError,
     DuplicateSkillVersionPersistenceError,
@@ -52,6 +72,12 @@ SEARCH_CANDIDATES_SQL = text(
             doc.tags,
             doc.lifecycle_status,
             doc.trust_tier,
+            doc.namespace,
+            doc.artifact_origin,
+            doc.review_state,
+            doc.promotion_channel,
+            doc.policy_pack_slug,
+            pack.rules AS policy_pack_rules,
             doc.published_at,
             doc.content_size_bytes,
             doc.usage_count,
@@ -79,6 +105,8 @@ SEARCH_CANDIDATES_SQL = text(
                 ELSE 0
             END AS tag_overlap_count
         FROM skill_search_documents AS doc
+        LEFT JOIN policy_packs AS pack
+            ON pack.slug = doc.policy_pack_slug
         WHERE (
             :query_text IS NULL
             OR doc.search_vector @@ plainto_tsquery('simple'::regconfig, :query_text)
@@ -106,6 +134,15 @@ SEARCH_CANDIDATES_SQL = text(
           )
           AND doc.lifecycle_status = ANY(:lifecycle_statuses)
           AND doc.trust_tier = ANY(:trust_tiers)
+          AND (
+            :namespaces_unrestricted
+            OR doc.namespace = ANY(:namespaces)
+          )
+          AND (
+            :promotion_channels_unrestricted
+            OR doc.promotion_channel = ANY(:promotion_channels)
+          )
+          AND doc.review_state = ANY(:review_states)
     ),
     ranked AS (
         SELECT
@@ -134,6 +171,12 @@ SEARCH_CANDIDATES_SQL = text(
         tags,
         lifecycle_status,
         trust_tier,
+        namespace,
+        artifact_origin,
+        review_state,
+        promotion_channel,
+        policy_pack_slug,
+        policy_pack_rules,
         published_at,
         content_size_bytes,
         usage_count,
@@ -164,6 +207,11 @@ SEARCH_CANDIDATES_SQL = text(
     bindparam("max_content_size_bytes", type_=BigInteger()),
     bindparam("lifecycle_statuses", type_=ARRAY(Text())),
     bindparam("trust_tiers", type_=ARRAY(Text())),
+    bindparam("namespaces", type_=ARRAY(Text())),
+    bindparam("namespaces_unrestricted", type_=Boolean()),
+    bindparam("promotion_channels", type_=ARRAY(Text())),
+    bindparam("promotion_channels_unrestricted", type_=Boolean()),
+    bindparam("review_states", type_=ARRAY(Text())),
     bindparam("limit", type_=Integer()),
 )
 
@@ -198,6 +246,11 @@ def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
         ),
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),
+        namespace=entity.skill.namespace.slug,
+        artifact_origin=cast(ArtifactOrigin, entity.artifact_origin),
+        review_state=cast(ReviewState, entity.review_state),
+        promotion_channel=cast(PromotionChannel, entity.promotion_channel),
+        policy_pack=to_policy_pack(entity),
         provenance=to_provenance(entity),
         published_at=ensure_datetime(entity.published_at),
     )
@@ -217,6 +270,11 @@ def to_skill_content_record(entity: SkillVersion) -> SkillContentRecord:
         size_bytes=entity.content.storage_size_bytes,
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),
+        namespace=entity.skill.namespace.slug,
+        artifact_origin=cast(ArtifactOrigin, entity.artifact_origin),
+        review_state=cast(ReviewState, entity.review_state),
+        promotion_channel=cast(PromotionChannel, entity.promotion_channel),
+        policy_pack=to_policy_pack(entity),
     )
 
 
@@ -227,6 +285,11 @@ def to_skill_version_list_entry(entity: SkillVersion) -> SkillVersionListEntry:
         version=entity.version,
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),
+        namespace=entity.skill.namespace.slug,
+        artifact_origin=cast(ArtifactOrigin, entity.artifact_origin),
+        review_state=cast(ReviewState, entity.review_state),
+        promotion_channel=cast(PromotionChannel, entity.promotion_channel),
+        policy_pack=to_policy_pack(entity),
         published_at=ensure_datetime(entity.published_at),
     )
 
@@ -238,6 +301,11 @@ def to_skill_relationship_source(entity: SkillVersion) -> SkillRelationshipSourc
         version=entity.version,
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),
+        namespace=entity.skill.namespace.slug,
+        artifact_origin=cast(ArtifactOrigin, entity.artifact_origin),
+        review_state=cast(ReviewState, entity.review_state),
+        promotion_channel=cast(PromotionChannel, entity.promotion_channel),
+        policy_pack=to_policy_pack(entity),
         relationships=tuple(
             SkillRelationshipSelector(
                 slug=selector.target_slug,
@@ -305,6 +373,11 @@ def build_search_document(
         normalized_tags=list(normalize_tag_list(metadata.tags)),
         lifecycle_status="published",
         trust_tier=governance.trust_tier,
+        namespace=governance.namespace,
+        artifact_origin=governance.artifact_origin,
+        review_state=governance.review_state,
+        promotion_channel=governance.promotion_channel,
+        policy_pack_slug=governance.policy_pack_slug,
         search_vector=cast(
             Any,
             func.to_tsvector(
@@ -372,6 +445,13 @@ def to_provenance(entity: SkillVersion) -> ProvenanceMetadata | None:
         publisher_identity=entity.provenance_publisher_identity,
         policy_profile=entity.policy_profile_at_publish,
     )
+
+
+def to_policy_pack(entity: SkillVersion) -> DomainPolicyPack | None:
+    """Project an attached policy pack into the core domain model."""
+    if entity.policy_pack is None:
+        return None
+    return DomainPolicyPack(slug=entity.policy_pack.slug, rules=dict(entity.policy_pack.rules))
 
 
 def _constraint_name(error: IntegrityError) -> str | None:

@@ -30,6 +30,13 @@ For non-local deployments, inject it through deployment environment variables or
     "secret_digest": "sha256-hex-of-secret",
     "scopes": ["read"],
     "active": true,
+    "namespace_grants": [
+      {
+        "namespace": "public",
+        "roles": ["read"],
+        "promotion_channels": ["prod"]
+      }
+    ],
     "expires_at": null
   }
 ]
@@ -39,6 +46,7 @@ Rules:
 
 - `token_id` is the stable public identifier and must not contain `.`
 - `secret_digest` is the lowercase `sha256` hex digest of the raw secret only
+- `namespace_grants` grants namespace roles plus allowed promotion channels
 - `active=false` revokes the token without deleting its record
 - `expires_at` is optional and must include a timezone offset when present
 
@@ -48,9 +56,37 @@ Rules:
 
 - `read`: discovery, exact metadata/content fetch, resolution, and version listing
 - `publish`: immutable version publication
-- `admin`: lifecycle updates and `/metrics`
+- `review`: review, promotion, trust-tier, policy-pack, and trust-evidence workflow operations
+- `admin`: lifecycle updates, enterprise bootstrap routes, and `/metrics`
 
 `admin` still implies the lower scopes in the runtime policy.
+
+## Namespace Grants
+
+Every protected registry operation requires both the route-level scope and the namespace grant for the affected namespace.
+
+```json
+{
+  "namespace": "payments",
+  "roles": ["read", "publish", "review"],
+  "promotion_channels": ["dev", "staging"]
+}
+```
+
+Grant rules:
+
+- `namespace` is a registry namespace slug, or `*` for global bootstrap/admin tokens only.
+- `roles` accepts `read`, `publish`, `review`, and `admin`.
+- `promotion_channels` accepts `dev`, `staging`, `prod`, or `*`.
+- `read` grants limit discovery, version listing, exact metadata, exact content, and resolution.
+- `publish` grants limit which namespace/channel a token can publish into.
+- `review` grants limit review, promotion, trust-tier, policy-pack, and trust-evidence updates.
+- `*` grants should be reserved for global admin/bootstrap tokens.
+
+Older token records without explicit `namespace_grants` are treated as public-catalog records:
+
+- non-admin tokens receive grants for `public` and `prod` based on their route scopes
+- admin tokens receive a global `*` grant
 
 ## Error Codes
 
@@ -62,6 +98,7 @@ Authentication and authorization failures use stable API error codes:
 - `INACTIVE_AUTH_TOKEN`
 - `EXPIRED_AUTH_TOKEN`
 - `INSUFFICIENT_SCOPE`
+- `POLICY_NAMESPACE_FORBIDDEN`
 
 ## Prod Posture
 

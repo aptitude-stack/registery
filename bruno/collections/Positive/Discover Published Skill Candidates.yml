@@ -1,7 +1,7 @@
 info:
   name: Discover Published Skill Candidates
   type: http
-  seq: 13
+  seq: 15
 
 http:
   method: POST

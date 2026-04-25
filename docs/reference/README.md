@@ -21,6 +21,7 @@ It should answer exact questions about the current contract without retelling th
 - [`api-contract.md`](api-contract.md): canonical HTTP contract
 - [`runtime-profiles.md`](runtime-profiles.md): `APP_ENV`, Compose profiles, and env-var roles
 - [`service-token-governance.md`](service-token-governance.md): governed bearer-token auth contract
+- [`enterprise-governance.md`](enterprise-governance.md): namespaces, promotion workflow, policy packs, trust evidence, and visibility rules
 - [`publish-request-schema.md`](publish-request-schema.md): publish request reference
 - [`schema.md`](schema.md): canonical PostgreSQL schema baseline
 - [`storage-strategy.md`](storage-strategy.md): current storage decision

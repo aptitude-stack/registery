@@ -165,3 +165,15 @@ def get_admin_caller(
 
 
 AdminCallerDep = Annotated[CallerIdentity, Depends(get_admin_caller)]
+
+
+def get_review_caller(
+    credentials: BearerCredentialsDep,
+    auth_service: AuthServiceDep,
+) -> CallerIdentity:
+    """Authenticate a caller with review scope."""
+    caller = _caller_from_request(credentials=credentials, auth_service=auth_service)
+    return _require_scope(caller=caller, auth_service=auth_service, scope="review")
+
+
+ReviewCallerDep = Annotated[CallerIdentity, Depends(get_review_caller)]

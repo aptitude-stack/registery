@@ -1,4 +1,4 @@
-# Plan 18 - Registry Trust Consumer Contracts
+# Plan 16 - Registry Trust Consumer Contracts
 
 ## Goal
 Define the registry-owned facts and decision context that adjacent Aptitude
@@ -6,10 +6,11 @@ surfaces need for gateway enforcement, agent identity, and token/spend
 attribution without moving those runtime responsibilities into the registry.
 
 ## Strategic Role
-Plan 15 names gateway, identity, and token control as important product surfaces
-for the broader Aptitude moat. This plan defines the registry side of those
-integrations: which artifact, namespace, policy, provenance, and audit facts are
-authoritative enough for other products to consume.
+The enterprise control-plane anchor in `roadmap.md` names gateway, identity, and
+token control as important product surfaces for the broader Aptitude moat. This
+plan defines the registry side of those integrations: which artifact, namespace,
+policy, provenance, and audit facts are authoritative enough for other products
+to consume.
 
 The registry remains the source of governed artifact truth. Adjacent products
 own runtime interception, principal issuance, spend accounting, and execution

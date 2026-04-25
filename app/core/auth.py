@@ -108,7 +108,11 @@ class AuthService:
                 code="EXPIRED_AUTH_TOKEN",
                 message="Bearer token is expired.",
             )
-        return CallerIdentity(token_id=record.token_id, scopes=record.scopes)
+        return CallerIdentity(
+            token_id=record.token_id,
+            scopes=record.scopes,
+            namespace_grants=record.namespace_grants,
+        )
 
     def require_scope(self, *, caller: CallerIdentity, scope: CallerScope) -> CallerIdentity:
         """Return the caller when the required scope is available."""

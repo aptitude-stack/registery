@@ -9,6 +9,8 @@ http:
   headers:
     - name: Accept
       value: text/plain
+    - name: Authorization
+      value: Bearer {{adminToken}}
 
 runtime:
   scripts:

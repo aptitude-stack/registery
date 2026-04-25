@@ -10,7 +10,7 @@ http:
     - name: Accept
       value: application/json
     - name: Authorization
-      value: bearer {{publishToken}}
+      value: Bearer {{publishToken}}
   body:
     type: multipart-form
     data:
@@ -36,6 +36,8 @@ http:
             },
             "governance": {
               "trust_tier": "internal",
+              "namespace": "public",
+              "artifact_origin": "internal",
               "provenance": {
                 "repo_url": "https://github.com/example/skills",
                 "commit_sha": "1111111111111111111111111111111111111111",
@@ -136,6 +138,11 @@ runtime:
           expect(json.content.media_type).to.eql('application/zstd');
           expect(json.lifecycle_status).to.eql('published');
           expect(json.trust_tier).to.eql('internal');
+          expect(json.namespace).to.eql('public');
+          expect(json.artifact_origin).to.eql('internal');
+          expect(json.review_state).to.eql('approved');
+          expect(json.promotion_channel).to.eql('prod');
+          expect(json.policy_pack_slug).to.eql(null);
           expect(json.provenance.repo_url).to.eql('https://github.com/example/skills');
           expect(json.provenance.publisher_identity).to.eql('postman/manual-qa');
           expect(json.provenance.trust_context.trust_tier).to.eql('internal');

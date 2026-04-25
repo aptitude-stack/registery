@@ -24,6 +24,12 @@ Protected routes:
 - `GET /skills/{slug}/{version}`
 - `GET /skills/{slug}/{version}/content`
 - `PATCH /skills/{slug}/{version}/status`
+- `POST /admin/organizations`
+- `POST /admin/namespaces`
+- `PUT /admin/policy-packs/{slug}`
+- `PATCH /admin/skills/{slug}/ownership`
+- `PATCH /admin/skills/{slug}/{version}/governance`
+- `POST /admin/skills/{slug}/{version}/trust-evidence`
 
 ## Freeze Rule
 
@@ -76,6 +82,11 @@ Publish and exact metadata fetch return the same structured response shape:
   },
   "lifecycle_status": "published",
   "trust_tier": "internal",
+  "namespace": "public",
+  "artifact_origin": "internal",
+  "review_state": "approved",
+  "promotion_channel": "prod",
+  "policy_pack_slug": null,
   "published_at": "2026-03-10T08:30:00Z"
 }
 ```
@@ -85,7 +96,8 @@ Publish and exact metadata fetch return the same structured response shape:
 Checksum semantics:
 
 - `content.checksum.digest` is the persisted `sha256` digest of the exact stored artifact bytes.
-- `version_checksum.digest` is the persisted `sha256` digest of the canonical version payload, which includes the content digest plus metadata, governance, and authored relationships.
+- `version_checksum.digest` is the persisted `sha256` digest of the canonical version payload, which includes the content digest plus metadata, publish-time trust/provenance inputs, and authored relationships.
+- Mutable enterprise workflow state does not rewrite artifact bytes or recompute `version_checksum.digest`; audit rows are the authoritative history for post-publish review, promotion, trust-tier, policy-pack, ownership, and trust-evidence changes.
 
 ## Exact Content
 
@@ -110,11 +122,14 @@ Rules:
 Protected routes require:
 
 - `Authorization: Bearer <token_id>.<token_secret>`
-- governed service-token scopes: `read`, `publish`, or `admin`
+- governed service-token scopes: `read`, `publish`, `review`, or `admin`
+- namespace grants for namespace-scoped registry operations, including allowed promotion channels
 
 Operational rules:
 
 - `GET /metrics` requires `admin` scope.
+- publish, read, review, and admin operations require both the route scope and the matching namespace grant.
+- review and promotion operations require `review` scope plus a namespace `review` grant, while `admin` tokens may use a global `*` grant for bootstrap/control-plane work.
 - `/docs`, `/redoc`, and `/openapi.json` are available in `dev` and disabled in `prod`.
 - `prod` rejects unexpected `Host` headers with the configured allowlist.
 - Forwarded proxy headers are not trusted by default at the application boundary.
@@ -145,6 +160,7 @@ Error envelope:
 
 - `401` authentication failures use stable codes such as `AUTHENTICATION_REQUIRED`, `MALFORMED_AUTH_TOKEN`, `INVALID_AUTH_TOKEN`, `INACTIVE_AUTH_TOKEN`, and `EXPIRED_AUTH_TOKEN`.
 - `403` authorization or governance failures use stable codes such as `INSUFFICIENT_SCOPE`, `POLICY_PUBLISH_FORBIDDEN`, `POLICY_PROVENANCE_REQUIRED`, `POLICY_STATUS_TRANSITION_FORBIDDEN`, and `POLICY_EXACT_READ_FORBIDDEN`.
+- Enterprise visibility failures use stable codes such as `POLICY_NAMESPACE_FORBIDDEN`, `POLICY_REVIEW_STATE_FORBIDDEN`, and `POLICY_PACK_FORBIDDEN`.
 - `422` request-shape failures use `INVALID_REQUEST`.
 
 ## Endpoint Summary
@@ -161,3 +177,30 @@ Error envelope:
 | `GET` | `/skills/{slug}/{version}` | `read` | `200` | Returns immutable metadata for one exact coordinate |
 | `GET` | `/skills/{slug}/{version}/content` | `read` | `200` | Returns immutable `application/zstd` artifact with cache headers |
 | `PATCH` | `/skills/{slug}/{version}/status` | `admin` | `200` | Transitions lifecycle state |
+| `POST` | `/admin/organizations` | `admin` | `201` | Creates an enterprise organization |
+| `POST` | `/admin/namespaces` | `admin` | `201` | Creates a namespace owned by an organization |
+| `PUT` | `/admin/policy-packs/{slug}` | `admin` | `200` | Creates or updates a registry-enforced policy-pack reference |
+| `PATCH` | `/admin/skills/{slug}/ownership` | `admin` | `200` | Moves a skill identity into a namespace |
+| `PATCH` | `/admin/skills/{slug}/{version}/governance` | `review` | `200` | Updates review, promotion, trust-tier, or policy-pack state |
+| `POST` | `/admin/skills/{slug}/{version}/trust-evidence` | `review` | `201` | Appends trust evidence without rewriting artifact bytes |
+
+## Enterprise Governance
+
+Enterprise governance state is mutable registry control-plane state. It filters visibility and eligibility but does not rewrite immutable artifact coordinates or content bytes.
+
+- `namespace`: ownership boundary for skill identities, default `public`.
+- `artifact_origin`: `internal`, `imported`, `verified`, or `restricted`.
+- `review_state`: `pending_review`, `approved`, or `rejected`.
+- `promotion_channel`: governance promotion channel `dev`, `staging`, or `prod`; this is not `APP_ENV`.
+- `policy_pack_slug`: optional reference to a registry policy pack.
+
+Default publish behavior:
+
+- internal artifacts publish into `public`, `approved`, `prod`.
+- imported artifacts publish into `pending_review`, `dev` and are hidden from production readers until reviewed and promoted.
+
+Visibility is enforced consistently for discovery, version listing, exact metadata, exact content, and resolution. Discovery still returns candidate slugs only, resolution still returns direct authored `depends_on` selectors only, and exact content still returns the same immutable `.tar.zst` bytes.
+
+Trust evidence is append-only. Evidence response payloads expose evidence type, subject, digest, URI, and creation time, but not the raw evidence payload.
+
+Detailed state, policy-pack, and audit rules live in [`enterprise-governance.md`](enterprise-governance.md).

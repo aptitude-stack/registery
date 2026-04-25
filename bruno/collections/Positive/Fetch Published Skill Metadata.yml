@@ -1,7 +1,7 @@
 info:
   name: Fetch Published Skill Metadata
   type: http
-  seq: 11
+  seq: 13
 
 http:
   method: GET
@@ -74,6 +74,11 @@ runtime:
           expect(json.content.size_bytes).to.be.a('number').and.to.be.greaterThan(0);
           expect(json.lifecycle_status).to.eql('deprecated');
           expect(json.trust_tier).to.eql('internal');
+          expect(json.namespace).to.eql('public');
+          expect(json.artifact_origin).to.eql('internal');
+          expect(json.review_state).to.eql('approved');
+          expect(json.promotion_channel).to.eql('prod');
+          expect(json.policy_pack_slug).to.eql(null);
           expect(json.provenance.repo_url).to.eql('https://github.com/example/skills');
           expect(json.provenance.publisher_identity).to.eql('postman/manual-qa');
           expect(json.provenance.trust_context.policy_profile).to.eql('default');

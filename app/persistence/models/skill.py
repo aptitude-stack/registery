@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, Text, func, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Text, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.persistence.models.base import Base
 
 if TYPE_CHECKING:
+    from app.persistence.models.namespace import Namespace
     from app.persistence.models.skill_version import SkillVersion
 
 
@@ -21,6 +22,12 @@ class Skill(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     slug: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    namespace_fk: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("namespaces.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     install_count: Mapped[int] = mapped_column(
         BigInteger,
         nullable=False,
@@ -44,3 +51,4 @@ class Skill(Base):
         cascade="all, delete-orphan",
         foreign_keys="SkillVersion.skill_fk",
     )
+    namespace: Mapped[Namespace] = relationship(back_populates="skills")
