@@ -10,6 +10,7 @@ Use this directory for working analysis that is intentionally not canonical.
 
 ## Registry-Specific Drafts
 
+- [`collective-skill-evolution.md`](collective-skill-evolution.md): future cross-product governed skill-evolution draft.
 - [`semantic-search-architecture.md`](semantic-search-architecture.md): future discovery-extension draft.
 
 ## Consolidated Or Removed
