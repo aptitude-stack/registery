@@ -4,11 +4,12 @@ Use this directory as the canonical documentation entrypoint for contributors, r
 
 ## Taxonomy
 
-- `architecture/`: normative current-state system structure, boundaries, and invariants
-- `contributors/`: practical repo workflow for engineers and reviewers
-- `reference/`: stable technical facts, contracts, schema, storage, and operations material
-- `roadmap/`: forward-looking technical direction and drafts, explicitly non-normative unless promoted
-- `changelog/`: protected implementation history
+- `architecture/`: current-state explanation of system shape, boundaries, and invariants
+- `contributors/`: tutorials and how-to guides for engineers and operators working in the repo
+- `reference/`: canonical technical reference for routes, schema, settings, storage, and runbooks
+- `roadmap/`: product requirements and forward-looking explanation; non-normative unless promoted
+- `drafts/`: working design analysis and context docs that are intentionally not canonical
+- `changelog/`: protected implementation history only
 
 Related entrypoints outside this directory:
 
@@ -48,17 +49,19 @@ Related entrypoints outside this directory:
 ### Review roadmap and history
 
 - [`roadmap/README.md`](roadmap/README.md): forward-looking documentation index
-- [`roadmap/requirements-and-phases.md`](roadmap/requirements-and-phases.md): product requirements and phased rollout framing
+- [`roadmap/requirements-and-phases.md`](roadmap/aptitude-registry-prd.md): canonical registry PRD
 - [`roadmap/near-term-evolution.md`](roadmap/near-term-evolution.md): next hardening and capability themes
 - [`roadmap/registry-feature-rationale.md`](roadmap/registry-feature-rationale.md): why the current registry feature surface exists and where its boundary should stay
+- [`drafts/README.md`](drafts/README.md): working draft index and classification
 - [`changelog/`](changelog/): protected implementation history
 
 ## Ownership Rules
 
-- `docs/architecture/*`: normative current-state behavior and invariants
-- `docs/contributors/*`: how to work in the repo
-- `docs/reference/*`: stable supporting facts and operations material
-- `docs/roadmap/*`: forward-looking guidance, explicitly non-normative unless promoted
+- `docs/architecture/*`: canonical current-state explanation and invariants
+- `docs/contributors/*`: canonical how-to and workflow guidance
+- `docs/reference/*`: canonical contracts, schema, settings, and operations reference
+- `docs/roadmap/*`: product requirements and forward-looking rationale, explicitly non-normative unless promoted
+- `docs/drafts/*`: non-canonical working analysis; promote, merge, or delete when the idea settles
 - `docs/changelog/*`: implementation history, not canonical current-state truth
 - `.agents/*`: derivative agent operating context only
 

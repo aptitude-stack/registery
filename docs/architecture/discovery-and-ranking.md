@@ -51,7 +51,7 @@ That combined text becomes the free-text query. Tags remain structured filters.
 
 ## Search Data Model
 
-Discovery does not search raw markdown bodies.
+Discovery does not search raw artifact contents.
 
 Instead it queries the derived `skill_search_documents` table, which stores one
 denormalized search row per immutable skill version. Each row contains:

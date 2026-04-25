@@ -1,6 +1,18 @@
 # Architecture Docs
 
-This directory contains the normative technical description of `Aptitude Registry`.
+This directory contains the canonical current-state explanation of `Aptitude Registry`.
+
+## What Belongs Here
+
+- system shape and layering
+- hard ownership boundaries
+- implementation invariants that should survive refactors
+
+## What Does Not
+
+- endpoint-by-endpoint payload reference
+- step-by-step setup or operator recipes
+- future design proposals or historical delivery notes
 
 ## Reading Order
 

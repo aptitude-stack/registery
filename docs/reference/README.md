@@ -1,6 +1,20 @@
 # Reference Docs
 
-Use this directory for stable technical reference that supports implementation without redefining architecture.
+Use this directory for canonical technical reference.
+It should answer exact questions about the current contract without retelling the product story.
+
+## What Belongs Here
+
+- route and payload contracts
+- settings, env vars, and runtime posture
+- schema and storage baselines
+- operational runbooks
+
+## What Does Not
+
+- setup tutorials
+- architecture rationale
+- future design proposals
 
 ## Contents
 
