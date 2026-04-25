@@ -1,4 +1,4 @@
-# Plan 17 - Enterprise Control Plane and Skill Supply Chain Trust
+# Plan 15 - Enterprise Control Plane and Skill Supply Chain Trust
 
 ## Goal
 Define the post-launch product direction that turns `Aptitude Registry` from a
@@ -16,6 +16,22 @@ This plan is intentionally numbered after existing plans to preserve append-only
 roadmap history, but it should be read conceptually after Plan 14 and before
 optional discovery/caching expansion plans.
 
+## Market Research Synthesis
+The market research in
+[`../../docs/reference/market-research.md`](../../docs/reference/market-research.md)
+shows a clear split between open developer marketplaces and enterprise
+agentic-governance platforms. Open catalogs optimize for distribution and
+developer velocity. Enterprise buyers need a controlled system of record that
+can prove which artifact was admitted, who approved it, which policy allowed it,
+and which immutable version was later used.
+
+For this repository, the actionable insight is narrow: `Aptitude Registry`
+should be the enterprise security airlock and governed source of truth for
+agentic artifacts. Gateway interception, cryptographic agent identity, and
+token/spend controls are important Aptitude product surfaces, but they should
+consume registry facts instead of moving runtime execution ownership into this
+server.
+
 ## Strategic Thesis
 `Aptitude Registry` should compete as the governed system of record for
 enterprise skills and agent capabilities.
@@ -24,12 +40,20 @@ The moat is not:
 - becoming a generic public skill marketplace
 - becoming a broad managed integration platform
 - collapsing registry, resolver, and runtime into one product surface
+- owning runtime gateway interception, agent identity issuance, or token-budget
+  enforcement inside the registry service
+- making LLM-driven artifact optimization the near-term registry wedge
 
 The moat is:
-- trust in what is published
-- governance over what is allowed
-- sovereignty over where it runs
-- lineage over how a capability moved from publish to production use
+- security-airlock control over what is admitted into the catalog
+- verifiable provenance, signatures, attestations, and publisher trust
+- governance over what is allowed, promoted, deprecated, or archived
+- private namespace and organization ownership for enterprise catalog control
+- policy packs for internal, imported, verified, and restricted artifacts
+- audit lineage from publish through approval, resolution reads, and production
+  use
+- deployment sovereignty across hosted, private-cloud, self-hosted, and
+  air-gapped environments
 
 ## Relationship to Earlier Plans
 
@@ -42,22 +66,19 @@ The moat is:
 - Plan 14, which established the auth-boundary direction and the need for a
   stronger production security posture.
 
-### Should Guide Later Optional Work
-- Plan 15 should be treated as discovery-quality work, not as the primary moat.
-- Plan 16 should be treated as scale and latency work, not as the primary moat.
-- Future milestones should prioritize enterprise trust/governance surfaces
-  before broad public-marketplace optimization.
-
 ## Scope
 - Define the enterprise product posture for the registry:
   - primary wedge: enterprise control plane
   - preferred deployment posture: SaaS plus private-cloud/self-hosted
     compatibility
 - Define the core moat pillars:
-  - trust
-  - governance
-  - sovereignty
-  - lineage
+  - security airlock
+  - verifiable provenance
+  - promotion and governance workflows
+  - policy packs
+  - private namespaces
+  - audit lineage
+  - deployment sovereignty
 - Define the future capability families that belong in the moat:
   - private namespaces and organization ownership
   - approval and promotion workflows across environments such as `dev`,
@@ -73,6 +94,9 @@ The moat is:
   the registry's core identity:
   - public marketplace distribution
   - broad OAuth/connectivity aggregation
+  - runtime gateway enforcement
+  - agent identity directory ownership
+  - token and spend controls
   - runtime orchestration and final skill selection
 
 ## Non-Goals
@@ -82,6 +106,10 @@ The moat is:
 - No attempt to match integration-platform breadth from products focused on
   managed auth and external SaaS connectivity.
 - No attempt to prioritize public-catalog growth over enterprise governance.
+- No attempt to make runtime gateway interception, cryptographic agent identity
+  issuance, or token-budget enforcement registry-owned responsibilities.
+- No attempt to prioritize autonomous artifact evolution or LLM-driven
+  optimization before the trust, governance, and audit foundation is concrete.
 
 ## Recommended Architecture Direction
 - Keep the current hard boundary:
@@ -99,6 +127,17 @@ The moat is:
   verification, or build-pipeline proofs.
 - Treat third-party ecosystems as import sources to be governed internally, not
   as the primary product surface to compete on directly.
+- Treat gateway, identity, and token-control products as downstream consumers of
+  registry trust state:
+  - gateway decisions should ask whether a specific agent can load a specific
+    approved artifact version
+  - identity systems should bind agent principals to registry visibility and
+    policy scopes
+  - token and spend controls should attribute usage to agent, artifact version,
+    organization, and policy context
+- Keep artifact optimization and evaluation loops behind governance. Improved
+  artifacts should re-enter the same publish, approval, provenance, and
+  lifecycle flow instead of bypassing the security airlock.
 
 ## Follow-On Planning Areas
 This plan should lead to concrete follow-on implementation plans for:
@@ -108,6 +147,8 @@ This plan should lead to concrete follow-on implementation plans for:
 - enterprise policy packs and reviewer/admin roles
 - execution-lineage and compliance reporting
 - private-cloud, self-hosted, and air-gapped deployment packaging
+- product-boundary contracts for gateway, agent identity, and token-control
+  consumers of registry trust metadata
 
 ## Decision Criteria
 Future work should be favored when it strengthens one or more of these:
@@ -115,11 +156,17 @@ Future work should be favored when it strengthens one or more of these:
 - stronger governance over skill availability and lifecycle
 - stronger deployment sovereignty for enterprise buyers
 - stronger traceability from publication to real usage
+- stronger ability for adjacent Aptitude surfaces to consume registry trust
+  state without weakening the registry-resolver boundary
 
 Future work should be deprioritized when it only improves:
 - public discovery vanity metrics
 - generic marketplace breadth
 - broad integration coverage better served by dedicated connectivity platforms
+- runtime orchestration breadth better owned by gateway, resolver, or execution
+  products
+- autonomous optimization loops that are not first constrained by enterprise
+  promotion, approval, and audit policy
 
 ## Assumptions and Defaults
 - The primary buyer is an enterprise platform, security, or AI-governance team
@@ -130,3 +177,6 @@ Future work should be deprioritized when it only improves:
   core moat.
 - This repository should continue to optimize for a small, durable server
   contract rather than expanding into agent-runtime behavior.
+- Gateway, identity, and token-control surfaces are part of the broader Aptitude
+  product definition, but this registry repository should define the governed
+  facts those surfaces consume rather than implement their runtime authority.

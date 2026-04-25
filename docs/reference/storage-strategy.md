@@ -34,8 +34,8 @@ This is the simplest design that still preserves the right architectural boundar
 
 The registry is no longer markdown-content-centric.
 
-- New publishes do not send `content.raw_markdown`.
-- Exact content fetch does not return `text/markdown`.
+- New publishes do not send retired JSON-only content bodies.
+- Exact content fetch does not return markdown text.
 - The authoritative stored artifact is a `.tar.zst` blob.
 - Structured metadata remains separately queryable and independently evolvable.
 - Search and document size fields now reflect stored artifact size, not extracted markdown length.

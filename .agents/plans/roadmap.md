@@ -6,6 +6,7 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 ## Alignment Sources
 - Scope boundary and ownership: [`../../docs/architecture/server-resolver-boundary.md`](../../docs/architecture/server-resolver-boundary.md)
 - Server requirements and KPIs: [`../../docs/roadmap/requirements-and-phases.md`](../../docs/roadmap/aptitude-registry-prd.md)
+- Market positioning and moat research, used for strategy only: [`../../docs/reference/market-research.md`](../../docs/reference/market-research.md)
 - Resolver ownership and dependency-solving responsibilities are out of scope for this repository and tracked in the resolver repository.
 
 ## Platform Defaults
@@ -51,14 +52,14 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 - `Bundle artifact model reset`: milestone 12.
 - `Environment profile separation`: milestone 13.
 - `Security boundary hardening`: milestone 14.
-- `Enterprise control plane and supply-chain trust`: milestone 17.
-- `Post-launch hybrid semantic and co-usage discovery`: milestone 15.
-- `Optional Redis L1 caching over PostgreSQL read models`: milestone 16.
+- `Enterprise control plane and supply-chain trust`: milestone 15.
+- `Post-launch hybrid semantic and co-usage discovery`: milestone 16.
+- `Optional Redis L1 caching over PostgreSQL read models`: milestone 17.
 - Resolver-specific initiatives (prompt interpretation, deterministic solving, reranking, plugin chains, and lock replay) are tracked in resolver planning and are out of scope for this roadmap.
 
 ## Roadmap Rules
 - Roadmap numbering is append-only after the one-time pre-implementation renumbering that inserted Plan 07.
-- Plan 17 is intentionally placed conceptually after Plan 14 in the milestone order so the roadmap reflects strategic sequencing without renumbering existing files.
+- Plan 15 is intentionally placed conceptually after Plan 14 and before optional discovery/caching work so the roadmap reflects the enterprise moat before supporting capability expansion.
 - The Plan 07 insertion and 07-13 to 08-14 shift are intentional cleanup to keep the MVP path simple before implementation work is finalized.
 - Plan filenames and titles may be corrected before implementation when the existing milestone framing is architecturally wrong.
 - Completed plans are never renamed or renumbered.

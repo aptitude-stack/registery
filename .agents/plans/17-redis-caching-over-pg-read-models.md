@@ -1,4 +1,4 @@
-# Plan 16 - Redis L1 Caching Over PostgreSQL Read Models
+# Plan 17 - Redis L1 Caching Over PostgreSQL Read Models
 
 ## Summary
 Add a bounded, optional Redis read cache across all registry read surfaces while keeping PostgreSQL as the only authoritative store and the existing Postgres read models as the canonical server-side query acceleration layer.
@@ -11,6 +11,16 @@ This milestone caches:
 - `GET /resolution/{slug}/{version}`
 
 This milestone does not add new public routes or change response shapes. Redis is optional and best-effort. If Redis is unavailable or disabled, the app must continue to function correctly against PostgreSQL only.
+
+## Strategic Role
+Redis caching supports the enterprise moat by making governed reads predictable,
+cheap, and operationally trustworthy under repeated resolver and gateway
+traffic. It is reliability and cost-control infrastructure for immutable exact
+reads and bounded discovery, not product differentiation by itself.
+
+The cache must remain optional, bounded, and non-authoritative. PostgreSQL stays
+the source of truth for registry facts, trust state, lifecycle, audit, and
+artifact identity.
 
 ## Key Changes
 - Add cache configuration to `Settings`:
