@@ -38,7 +38,7 @@ The split exists so indexed retrieval and immutable storage stay close to the da
 
 - Discovery returns ordered candidate slugs only.
 - Resolution returns direct authored `depends_on` selectors only.
-- Exact fetch returns immutable metadata or immutable markdown for one coordinate.
+- Exact fetch returns immutable metadata or the immutable stored bundle artifact for one coordinate.
 - The registry never returns canonical solved bundles or runtime plans.
 
 ## Design Rationale

@@ -1,5 +1,10 @@
 # Aptitude Registry Architecture
 
+> Status: draft/context document, not the canonical live contract.
+> Use [`../architecture/system-overview.md`](../architecture/system-overview.md),
+> [`../architecture/server-resolver-boundary.md`](../architecture/server-resolver-boundary.md),
+> and [`../reference/api-contract.md`](../reference/api-contract.md) for the live baseline.
+
 This diagram set shows the current `Aptitude Registry` shape and the planned
 post-launch discovery extension from Plan 15.
 
@@ -20,7 +25,7 @@ reads, and heavier content retrieval from competing on the same path.
 ```mermaid
 flowchart LR
 
-    Publisher["Publisher Tooling<br/>manifest + markdown<br/>optional provenance"]
+    Publisher["Publisher Tooling<br/>metadata + .tar.zst bundle<br/>optional provenance"]
     Resolver["aptitude-resolver / MCP / CLI<br/>prompt interpretation<br/>reranking + final selection<br/>dependency solving + lock generation"]
     Ops["Ops / observability<br/>health probes<br/>metrics scrape<br/>logs + runbooks"]
 

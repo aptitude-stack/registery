@@ -1,6 +1,7 @@
 # JSON to TOON Migration Draft
 
-> Status: draft/context document, not the canonical live contract.
+> Status: historical draft/context document, not the canonical live contract.
+> This analysis predates the bundle-based publish and exact-fetch contract and should not be used as the current server baseline.
 > Use [`../../README.md`](../../README.md), [`../../reference/api-contract.md`](../../reference/api-contract.md),
 > [`../../architecture/server-resolver-boundary.md`](../../architecture/server-resolver-boundary.md), and
 > [`../../roadmap/requirements-and-phases.md`](../../roadmap/requirements-and-phases.md)

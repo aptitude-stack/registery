@@ -34,7 +34,7 @@ Forbidden imports:
 
 - PostgreSQL is the only authoritative runtime store.
 - Discovery stays body-free.
-- Exact content fetch reads immutable markdown from digest-backed content rows.
+- Exact content fetch reads the immutable stored `application/zstd` bundle from digest-backed content rows.
 - Derived search documents are rebuildable read models, not the source of truth.
 
 ## Documentation Sync Rules
