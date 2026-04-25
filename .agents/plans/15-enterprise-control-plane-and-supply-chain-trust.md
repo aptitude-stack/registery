@@ -18,7 +18,7 @@ optional discovery/caching expansion plans.
 
 ## Market Research Synthesis
 The market research in
-[`../../docs/reference/market-research.md`](../../docs/reference/market-research.md)
+[`../../docs/roadmap/market-research.md`](../../docs/roadmap/market-research.md)
 shows a clear split between open developer marketplaces and enterprise
 agentic-governance platforms. Open catalogs optimize for distribution and
 developer velocity. Enterprise buyers need a controlled system of record that
@@ -140,15 +140,18 @@ The moat is:
   lifecycle flow instead of bypassing the security airlock.
 
 ## Follow-On Planning Areas
-This plan should lead to concrete follow-on implementation plans for:
-- organization and private-namespace ownership
-- promotion channels and approval workflows
-- signed artifacts and attestation verification
-- enterprise policy packs and reviewer/admin roles
-- execution-lineage and compliance reporting
+This plan decomposes into concrete follow-on plans:
+- Plan 17: enterprise security airlock and promotion workflows, covering
+  organization ownership, private namespaces, approval workflows, policy packs,
+  reviewer/admin roles, evidence-backed trust, and audit.
+- Plan 18: registry trust consumer contracts, covering the exact registry facts
+  that gateway, identity, and token-control surfaces consume without moving
+  their runtime responsibilities into this repository.
+
+Remaining future planning areas after those two plans:
 - private-cloud, self-hosted, and air-gapped deployment packaging
-- product-boundary contracts for gateway, agent identity, and token-control
-  consumers of registry trust metadata
+- compliance reporting over publish, approval, promotion, and downstream runtime
+  evidence
 
 ## Decision Criteria
 Future work should be favored when it strengthens one or more of these:
