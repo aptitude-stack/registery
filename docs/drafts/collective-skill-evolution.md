@@ -86,7 +86,7 @@ Publisher enforces -> Registry stores -> Resolver decides
 Collective evolution should preserve that boundary.
 
 ```mermaid
-flowchart LR
+flowchart TD
     Company["Company Agent Platform<br/>session summaries / traces / trajectories"]
     Ingestion["Evolution Evidence API<br/>normalize + validate + redact"]
     EvolutionStore["Evolution Store<br/>evidence + grouping + retention"]

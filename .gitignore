@@ -60,3 +60,5 @@ htmlcov/
 /.cursor/
 
 /hoppscotch/
+.vercel
+skills-lock.json
