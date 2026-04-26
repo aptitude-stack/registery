@@ -1,0 +1,61 @@
+<h2>What should this draft optimize for?</h2>
+<p class="subtitle">Pick the posture the edit should make dominant. My recommendation is B.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A: Target Microservice Blueprint</div>
+        <div class="mockup-body">
+          <div class="placeholder">Publisher</div>
+          <div class="placeholder">Validator</div>
+          <div class="placeholder">Registry</div>
+          <div class="placeholder">Kafka + Redis</div>
+          <div class="placeholder">Collector + Refinery + Evaluator</div>
+          <div class="placeholder">Governor</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Keep ambitious map first</h3>
+      <p>Best for long-term vision, but still risks making non-production look like it needs eight services.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B: Modular Core, Extract Later</div>
+        <div class="mockup-body">
+          <div class="placeholder">Registry process</div>
+          <div class="placeholder">Publisher module</div>
+          <div class="placeholder">Validator module / port</div>
+          <div class="placeholder">Resolver / Orchestrator boundary</div>
+          <div class="placeholder">Event contracts documented, broker deferred</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Make modular monolith the default</h3>
+      <p>Best balance: simple non-production deployment, clean boundaries, clear extraction triggers.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C: Current Product Only</div>
+        <div class="mockup-body">
+          <div class="placeholder">Publisher</div>
+          <div class="placeholder">Registry</div>
+          <div class="placeholder">Resolver</div>
+          <div class="placeholder">No Validator / Governor / Kafka until needed</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Cut future system detail hard</h3>
+      <p>Simplest draft, but loses useful architectural direction for supply-chain trust and evolution.</p>
+    </div>
+  </div>
+</div>

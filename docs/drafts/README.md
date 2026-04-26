@@ -11,6 +11,7 @@ Use this directory for working analysis that is intentionally not canonical.
 ## Registry-Specific Drafts
 
 - [`collective-skill-evolution.md`](collective-skill-evolution.md): future cross-product governed skill-evolution draft.
+- [`modular-system-architecture.md`](modular-system-architecture.md): modular server/client architecture with a future service-extraction path for governed artifact supply chain and skill evolution.
 - [`semantic-search-architecture.md`](semantic-search-architecture.md): future discovery-extension draft.
 
 ## Consolidated Or Removed
