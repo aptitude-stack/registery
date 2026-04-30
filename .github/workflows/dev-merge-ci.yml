@@ -1,9 +1,6 @@
-name: Dev CI
+name: Dev Merge CI
 
 on:
-  pull_request:
-    branches:
-      - dev
   push:
     branches:
       - dev
@@ -17,52 +14,8 @@ env:
   IMAGE_NAME: ${{ vars.DOCKER_IMAGE != '' && vars.DOCKER_IMAGE || 'y0ncha/aptitude-registry' }}
 
 jobs:
-  dev-pr-gate:
-    name: Dev PR Gate
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-
-    env:
-      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Install dependencies
-        run: uv sync --extra dev --frozen
-
-      - name: Run quality gate
-        run: make _ci-quality
-
-      - name: Run test gate
-        run: make _ci-test
-
-      - name: Run observability gate
-        run: make _ci-observability
-
-      - name: Build app image for smoke test
-        run: make _ci-image
-
-      - name: Run smoke gate
-        run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke
-
-      - name: Tear down compose services
-        if: always()
-        run: make _ci-down
-
   dev-merge-gate:
     name: Dev Merge Gate
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     env:
@@ -108,7 +61,6 @@ jobs:
 
   docker-publish:
     name: Docker Publish
-    if: github.event_name == 'push'
     needs:
       - dev-merge-gate
     runs-on: ubuntu-latest
