@@ -16,8 +16,6 @@ dependencies = [
     "pydantic-extra-types==2.11.2",
     "python-multipart==0.0.26",
     "zstandard>=0.24.0",
-    "fastapi-cloud-cli==0.17.0",
-    "ruff==0.15.11",
 ]
 
 [project.optional-dependencies]

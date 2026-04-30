@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -109,14 +108,11 @@ def test_main_ci_keeps_master_gate_without_owning_vercel_deployments() -> None:
 
 
 @pytest.mark.unit
-def test_vercel_deployments_are_limited_to_production_track_branches() -> None:
-    config = json.loads((REPO_ROOT / "vercel.json").read_text())
-
-    assert config["regions"] == ["fra1"]
-    assert (
-        config["ignoreCommand"]
-        == 'case "$VERCEL_GIT_COMMIT_REF" in master|release/*|hotfix/*) exit 1 ;; *) exit 0 ;; esac'
-    )
+def test_vercel_serverless_deployment_artifacts_are_absent() -> None:
+    assert not (REPO_ROOT / "api/index.py").exists()
+    assert not (REPO_ROOT / "server.py").exists()
+    assert not (REPO_ROOT / "vercel.json").exists()
+    assert not (REPO_ROOT / ".vercelignore").exists()
 
 
 @pytest.mark.unit

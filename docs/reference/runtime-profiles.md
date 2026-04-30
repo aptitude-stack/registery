@@ -87,7 +87,7 @@ Tests and CI are execution environments, not runtime profiles.
 - `DATABASE_URL`: primary application database
 - `TEST_DATABASE_URL`: dedicated database used by integration-test flows
 - `AUTH_SERVICE_TOKENS_JSON`: governed service-token registry records used by authenticated routes
-- `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`
+- `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`; deployed prod should include `api.aptitude-registry.dev` and the Render `onrender.com` host during rollout
 - `POLICY_PROFILES_JSON`: optional named governance-profile overrides merged over the built-in default profile
 - `ACTIVE_POLICY_PROFILE`: selects which policy profile is active at runtime; defaults to `default`
 - `LOG_LEVEL`, `LOG_FORMAT`, `LOG_FILE_PATH`: logging configuration
@@ -118,6 +118,8 @@ Authorization: Bearer reader-token.dev-reader-secret
 - `make run-dev` starts the checked-in Compose stack with `APP_ENV=dev`, the `demo` profile, and the `observability` profile
 - `make run-prod` starts the checked-in Compose stack with `APP_ENV=prod` and the `observability` profile
 - raw `docker compose` usage defaults the checked-in app services to `APP_ENV=prod` unless you override `APP_ENV`
+- deployed prod at `https://api.aptitude-registry.dev` must set `ALLOWED_HOSTS_JSON` to include `api.aptitude-registry.dev`
+- the root domain `https://aptitude-registry.dev` is not an API host until a website or redirect is introduced
 - `make test` manages the dedicated `test` profile database container for the full test suite
 - `LOG_FORMAT=auto` prefers readable local logs in `dev` and structured JSON logs in `prod`
 - app-process startup reads local `.env` unless `APP_SETTINGS_ENV_FILE` points to another dotenv file
