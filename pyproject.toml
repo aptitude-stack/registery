@@ -1,6 +1,6 @@
 [project]
 name = "aptitude-registry"
-version = "0.1.0"
+version = "0.3.0"
 description = "aptitude-registry foundation service skeleton"
 requires-python = ">=3.12"
 dependencies = [
