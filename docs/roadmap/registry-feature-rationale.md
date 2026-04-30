@@ -364,7 +364,7 @@ Why this is better than a mutable latest row:
 
 Why it exists:
 
-- Discovery and metadata-heavy reads should not touch large markdown bodies by default.
+- Discovery and metadata-heavy reads should not touch large artifact payloads by default.
 - Exact content fetches should stay direct and simple.
 
 Why this is the right current tradeoff:
@@ -375,7 +375,7 @@ Why this is the right current tradeoff:
 
 Why it exists:
 
-- Identical markdown should be stored once and reused across versions.
+- Identical artifact payloads should be stored once and reused across versions.
 - Digests support integrity, caching, and exact identity of content.
 
 Why this is valuable even for small documents:

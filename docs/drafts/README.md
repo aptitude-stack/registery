@@ -10,16 +10,12 @@ Use this directory for working analysis that is intentionally not canonical.
 
 ## Registry-Specific Drafts
 
-- [`aptitude-registry-architecture-diagrams.md`](aptitude-registry-architecture-diagrams.md): diagram-heavy registry context and future-extension sketches.
+- [`collective-skill-evolution.md`](collective-skill-evolution.md): future cross-product governed skill-evolution draft.
+- [`modular-system-architecture.md`](modular-system-architecture.md): modular server/client architecture with a future service-extraction path for governed artifact supply chain and skill evolution.
 - [`semantic-search-architecture.md`](semantic-search-architecture.md): future discovery-extension draft.
-- [`json-to-toon-migration.md`](json-to-toon-migration.md): historical design analysis that predates the bundle-based publish and exact-fetch contract.
-
-## Cross-Product Or Publisher Context
-
-- [`aptitude-product-high-level-design.md`](aptitude-product-high-level-design.md): product-level design context beyond the registry alone.
-- [`publisher-server-resolver-architecture.md`](publisher-server-resolver-architecture.md): multi-surface architecture draft.
-- [`publisher-readme.md`](publisher-readme.md): draft publisher entrypoint.
 
 ## Consolidated Or Removed
 
-- The duplicate registry PRD draft was removed. Use [`../roadmap/requirements-and-phases.md`](../roadmap/aptitude-registry-prd.md) as the only registry PRD.
+- The duplicate registry PRD draft was removed. Use [`../roadmap/aptitude-registry-prd.md`](../roadmap/aptitude-registry-prd.md) as the only registry PRD.
+- Stale markdown-content and publisher drafts were removed because they described retired JSON-only and markdown-content contracts.
+- Cross-product and publisher architecture drafts were removed from this repo's docs tree; current registry boundaries live in [`../architecture/server-resolver-boundary.md`](../architecture/server-resolver-boundary.md).

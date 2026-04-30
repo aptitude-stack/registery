@@ -7,6 +7,7 @@ This directory holds the registry PRD and forward-looking explanation.
 - the canonical registry PRD
 - near-term capability direction and product framing
 - explanation of why the current feature surface exists
+- strategic market research and product-positioning context
 
 ## What Does Not
 
@@ -25,4 +26,5 @@ This directory holds the registry PRD and forward-looking explanation.
 - [`aptitude-registry-prd.md`](aptitude-registry-prd.md): canonical registry PRD
 - [`near-term-evolution.md`](near-term-evolution.md): upcoming hardening and capability themes
 - [`registry-feature-rationale.md`](registry-feature-rationale.md): explanation of the current feature boundary
+- [`market-research.md`](market-research.md): strategic market research for enterprise agentic registries
 - [`../drafts/README.md`](../drafts/README.md): working draft index and status

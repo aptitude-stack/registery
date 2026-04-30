@@ -2,8 +2,8 @@
 
 > Status: draft/future-looking context only.
 > This file is not the current source of truth for the live server contract.
-> Use [`../../README.md`](../../README.md), [`../../reference/api-contract.md`](../../reference/api-contract.md),
-> and [`../../architecture/server-resolver-boundary.md`](../../architecture/server-resolver-boundary.md) for the live baseline.
+> Use [`../README.md`](../README.md), [`../reference/api-contract.md`](../reference/api-contract.md),
+> and [`../architecture/server-resolver-boundary.md`](../architecture/server-resolver-boundary.md) for the live baseline.
 
 This draft proposes an additive semantic-search design for `Aptitude Registry`.
 
@@ -61,7 +61,7 @@ Current limitations:
 
 - Moving final selection or runtime reranking into `Aptitude Registry`
 - Replacing lexical search entirely
-- Embedding raw markdown bodies by default
+- Embedding full artifact payloads by default
 - Introducing personalized ranking or user-specific retrieval
 - Expanding the frozen public API with a parallel semantic-search route
 
@@ -172,11 +172,11 @@ Recommended source text:
 - `description`
 - `tags`
 
-Do not embed full `raw_markdown` in the first version.
+Do not embed full artifact payloads in the first version.
 
 Reasons:
 
-- current architecture intentionally keeps discovery off raw bodies
+- current architecture intentionally keeps discovery off artifact bytes
 - indexing cost and prompt-injection surface area stay smaller
 - summaries are usually enough for discovery-level semantics
 - exact content fetch remains the only body-heavy read path

@@ -6,6 +6,7 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 ## Alignment Sources
 - Scope boundary and ownership: [`../../docs/architecture/server-resolver-boundary.md`](../../docs/architecture/server-resolver-boundary.md)
 - Server requirements and KPIs: [`../../docs/roadmap/requirements-and-phases.md`](../../docs/roadmap/aptitude-registry-prd.md)
+- Market positioning and moat research, used for strategy only: [`../../docs/roadmap/market-research.md`](../../docs/roadmap/market-research.md)
 - Resolver ownership and dependency-solving responsibilities are out of scope for this repository and tracked in the resolver repository.
 
 ## Platform Defaults
@@ -20,27 +21,40 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 - Server remains execution-agnostic and exposes governed APIs for publish, discovery, resolution, exact fetch, lifecycle, and provenance.
 - Server contracts are slug candidates, authored direct dependency declarations, immutable metadata/content envelopes, and governance results; the server does not return canonical solved bundles.
 - Discovery remains candidate generation only; resolution remains exact first-degree dependency retrieval only; resolver choice and lock output remain authoritative.
-- Plans 09-17 keep the public route families fixed: publish, discovery, resolution, exact metadata fetch, exact content fetch, and lifecycle/governance operations.
-- Later milestones extend behavior inside that route set instead of adding new public read route families, compatibility aliases, or batch-fetch detours.
+- Plans 09-16 keep the resolver-facing read route families fixed: publish, discovery, resolution, exact metadata fetch, exact content fetch, and lifecycle/governance operations.
+- Enterprise control-plane milestones may add admin/governance surfaces when the current lifecycle/governance routes cannot represent the workflow cleanly, but they must not turn discovery, resolution, or exact fetch into runtime orchestration APIs.
 
-## Milestones
-1. `01-foundation-service-skeleton.md`
-2. `02-immutable-skill-registry.md`
-3. `03-deterministic-dependency-resolution.md` (legacy filename; scope is dependency metadata contracts, not server-side solving)
-4. `04-repository-api-contract-v1.md`
-5. `05-metadata-search-ranking.md`
-6. `06-policy-conflict-governance.md`
-7. `07-mvp-read-api-hard-cut.md`
-8. `08-canonical-postgres-storage-finalization.md`
-9. `09-public-api-simplification-and-contract-freeze.md`
-10. `10-governance-provenance-and-audit-completion.md`
-11. `11-operability-and-release-readiness.md`
-12. `12-full-skill-directory-bundle-support.md`
-13. `13-environment-profiles-and-runtime-separation.md`
-14. `14-minimal-auth-boundary-and-token-governance.md`
-15. `15-enterprise-control-plane-and-supply-chain-trust.md` (intentional conceptual placement; numbering stays append-only)
-16. `16-hybrid-semantic-and-co-usage-discovery.md`
-17. `17-redis-caching-over-pg-read-models.md` (Optional - still in consideration)
+## Conceptual Milestone Sequence
+
+| Sequence | Plan                                                        | Role |
+| --- |-------------------------------------------------------------| --- |
+| 01 | `01-foundation-service-skeleton.md`                         | Service skeleton |
+| 02 | `02-immutable-skill-registry.md`                            | Immutable registry baseline |
+| 03 | `03-deterministic-dependency-resolution.md`                 | Legacy filename; scope is dependency metadata contracts, not server-side solving |
+| 04 | `04-repository-api-contract-v1.md`                          | Initial repository API contract |
+| 05 | `05-metadata-search-ranking.md`                             | Metadata search baseline |
+| 06 | `06-policy-conflict-governance.md`                          | Policy and conflict governance |
+| 07 | `07-mvp-read-api-hard-cut.md`                               | Read API simplification |
+| 08 | `08-canonical-postgres-storage-finalization.md`             | PostgreSQL storage finalization |
+| 09 | `09-public-api-simplification-and-contract-freeze.md`       | Public API simplification and freeze |
+| 10 | `10-governance-provenance-and-audit-completion.md`          | Governance, provenance, and audit completion |
+| 11 | `11-operability-and-release-readiness.md`                   | Operability and release readiness |
+| 12 | `12-full-skill-directory-bundle-support.md`                 | Bundle artifact model reset |
+| 13 | `13-environment-profiles-and-runtime-separation.md`         | Runtime profile separation |
+| 14 | `14-minimal-auth-boundary-and-token-governance.md`          | Security boundary hardening |
+| 15 | `15-enterprise-control-plane-and-supply-chain-trust.md`     | Market-backed moat and product direction |
+| 16 | `16-enterprise-security-airlock-and-promotion-workflows.md` | Concrete enterprise trust, review, promotion, and policy workflows |
+| 17 | `17-registry-trust-consumer-contracts.md`                   | Registry facts consumed by gateway, identity, and token-control surfaces |
+| 18 | `18-hybrid-semantic-and-co-usage-discovery.md`              | Optional governed discovery-quality expansion |
+
+## Optional Supporting Plans
+
+These plans are valid backlog items, but they are not part of the main
+enterprise moat sequence.
+
+| Plan | Role | Revisit Trigger |
+| --- | --- | --- |
+| `redis-caching-over-pg-read-models.md` | Optional Redis L1 cache over PostgreSQL read models | Revisit only after measured read latency, throughput, or exact-content cost pressure justifies another operational dependency |
 
 ## PRD Phase Mapping
 - `MVP` (prd): milestones 01-04.
@@ -51,14 +65,17 @@ Deliver a production-ready immutable registry service (`Aptitude Registry`) in P
 - `Bundle artifact model reset`: milestone 12.
 - `Environment profile separation`: milestone 13.
 - `Security boundary hardening`: milestone 14.
-- `Enterprise control plane and supply-chain trust`: milestone 17.
-- `Post-launch hybrid semantic and co-usage discovery`: milestone 15.
-- `Optional Redis L1 caching over PostgreSQL read models`: milestone 16.
+- `Enterprise control plane and supply-chain trust`: milestone 15.
+- `Enterprise security airlock and promotion workflows`: milestone 17, placed conceptually after milestone 15.
+- `Registry trust consumer contracts`: milestone 18, placed conceptually after milestone 17.
+- `Post-launch hybrid semantic and co-usage discovery`: milestone 16, placed conceptually after the enterprise trust foundations.
+- `Optional Redis L1 caching over PostgreSQL read models`: unnumbered supporting plan, kept outside the main flow until measured scale pressure justifies it.
 - Resolver-specific initiatives (prompt interpretation, deterministic solving, reranking, plugin chains, and lock replay) are tracked in resolver planning and are out of scope for this roadmap.
 
 ## Roadmap Rules
 - Roadmap numbering is append-only after the one-time pre-implementation renumbering that inserted Plan 07.
-- Plan 17 is intentionally placed conceptually after Plan 14 in the milestone order so the roadmap reflects strategic sequencing without renumbering existing files.
+- The conceptual sequence may place newer append-only plan files before older optional files when the product strategy requires it.
+- Plans 15, 17, and 18 are intentionally placed after Plan 14 and before optional discovery/caching work so the roadmap reflects the enterprise moat before supporting capability expansion.
 - The Plan 07 insertion and 07-13 to 08-14 shift are intentional cleanup to keep the MVP path simple before implementation work is finalized.
 - Plan filenames and titles may be corrected before implementation when the existing milestone framing is architecturally wrong.
 - Completed plans are never renamed or renumbered.

@@ -233,7 +233,7 @@ The canonical bundle transition is captured by [`alembic/versions/0003_skill_bun
 3. recompute content checksums from stored artifact bytes
 4. recompute version checksums from the artifact-aware canonical payload
 5. backfill `skill_search_documents.content_size_bytes` from stored bundle size
-6. drop `skill_contents.raw_markdown`
+6. drop the legacy markdown-only content column
 
 ## Non-Goals
 

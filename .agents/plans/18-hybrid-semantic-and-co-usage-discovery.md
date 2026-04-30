@@ -1,4 +1,4 @@
-# Plan 15 - Hybrid Semantic Retrieval and Co-Usage Discovery Signals
+# Plan 16 - Hybrid Semantic Retrieval and Co-Usage Discovery Signals
 
 ## Goal
 Add a post-launch semantic candidate-expansion layer to `POST /discovery`
@@ -15,6 +15,17 @@ discovery bucket: semantic retrieval and co-usage ranking signals should be
 implemented here rather than folded loosely into generic evaluation work.
 It assumes the summary unification cleanup is already complete, with
 `metadata.description` as the only canonical short-text field.
+
+## Strategic Role
+Hybrid semantic retrieval and co-usage signals improve governed reuse and
+progressive disclosure inside an enterprise catalog. They help consumers find
+approved capabilities without turning the registry into the final decision
+maker.
+
+This is a moat enabler, not the moat itself. Discovery quality only matters when
+it is subordinate to trust tier, lifecycle state, policy visibility, and
+approved catalog scope. Relevance must never admit artifacts that governance
+would otherwise hide or reject.
 
 ## Relationship to Earlier Plans
 
@@ -73,6 +84,9 @@ It assumes the summary unification cleanup is already complete, with
 - Do not implement agentic or LLM-driven traversal in the server request path.
   Discovery must remain data-local, bounded, auditable, and deterministic under
   fallback.
+- Enforce governance eligibility before relevance. Trust tier, lifecycle,
+  policy, and approved visibility constraints define the candidate universe;
+  lexical, semantic, and co-usage ranking only order eligible candidates.
 
 ## Scope
 - Add a `pgvector`-backed semantic retrieval layer for `POST /discovery`.

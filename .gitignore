@@ -60,3 +60,7 @@ htmlcov/
 /.cursor/
 
 /hoppscotch/
+.vercel
+skills-lock.json
+.env*.local
+/bruno/environments/Prod.yml

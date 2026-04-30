@@ -14,7 +14,6 @@ Use this directory as the canonical documentation entrypoint for contributors, r
 Related entrypoints outside this directory:
 
 - [`../README.md`](../README.md): cold-start repo overview
-- [`../TODO.md`](../TODO.md): intentionally small near-term backlog
 - [`../.agents/README.md`](../.agents/README.md): agent-only derivative context
 - [`../.agents/plans/roadmap.md`](../.agents/plans/roadmap.md): canonical implementation sequence
 
@@ -49,9 +48,10 @@ Related entrypoints outside this directory:
 ### Review roadmap and history
 
 - [`roadmap/README.md`](roadmap/README.md): forward-looking documentation index
-- [`roadmap/requirements-and-phases.md`](roadmap/aptitude-registry-prd.md): canonical registry PRD
+- [`roadmap/aptitude-registry-prd.md`](roadmap/aptitude-registry-prd.md): canonical registry PRD
 - [`roadmap/near-term-evolution.md`](roadmap/near-term-evolution.md): next hardening and capability themes
 - [`roadmap/registry-feature-rationale.md`](roadmap/registry-feature-rationale.md): why the current registry feature surface exists and where its boundary should stay
+- [`roadmap/market-research.md`](roadmap/market-research.md): strategic market research for Aptitude product direction
 - [`drafts/README.md`](drafts/README.md): working draft index and classification
 - [`changelog/`](changelog/): protected implementation history
 
