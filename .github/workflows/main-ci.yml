@@ -13,58 +13,47 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  BUILDKIT_PROGRESS: plain
 
 jobs:
-  vercel-preview:
-    name: Vercel Preview
-    if: github.event_name == 'pull_request'
+  master-main-gate:
+    name: Master Main Gate
     runs-on: ubuntu-latest
+
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: "24"
+          python-version: "3.12"
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
 
-      - name: Pull Vercel preview environment
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Install dependencies
+        run: uv sync --extra dev --frozen
 
-      - name: Build Vercel preview
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Run quality gate
+        run: make _ci-quality
 
-      - name: Deploy Vercel preview
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Run test gate
+        run: make _ci-test
 
-  vercel-production:
-    name: Vercel Production
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+      - name: Run observability gate
+        run: make _ci-observability
 
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
+      - name: Build app image for smoke test
+        run: make _ci-image
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: "24"
+      - name: Run smoke gate
+        run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel production environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Vercel production
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy Vercel production
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Tear down compose services
+        if: always()
+        run: make _ci-down

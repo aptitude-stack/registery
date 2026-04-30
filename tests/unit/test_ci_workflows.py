@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -42,27 +43,43 @@ def test_dev_ci_keeps_pr_gate_and_publishes_dev_images_after_merge() -> None:
 
 
 @pytest.mark.unit
-def test_main_ci_owns_vercel_preview_and_production_deployments() -> None:
+def test_main_ci_keeps_master_gate_without_owning_vercel_deployments() -> None:
     document = (REPO_ROOT / ".github/workflows/main-ci.yml").read_text()
 
     assert "pull_request:" in document
     assert "push:" in document
     assert "branches:\n      - master" in document
-    assert "VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}" in document
-    assert "VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}" in document
-    assert "npm install --global vercel@latest" in document
-    assert "vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}" in document
-    assert "vercel build --token=${{ secrets.VERCEL_TOKEN }}" in document
-    assert "vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}" in document
+    assert "name: Master Main Gate" in document
+    assert "run: uv sync --extra dev --frozen" in document
+    assert "run: make _ci-quality" in document
+    assert "run: make _ci-test" in document
+    assert "run: make _ci-observability" in document
+    assert "run: make _ci-image" in document
     assert (
-        "vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}" in document
+        "TEST_DATABASE_URL: "
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test" in document
     )
-    assert "vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}" in document
-    assert "vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}" in document
-    assert "make _ci-image" not in document
-    assert "make _ci-smoke" not in document
+    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke" in document
+    assert "run: make _ci-down" in document
+    assert "vercel pull" not in document
+    assert "vercel build" not in document
+    assert "vercel deploy" not in document
+    assert "VERCEL_TOKEN" not in document
+    assert "VERCEL_ORG_ID" not in document
+    assert "VERCEL_PROJECT_ID" not in document
     assert "docker/build-push-action" not in document
     assert "docker/login-action" not in document
+
+
+@pytest.mark.unit
+def test_vercel_deployments_are_limited_to_production_track_branches() -> None:
+    config = json.loads((REPO_ROOT / "vercel.json").read_text())
+
+    assert config["regions"] == ["fra1"]
+    assert (
+        config["ignoreCommand"]
+        == 'case "$VERCEL_GIT_COMMIT_REF" in master|release/*|hotfix/*) exit 1 ;; *) exit 0 ;; esac'
+    )
 
 
 @pytest.mark.unit
