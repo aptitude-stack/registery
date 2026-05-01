@@ -507,9 +507,10 @@
           reads, and lifecycle governance &mdash; served cold, cached hot.
         </p>
         <div class="cta">
-          <a href="/docs"><span>Open API Docs</span></a>
-          <a href="/healthz" class="secondary"><span>GET /healthz</span></a>
-          <a href="/readyz" class="secondary"><span>GET /readyz</span></a>
+          <!-- TODO: link to the served OpenAPI schema (e.g. /openapi.json) -->
+          <a href="#" data-todo="link-openapi-spec"><span>OpenAPI Spec</span></a>
+          <!-- TODO: link to the project documentation site -->
+          <a href="#" class="secondary" data-todo="link-docs"><span>Docs</span></a>
         </div>
       </div>
     </section>
@@ -517,7 +518,7 @@
     <section id="status" class="status-bar" data-state="pending" role="status" aria-live="polite">
       <span class="label">Service Status</span>
       <h2 class="headline" data-field="headline">Contacting Service</h2>
-      <span class="counter" data-field="headline-meta">Probing /healthz &middot; /readyz</span>
+      <span class="counter" data-field="headline-meta">Probing</span>
     </section>
 
     <ol class="checks" aria-live="polite" aria-label="Service checks">
@@ -525,24 +526,15 @@
         <span class="dot" aria-hidden="true"></span>
         <span class="name">Liveness</span>
         <span class="value">&hellip;</span>
-        <span class="detail">GET /healthz</span>
+        <span class="detail">&hellip;</span>
       </li>
       <li data-row="readiness" data-state="pending">
         <span class="dot" aria-hidden="true"></span>
         <span class="name">Readiness</span>
         <span class="value">&hellip;</span>
-        <span class="detail">GET /readyz</span>
+        <span class="detail">&hellip;</span>
       </li>
     </ol>
-
-    <template id="check-row">
-      <li data-row="" data-state="pending">
-        <span class="dot" aria-hidden="true"></span>
-        <span class="name"></span>
-        <span class="value">&hellip;</span>
-        <span class="detail"></span>
-      </li>
-    </template>
 
     <dl class="meta" aria-label="Service metadata">
       <div>
@@ -579,8 +571,6 @@
       checked: document.querySelector('[data-field="checked"]'),
       origin: document.querySelector('[data-field="origin"]'),
       originFooter: document.querySelector('[data-field="origin-footer"]'),
-      checks: document.querySelector('.checks'),
-      template: document.getElementById('check-row'),
       headline: document.querySelector('.status-bar'),
       headlineText: document.querySelector('[data-field="headline"]'),
       headlineMeta: document.querySelector('[data-field="headline-meta"]'),
@@ -600,20 +590,6 @@
       if (detail !== undefined) detailNode.textContent = detail;
       if (title) row.title = title;
       else row.removeAttribute('title');
-    };
-
-    const upsertCheck = (name, status, detail) => {
-      const rowId = `check:${name}`;
-      let row = el.checks.querySelector(`[data-row="${CSS.escape(rowId)}"]`);
-      if (!row) {
-        const fragment = el.template.content.cloneNode(true);
-        row = fragment.querySelector('li');
-        row.dataset.row = rowId;
-        row.querySelector('.name').textContent = name;
-        el.checks.appendChild(row);
-      }
-      const state = status === 'ok' ? 'ok' : 'fail';
-      setRow(row, state, status.toUpperCase(), detail ?? '');
     };
 
     const fetchJson = async (path) => {
@@ -669,7 +645,7 @@
         el.service.textContent = service ?? '\u2014';
         el.environment.textContent = environment ?? '\u2014';
         el.environmentMeta.textContent = environment ?? '\u2014';
-        setRow(liveness, 'ok', 'OK', `${health.value.status} /healthz`);
+        setRow(liveness, 'ok', 'OK', String(health.value.status));
         healthOk = true;
       } else {
         const reason = health.status === 'rejected'
@@ -688,14 +664,13 @@
           readiness,
           readyOk ? 'ok' : 'fail',
           readyOk ? 'READY' : 'NOT READY',
-          `${ready.value.status} /readyz`,
+          String(ready.value.status),
         );
         const checks = Array.isArray(body.checks) ? body.checks : [];
-        totalChecks = checks.length;
         for (const check of checks) {
           if (check.status !== 'ok') failingCount += 1;
-          upsertCheck(check.name, check.status, check.detail ?? '');
         }
+        totalChecks = checks.length;
       } else {
         const reason = ready.status === 'rejected'
           ? String(ready.reason?.message ?? ready.reason ?? 'error')
