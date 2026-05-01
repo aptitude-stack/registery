@@ -13,7 +13,13 @@ from app.core.skills.fetch import SkillFetchService
 from app.core.skills.registry import SkillRegistryService
 from app.core.skills.resolution import SkillResolutionService
 from app.observability.readiness import ReadinessService
-from app.persistence.db import SQLAlchemyDatabaseReadinessProbe, get_session_factory, init_engine
+from app.observability.telemetry import instrument_database_engine
+from app.persistence.db import (
+    SQLAlchemyDatabaseReadinessProbe,
+    get_engine,
+    get_session_factory,
+    init_engine,
+)
 from app.persistence.skill_registry_repository import SQLAlchemySkillCatalogRepository
 
 
@@ -31,7 +37,13 @@ class ServiceContainer:
 
 def build_service_container(*, settings: Settings) -> ServiceContainer:
     """Create the process-scoped service graph for the application."""
-    init_engine(settings.database_url)
+    init_engine(
+        settings.database_url,
+        application_name=f"{settings.app_name}-{settings.app_env}",
+    )
+    engine = get_engine()
+    if engine is not None:
+        instrument_database_engine(engine)
     session_factory = get_session_factory()
     catalog_repository = SQLAlchemySkillCatalogRepository(session_factory=session_factory)
     audit_recorder = SQLAlchemyAuditRecorder(session_factory=session_factory)

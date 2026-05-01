@@ -68,7 +68,7 @@ runtime:
           expect(json.environment).to.be.a('string').and.not.empty;
         });
 
-        bru.runner.setNextRequest(res.getStatus() === 200 ? 'Metrics' : null);
+        bru.runner.setNextRequest(res.getStatus() === 200 ? 'Readyz' : null);
 
 settings:
   encodeUrl: true

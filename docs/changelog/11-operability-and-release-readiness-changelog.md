@@ -1,5 +1,13 @@
 # Milestone 11 Changelog - Operability and Release Readiness
 
+> **Superseded.** The local `grafana/otel-lgtm` stack, the `ops/monitoring/`
+> assets, the optional file log sink, and the `GET /metrics` endpoint
+> documented below have been removed. Telemetry now flows directly from the
+> running FastAPI process to Grafana Cloud over OTLP/HTTP. See
+> [`docs/reference/observability-grafana-cloud.md`](../reference/observability-grafana-cloud.md)
+> for the current shape. This file is kept as a historical record of how
+> milestone 11 originally landed.
+
 This changelog documents implementation of [.agents/plans/11-operability-and-release-readiness.md](../../.agents/plans/11-operability-and-release-readiness.md).
 
 The milestone hardens the frozen registry surface with request-scoped observability, Prometheus-compatible metrics, optional local Prometheus/Grafana/Loki assets, containerized smoke paths, and incident runbooks. It does that without reopening the public registry-business route families finalized in Plans 09-10; the only new route is operational-only [`GET /metrics`](../project/api-contract.md).

@@ -28,22 +28,17 @@ TEST_DATABASE_URL ?= postgresql+psycopg://$(TEST_POSTGRES_USER):$(TEST_POSTGRES_
 TEST_DB_VOLUME ?= aptitude-test-postgres-data
 
 APP_BASE_URL ?= http://127.0.0.1:8000
-LOKI_URL ?= http://127.0.0.1:3100
-PROMETHEUS_URL ?= http://127.0.0.1:9090
 WAIT_ATTEMPTS ?= 30
 WAIT_SLEEP_SECONDS ?= 1
-LOKI_SMOKE_REQUEST_ID ?= loki-smoke
-METRICS_BEARER_TOKEN ?= admin-token.dev-admin-secret
 
 .PHONY: \
 	help \
 	run-dev run-prod quality test format build \
-	_ci-quality _ci-test _ci-observability _ci-image _ci-smoke _ci-down \
+	_ci-quality _ci-test _ci-image _ci-smoke _ci-down \
 	_format-check _lint _format _typecheck _test _import-check \
 	_test-db-up _test-db-wait _test-db-down \
-	_prometheus-check _observability-config-check \
 	_run-stack _stack-down _smoke-wait _smoke-verify \
-	_wait-app _wait-loki _wait-prometheus-targets _verify-service-endpoints _verify-loki-smoke \
+	_wait-app _verify-service-endpoints \
 	_image-load _image-builder-bootstrap _image-push
 
 define compose_with_env
@@ -58,48 +53,6 @@ for attempt in $$(seq 1 $(WAIT_ATTEMPTS)); do \
 	sleep $(WAIT_SLEEP_SECONDS); \
 done; \
 echo "Timed out waiting for $(1)" >&2; \
-exit 1
-endef
-
-define wait_for_prometheus_targets
-for attempt in $$(seq 1 $(WAIT_ATTEMPTS)); do \
-	targets_json=$$(curl --silent $(PROMETHEUS_URL)/api/v1/targets); \
-	if printf '%s' "$$targets_json" | grep -q '"job":"aptitude-registry"' \
-		&& printf '%s' "$$targets_json" | grep -q '"job":"loki"' \
-		&& printf '%s' "$$targets_json" | grep -q '"job":"otelcol"'; then \
-		exit 0; \
-	fi; \
-	sleep $(WAIT_SLEEP_SECONDS); \
-done; \
-echo "Timed out waiting for Prometheus targets" >&2; \
-exit 1
-endef
-
-define verify_loki_smoke
-curl --silent --fail -H 'X-Request-ID: $(LOKI_SMOKE_REQUEST_ID)' $(APP_BASE_URL)/healthz >/dev/null; \
-start_ns=$$($(PYTHON) -c 'import time; print(time.time_ns() - 300_000_000_000)'); \
-for attempt in $$(seq 1 $(WAIT_ATTEMPTS)); do \
-	end_ns=$$($(PYTHON) -c 'import time; print(time.time_ns())'); \
-	if curl --silent --get \
-		--data-urlencode 'query={service_name="aptitude-registry"} |= "$(LOKI_SMOKE_REQUEST_ID)"' \
-		--data-urlencode "start=$$start_ns" \
-		--data-urlencode "end=$$end_ns" \
-		--data-urlencode 'limit=20' \
-		$(LOKI_URL)/loki/api/v1/query_range | \
-	$(PYTHON) -c 'import json, sys; data = json.load(sys.stdin); raise SystemExit(0 if any(stream["values"] for stream in data["data"]["result"]) else 1)'; then \
-		end_ns=$$($(PYTHON) -c 'import time; print(time.time_ns())'); \
-		curl --silent --get \
-			--data-urlencode 'query={service_name="aptitude-registry"} |= "$(LOKI_SMOKE_REQUEST_ID)"' \
-			--data-urlencode "start=$$start_ns" \
-			--data-urlencode "end=$$end_ns" \
-			--data-urlencode 'limit=20' \
-			$(LOKI_URL)/loki/api/v1/query_range | \
-		$(PYTHON) -c 'import json, sys; data = json.load(sys.stdin); matches = [(ts, line) for stream in data["data"]["result"] for ts, line in stream["values"]]; print(matches[0][1]) if matches else sys.exit("No Loki records matched $(LOKI_SMOKE_REQUEST_ID)")'; \
-		exit 0; \
-	fi; \
-	sleep $(WAIT_SLEEP_SECONDS); \
-done; \
-echo "Timed out waiting for Loki record $(LOKI_SMOKE_REQUEST_ID)" >&2; \
 exit 1
 endef
 
@@ -135,7 +88,7 @@ $(call compose_with_env,$(1),--profile demo) run --rm demo-seed
 endef
 
 define stack_start_commands
-$(call compose_with_env,$(1),--profile observability) up -d server observability
+$(call compose_with_env,$(1)) up -d server
 endef
 
 define stack_cleanup_commands
@@ -143,24 +96,16 @@ $(call compose_with_env,$(1)) rm -f -s migrate >/dev/null 2>&1 || true
 endef
 
 define stack_down_commands
-$(call compose_with_env,$(1),--profile observability) down -v
+$(call compose_with_env,$(1)) down -v
 endef
 
 define smoke_wait_commands
-( $(call wait_for_url,$(APP_BASE_URL)/healthz) ); \
-( $(call wait_for_url,$(LOKI_URL)/ready) ); \
-( $(call wait_for_prometheus_targets) )
+( $(call wait_for_url,$(APP_BASE_URL)/healthz) )
 endef
 
 define smoke_verify_commands
 curl --fail $(APP_BASE_URL)/healthz; \
-curl --fail $(APP_BASE_URL)/readyz; \
-curl --fail -H 'Authorization: Bearer $(METRICS_BEARER_TOKEN)' $(APP_BASE_URL)/metrics; \
-curl --fail $(LOKI_URL)/ready; \
-curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"aptitude-registry"'; \
-curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"loki"'; \
-curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"otelcol"'; \
-( $(call verify_loki_smoke) )
+curl --fail $(APP_BASE_URL)/readyz
 endef
 
 #-----------------------------------------------------------------------------------
@@ -171,11 +116,11 @@ help: ## Show available targets
 
 run-dev: RUN_APP_ENV := dev
 run-dev: RUN_DEMO := 1
-run-dev: _run-stack ## Start the Docker stack with APP_ENV=dev, demo data, and observability
+run-dev: _run-stack ## Start the Docker stack with APP_ENV=dev and demo data
 
 run-prod: RUN_APP_ENV := prod
 run-prod: RUN_DEMO := 0
-run-prod: _run-stack ## Start the Docker stack with APP_ENV=prod and observability
+run-prod: _run-stack ## Start the Docker stack with APP_ENV=prod
 
 quality: _format-check _lint _typecheck ## Run format check, lint, and type checks
 
@@ -194,10 +139,6 @@ _ci-quality:
 
 _ci-test:
 	$(MAKE) test
-
-_ci-observability:
-	$(MAKE) _prometheus-check
-	$(MAKE) _observability-config-check
 
 _ci-image:
 	$(MAKE) _image-load
@@ -246,16 +187,6 @@ _test-db-wait:
 _test-db-down:
 	@$(call test_db_down_commands)
 
-_prometheus-check:
-	docker run --rm \
-		--entrypoint promtool \
-		-v "$$PWD/ops/monitoring/prometheus:/etc/prometheus:ro" \
-		prom/prometheus:v3.5.1 \
-		check config /etc/prometheus/prometheus.yml
-
-_observability-config-check:
-	$(call compose_with_env,prod,--profile observability) config >/dev/null
-
 _run-stack:
 	$(call stack_bootstrap_commands,$(RUN_APP_ENV),$(RUN_DEMO))
 	$(call stack_start_commands,$(RUN_APP_ENV))
@@ -265,37 +196,22 @@ _run-stack:
 _stack-down:
 	$(call stack_down_commands,prod)
 
-_smoke-wait: _wait-app _wait-loki _wait-prometheus-targets
+_smoke-wait: _wait-app
 
-_smoke-verify: _verify-service-endpoints _verify-loki-smoke
+_smoke-verify: _verify-service-endpoints
 
 _wait-app:
 	@$(call wait_for_url,$(APP_BASE_URL)/healthz)
 
-_wait-loki:
-	@$(call wait_for_url,$(LOKI_URL)/ready)
-
-_wait-prometheus-targets:
-	@$(call wait_for_prometheus_targets)
-
 _verify-service-endpoints:
 	curl --fail $(APP_BASE_URL)/healthz
 	curl --fail $(APP_BASE_URL)/readyz
-	curl --fail -H 'Authorization: Bearer $(METRICS_BEARER_TOKEN)' $(APP_BASE_URL)/metrics
-	curl --fail $(LOKI_URL)/ready
-	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"aptitude-registry"'
-	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"loki"'
-	curl --silent $(PROMETHEUS_URL)/api/v1/targets | grep '"job":"otelcol"'
-
-_verify-loki-smoke:
-	@$(call verify_loki_smoke)
 
 _image-load:
 	docker buildx build --load -t $(DOCKER_IMAGE_REF) .
 
 _image-builder-bootstrap:
 	@docker buildx inspect $(DOCKER_BUILDER) >/dev/null 2>&1 || docker buildx create --name $(DOCKER_BUILDER) --driver docker-container >/dev/null
-	@docker buildx inspect --bootstrap $(DOCKER_BUILDER) >/dev/null
 
 _image-push: _image-builder-bootstrap
 	docker buildx build --builder $(DOCKER_BUILDER) --platform $(DOCKER_PLATFORMS) --push -t $(DOCKER_IMAGE_REF) .

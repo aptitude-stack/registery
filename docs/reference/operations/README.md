@@ -7,5 +7,6 @@ These runbooks cover the live operational surfaces for local validation and prod
 - [`resolution-failures.md`](resolution-failures.md)
 - [`fetch-failures.md`](fetch-failures.md)
 - [`governance-denials.md`](governance-denials.md)
-- [`metrics-scrape-failures.md`](metrics-scrape-failures.md)
-- [`log-ingestion-failures.md`](log-ingestion-failures.md)
+
+For telemetry routing and on-call troubleshooting against Grafana Cloud,
+see [`../observability-grafana-cloud.md`](../observability-grafana-cloud.md).
