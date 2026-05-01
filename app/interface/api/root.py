@@ -13,7 +13,7 @@ _ROOT_PAGE_PATH = Path(__file__).parent / "resource" / "root.html"
 ROOT_PAGE_HTML = _ROOT_PAGE_PATH.read_text(encoding="utf-8")
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def get_root() -> HTMLResponse:
     """Return the default service status page."""
     return HTMLResponse(ROOT_PAGE_HTML)

@@ -111,15 +111,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     """Create and configure a FastAPI application instance."""
     app_settings = _load_app_settings_for_wiring()
-    app_env = "dev" if app_settings is None else app_settings.app_env
     app = FastAPI(
         title="Aptitude Registry Service",
         description=API_DESCRIPTION,
         version=API_VERSION,
         lifespan=lifespan,
-        docs_url="/docs" if app_env == "dev" else None,
-        redoc_url="/redoc" if app_env == "dev" else None,
-        openapi_url="/openapi.json" if app_env == "dev" else None,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
     )
     if app_settings is not None and app_settings.app_env == "prod":
         app.add_middleware(
