@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aptitude Registry / Status</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    :root {
+      --ink: #ece7db;
+      --ink-soft: #c9c4b7;
+      --ink-dim: #7a766d;
+      --paper: #0a0a0a;
+      --paper-1: #141414;
+      --paper-2: #1c1c1b;
+      --line: #2d2c2a;
+      --line-strong: #4a4842;
+      --accent-ok: #c9ff6b;
+      --accent-fail: #ff6b5c;
+      --accent-warn: #f2c94c;
+      --accent-pulse: #ece7db;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+
+    html {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-feature-settings: "ss01", "ss02";
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    .shell {
+      position: relative;
+      width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: clamp(20px, 2.4vw, 32px) clamp(20px, 3.6vw, 56px);
+      border: 1px solid var(--line);
+      border-top: 0;
+      border-bottom: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(28px, 3.6vw, 48px);
+    }
+
+    .topnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      font-family: "Space Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      padding-bottom: clamp(18px, 2vw, 26px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--ink);
+      font-family: "Archivo Black", "Archivo", sans-serif;
+      font-size: 0.84rem;
+      letter-spacing: 0.24em;
+    }
+
+    .logo::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      background: var(--ink);
+      display: inline-block;
+    }
+
+    .topnav nav {
+      display: flex;
+      gap: clamp(18px, 2.4vw, 36px);
+    }
+
+    .topnav nav a {
+      color: var(--ink-dim);
+      text-decoration: none;
+      transition: color 120ms ease;
+    }
+
+    .topnav nav a:hover,
+    .topnav nav a:focus-visible {
+      color: var(--ink);
+    }
+
+    .live-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--ink);
+      font-size: 0.7rem;
+    }
+
+    .live-chip .blink {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-pulse);
+      animation: blink 1.6s ease-in-out infinite;
+    }
+
+    .live-chip[data-state="ok"] .blink { background: var(--accent-ok); }
+    .live-chip[data-state="degraded"] .blink { background: var(--accent-warn); }
+    .live-chip[data-state="outage"] .blink { background: var(--accent-fail); }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .hero-copy {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(18px, 2vw, 28px);
+    }
+
+    .kicker {
+      font-family: "Space Mono", ui-monospace, monospace;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+    }
+
+    .kicker .slash { color: var(--line-strong); margin: 0 8px; }
+
+    .wordmark {
+      margin: 0;
+      font-family: "Archivo Black", "Archivo", sans-serif;
+      font-weight: 900;
+      font-size: clamp(3.2rem, 10.5vw, 8.25rem);
+      line-height: 0.84;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .wordmark span {
+      display: block;
+      color: var(--ink);
+    }
+
+    .wordmark span + span {
+      margin-top: -0.05em;
+    }
+
+    .subline {
+      font-family: "Space Mono", ui-monospace, monospace;
+      font-size: 0.84rem;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .lede {
+      max-width: 42ch;
+      margin: 0;
+      font-family: "Space Mono", ui-monospace, monospace;
+      font-size: clamp(0.95rem, 1.1vw, 1.05rem);
+      line-height: 1.55;
+      color: var(--ink-soft);
+      font-weight: 400;
+    }
+
+    .cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 4px;
+    }
+
+    .cta a {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 26px 14px 20px;
+      border: 1px solid var(--ink);
+      border-radius: 999px;
+      color: var(--ink);
+      text-decoration: none;
+      font-family: "Space Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .cta a::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--ink);
+      border-radius: 50%;
+      transition: background-color 160ms ease;
+    }
+
+    .cta a:hover,
+    .cta a:focus-visible {
+      background: var(--ink);
+      color: var(--paper);
+      transform: translateY(-1px);
+    }
+
+    .cta a:hover::before,
+    .cta a:focus-visible::before {
+      background: var(--paper);
+    }
+
+    .cta a.secondary {
+      border-color: var(--line-strong);
+      color: var(--ink-soft);
+    }
+
+    .cta a.secondary::before { background: var(--ink-soft); }
+
+    .cta a.secondary:hover,
+    .cta a.secondary:focus-visible {
+      border-color: var(--ink);
+      color: var(--paper);
+      background: var(--ink-soft);
+    }
+
+    .status-bar {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: clamp(16px, 2.4vw, 36px);
+      padding: clamp(18px, 2.2vw, 26px) clamp(20px, 2.4vw, 28px);
+      background: var(--paper-1);
+      border: 1px solid var(--line);
+    }
+
+    .status-bar .label {
+      font-family: "Space Mono", monospace;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      font-size: 0.74rem;
+      color: var(--ink-dim);
+    }
+
+    .status-bar .headline {
+      margin: 0;
+      font-family: "Archivo Black", sans-serif;
+      font-size: clamp(1.25rem, 2.4vw, 1.9rem);
+      letter-spacing: 0;
+      text-transform: uppercase;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .status-bar[data-state="ok"] .headline { color: var(--accent-ok); }
+    .status-bar[data-state="degraded"] .headline { color: var(--accent-warn); }
+    .status-bar[data-state="outage"] .headline { color: var(--accent-fail); }
+
+    .status-bar .counter {
+      font-family: "Space Mono", monospace;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      color: var(--ink-soft);
+      white-space: nowrap;
+    }
+
+    .checks {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border: 1px solid var(--line);
+    }
+
+    .checks li {
+      display: grid;
+      grid-template-columns: 16px minmax(140px, 1.5fr) minmax(90px, 0.9fr) minmax(0, 2fr);
+      align-items: center;
+      gap: clamp(14px, 1.8vw, 28px);
+      padding: clamp(14px, 1.6vw, 20px) clamp(20px, 2.4vw, 28px);
+      border-top: 1px solid var(--line);
+      font-family: "Space Mono", monospace;
+      font-size: 0.82rem;
+      font-weight: 400;
+    }
+
+    .checks li:first-child { border-top: 0; }
+
+    .checks .dot {
+      width: 10px;
+      height: 10px;
+      border: 1px solid var(--ink-dim);
+      background: transparent;
+    }
+
+    .checks li[data-state="ok"] .dot { background: var(--accent-ok); border-color: var(--accent-ok); }
+    .checks li[data-state="fail"] .dot { background: var(--accent-fail); border-color: var(--accent-fail); }
+    .checks li[data-state="unknown"] .dot { background: var(--accent-warn); border-color: var(--accent-warn); }
+
+    .checks .name {
+      color: var(--ink);
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .checks .value {
+      color: var(--ink-soft);
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .checks li[data-state="ok"] .value { color: var(--accent-ok); }
+    .checks li[data-state="fail"] .value { color: var(--accent-fail); }
+    .checks li[data-state="unknown"] .value { color: var(--accent-warn); }
+
+    .checks .detail {
+      color: var(--ink-dim);
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-feature-settings: "tnum";
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: clamp(18px, 2.4vw, 32px);
+      padding: clamp(18px, 2vw, 24px) 0 clamp(28px, 3vw, 40px);
+      border-top: 1px solid var(--line);
+      font-family: "Space Mono", monospace;
+    }
+
+    .meta div { display: grid; gap: 6px; }
+
+    .meta dt {
+      font-size: 0.68rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      font-weight: 700;
+    }
+
+    .meta dd {
+      margin: 0;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    footer {
+      font-family: "Space Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      padding: clamp(14px, 1.6vw, 20px) clamp(20px, 3.6vw, 56px);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      max-width: 1320px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    footer [data-field="origin"] { color: var(--ink-soft); }
+
+    :focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 3px;
+    }
+
+    .enter > * {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: rise 640ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+    }
+
+    .enter > *:nth-child(1) { animation-delay: 0ms; }
+    .enter > *:nth-child(2) { animation-delay: 80ms; }
+    .enter > *:nth-child(3) { animation-delay: 160ms; }
+    .enter > *:nth-child(4) { animation-delay: 240ms; }
+    .enter > *:nth-child(5) { animation-delay: 320ms; }
+    .enter > *:nth-child(6) { animation-delay: 400ms; }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 880px) {
+      .shell { padding-inline: clamp(18px, 5vw, 28px); border-left: 0; border-right: 0; }
+      .topnav nav { display: none; }
+
+      .status-bar {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .status-bar .counter { text-align: left; }
+
+      .checks li {
+        grid-template-columns: 12px 1fr auto;
+        row-gap: 4px;
+      }
+
+      .checks .detail {
+        grid-column: 2 / -1;
+        text-align: left;
+        white-space: normal;
+      }
+
+      footer { flex-direction: column; gap: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .enter > *,
+      .live-chip .blink {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --paper: #efece3;
+        --paper-1: #e7e3d6;
+        --paper-2: #dcd7c8;
+        --ink: #0a0a0a;
+        --ink-soft: #2a2926;
+        --ink-dim: #6b6a63;
+        --line: rgba(10, 10, 10, 0.2);
+        --line-strong: #0a0a0a;
+        --accent-ok: #0f5132;
+        --accent-fail: #b71914;
+        --accent-warn: #8a5a00;
+        --accent-pulse: #0a0a0a;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell enter">
+    <header class="topnav">
+      <span class="logo">Aptitude Registry</span>
+      <nav aria-label="Primary">
+        <a href="#status">Status</a>
+        <a href="/docs">API</a>
+        <a href="/healthz">Health</a>
+        <a href="/readyz">Readiness</a>
+      </nav>
+      <span class="live-chip" data-state="pending" role="status" aria-live="polite">
+        <span class="blink" aria-hidden="true"></span>
+        <span data-field="live-text">Connecting</span>
+      </span>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="kicker">
+          Registry API <span class="slash">/</span> v0.3 <span class="slash">/</span> <span data-field="environment">&mdash;</span>
+        </p>
+        <h1 class="wordmark" id="page-title">
+          <span>Aptitude</span>
+          <span>Registry</span>
+        </h1>
+        <p class="subline">Immutable skills &middot; Deterministic resolves</p>
+        <p class="lede">
+          Content-addressed skill metadata, bundle artifacts, discovery, dependency
+          reads, and lifecycle governance &mdash; served cold, cached hot.
+        </p>
+        <div class="cta">
+          <a href="/openapi.json"><span>OpenAPI Spec</span></a>
+          <a href="/docs" class="secondary"><span>Docs</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section id="status" class="status-bar" data-state="pending" role="status" aria-live="polite">
+      <span class="label">Service Status</span>
+      <h2 class="headline" data-field="headline">Contacting Service</h2>
+      <span class="counter" data-field="headline-meta">Probing</span>
+    </section>
+
+    <ol class="checks" aria-live="polite" aria-label="Service checks">
+      <li data-row="liveness" data-state="pending">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="name">Liveness</span>
+        <span class="value">&hellip;</span>
+        <span class="detail">&hellip;</span>
+      </li>
+      <li data-row="readiness" data-state="pending">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="name">Readiness</span>
+        <span class="value">&hellip;</span>
+        <span class="detail">&hellip;</span>
+      </li>
+    </ol>
+
+    <dl class="meta" aria-label="Service metadata">
+      <div>
+        <dt>Service</dt>
+        <dd data-field="service">&mdash;</dd>
+      </div>
+      <div>
+        <dt>Environment</dt>
+        <dd data-field="environment-meta">&mdash;</dd>
+      </div>
+      <div>
+        <dt>Checked</dt>
+        <dd><time data-field="checked">&mdash;</time></dd>
+      </div>
+      <div>
+        <dt>Origin</dt>
+        <dd data-field="origin">&mdash;</dd>
+      </div>
+    </dl>
+  </main>
+
+  <footer>
+    <span>Aptitude Registry &mdash; Immutable skill distribution</span>
+    <span>v0.3 &middot; <span data-field="origin-footer">&mdash;</span></span>
+  </footer>
+
+  <script type="module">
+    const TIMEOUT_MS = 4000;
+
+    const el = {
+      service: document.querySelector('[data-field="service"]'),
+      environment: document.querySelector('[data-field="environment"]'),
+      environmentMeta: document.querySelector('[data-field="environment-meta"]'),
+      checked: document.querySelector('[data-field="checked"]'),
+      origin: document.querySelector('[data-field="origin"]'),
+      originFooter: document.querySelector('[data-field="origin-footer"]'),
+      headline: document.querySelector('.status-bar'),
+      headlineText: document.querySelector('[data-field="headline"]'),
+      headlineMeta: document.querySelector('[data-field="headline-meta"]'),
+      liveChip: document.querySelector('.live-chip'),
+      liveText: document.querySelector('[data-field="live-text"]'),
+    };
+
+    const host = window.location.host || 'file://';
+    el.origin.textContent = host;
+    el.originFooter.textContent = host;
+
+    const setRow = (row, state, value, detail, title) => {
+      if (!row) return;
+      row.dataset.state = state;
+      row.querySelector('.value').textContent = value;
+      const detailNode = row.querySelector('.detail');
+      if (detail !== undefined) detailNode.textContent = detail;
+      if (title) row.title = title;
+      else row.removeAttribute('title');
+    };
+
+    const fetchJson = async (path) => {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+      try {
+        const response = await fetch(path, {
+          signal: ac.signal,
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+        });
+        const body = await response.json().catch(() => null);
+        return { ok: response.ok, status: response.status, body };
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    const formatChecked = () => {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const time = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      return `${date} ${time}`;
+    };
+
+    const liveness = document.querySelector('[data-row="liveness"]');
+    const readiness = document.querySelector('[data-row="readiness"]');
+
+    const setHeadline = (state, text, meta) => {
+      el.headline.dataset.state = state;
+      el.headlineText.textContent = text;
+      if (meta !== undefined) el.headlineMeta.textContent = meta;
+      el.liveChip.dataset.state = state;
+      el.liveText.textContent = state === 'ok'
+        ? 'Live'
+        : state === 'degraded'
+          ? 'Degraded'
+          : state === 'outage'
+            ? 'Outage'
+            : 'Connecting';
+    };
+
+    const render = async () => {
+      const [health, ready] = await Promise.allSettled([
+        fetchJson('/healthz'),
+        fetchJson('/readyz'),
+      ]);
+
+      let healthOk = false;
+      if (health.status === 'fulfilled' && health.value.ok && health.value.body) {
+        const { service, environment } = health.value.body;
+        el.service.textContent = service ?? '\u2014';
+        el.environment.textContent = environment ?? '\u2014';
+        el.environmentMeta.textContent = environment ?? '\u2014';
+        setRow(liveness, 'ok', 'OK', String(health.value.status));
+        healthOk = true;
+      } else {
+        const reason = health.status === 'rejected'
+          ? String(health.reason?.message ?? health.reason ?? 'error')
+          : `HTTP ${health.value?.status ?? 'ERR'}`;
+        setRow(liveness, 'fail', 'FAIL', reason, reason);
+      }
+
+      let readyOk = false;
+      let failingCount = 0;
+      let totalChecks = 0;
+      if (ready.status === 'fulfilled' && ready.value.body) {
+        const body = ready.value.body;
+        readyOk = body.status === 'ready';
+        setRow(
+          readiness,
+          readyOk ? 'ok' : 'fail',
+          readyOk ? 'READY' : 'NOT READY',
+          String(ready.value.status),
+        );
+        const checks = Array.isArray(body.checks) ? body.checks : [];
+        for (const check of checks) {
+          if (check.status !== 'ok') failingCount += 1;
+        }
+        totalChecks = checks.length;
+      } else {
+        const reason = ready.status === 'rejected'
+          ? String(ready.reason?.message ?? ready.reason ?? 'error')
+          : `HTTP ${ready.value?.status ?? 'ERR'}`;
+        setRow(readiness, 'unknown', 'UNKNOWN', reason, reason);
+      }
+
+      const probeCount = 2 + totalChecks;
+      const passed = (healthOk ? 1 : 0) + (readyOk ? 1 : 0) + (totalChecks - failingCount);
+      const metaText = `${passed} / ${probeCount} passing`;
+
+      if (healthOk && readyOk && failingCount === 0) {
+        setHeadline('ok', 'All Systems Operational', metaText);
+      } else if (healthOk && (failingCount > 0 || !readyOk)) {
+        setHeadline('degraded', 'Partial Degradation', metaText);
+      } else {
+        setHeadline('outage', 'Service Unreachable', metaText);
+      }
+
+      el.checked.textContent = formatChecked();
+      el.checked.setAttribute('datetime', new Date().toISOString());
+    };
+
+    render();
+  </script>
+</body>
+</html>
