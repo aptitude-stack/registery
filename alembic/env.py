@@ -5,7 +5,8 @@ resolves the database URL used during migration runs.
 
 URL resolution order:
 1. ``sqlalchemy.url`` from ``alembic.ini`` (explicit migration override)
-2. ``database_url`` from application settings (environment-driven default)
+2. ``migration_database_url`` from application settings (direct migration URL)
+3. ``database_url`` from application settings (environment-driven fallback)
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.core.settings import get_settings, reset_settings_cache
+from app.persistence.migration_url import select_migration_database_url
 
 # Import all mapped tables so they are registered on Base.metadata.
 from app.persistence.models import (
@@ -42,8 +44,9 @@ def get_database_url() -> str:
     """Return the database URL used for the current migration run.
 
     Preference is given to Alembic's ``sqlalchemy.url`` so operators can point
-    migrations to a specific database without changing app settings.
-    If not configured, fall back to application settings.
+    migrations to a specific database without changing app settings. If not
+    configured, use the dedicated migration URL before falling back to the
+    runtime database URL.
     """
     configured_url = config.get_main_option("sqlalchemy.url")
     if configured_url:
@@ -51,7 +54,12 @@ def get_database_url() -> str:
 
     # Ensure settings reflect current environment variables for migration runs.
     reset_settings_cache()
-    return get_settings().database_url
+    settings = get_settings()
+    return select_migration_database_url(
+        configured_url=None,
+        migration_database_url=settings.migration_database_url,
+        database_url=settings.database_url,
+    )
 
 
 def run_migrations_offline() -> None:

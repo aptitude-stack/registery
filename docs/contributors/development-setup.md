@@ -55,7 +55,7 @@ If you need the auth token shape, scope rules, or current dev fixture tokens, us
 Local URLs:
 
 - API: `http://127.0.0.1:8000`
-- Swagger docs: `http://127.0.0.1:8000/docs` in `APP_ENV=dev` only
+- Swagger docs: `http://127.0.0.1:8000/docs`
 - Metrics: `http://127.0.0.1:8000/metrics` with an admin bearer token
 
 Integration tests still use the dedicated PostgreSQL container on `127.0.0.1:5433`, but that lifecycle is intentionally behind the public `make test` entrypoint.
@@ -85,7 +85,7 @@ uv sync --extra dev
 3. Pick the app runtime profile explicitly.
 
 - Use `APP_ENV=dev` for local debugging with docs enabled.
-- Use `APP_ENV=prod` for production-like startup with docs disabled and host validation enabled.
+- Use `APP_ENV=prod` for production-like startup with docs and host validation enabled.
 
 4. Start the FastAPI CLI with the correct subcommand.
 
@@ -113,7 +113,7 @@ curl http://127.0.0.1:8000/docs
 Expected results:
 
 - in `APP_ENV=dev`, `/healthz` and `/docs` should both respond
-- in `APP_ENV=prod`, `/healthz` should respond and `/docs` should not be exposed
+- in `APP_ENV=prod`, `/healthz` and `/docs` should both respond when the host is allowed
 
 If you are validating protected routes, remember that Plan 14 keeps auth requirements aligned
 across both profiles. `dev` is not an auth bypass.

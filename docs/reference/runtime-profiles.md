@@ -13,8 +13,7 @@ This repo has two different kinds of "profiles". They solve different problems a
 
 Runtime posture changes that do apply today:
 
-- `dev` keeps `/docs`, `/redoc`, and `/openapi.json` enabled.
-- `prod` disables `/docs`, `/redoc`, and `/openapi.json`.
+- `dev` and `prod` both keep `/docs`, `/redoc`, and `/openapi.json` enabled.
 - `prod` enforces `ALLOWED_HOSTS_JSON` through trusted-host validation.
 - protected routes require the same governed bearer-token auth in both `dev` and `prod`.
 
@@ -88,6 +87,8 @@ Tests and CI are execution environments, not runtime profiles.
 
 - `APP_ENV`: runtime profile for the app (`dev` or `prod`)
 - `DATABASE_URL`: primary application database
+- `MIGRATION_DATABASE_URL`: optional direct database URL for Alembic when the
+  runtime `DATABASE_URL` uses a pooled host
 - `TEST_DATABASE_URL`: dedicated database used by integration-test flows
 - `AUTH_SERVICE_TOKENS_JSON`: governed service-token registry records used by authenticated routes
 - `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`; deployed prod should include `api.aptitude-registry.dev` and the Render `onrender.com` host during rollout

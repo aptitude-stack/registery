@@ -115,7 +115,8 @@ Protected routes require:
 Operational rules:
 
 - Operational telemetry (traces, logs, metrics) is exported over OTLP/HTTP to Grafana Cloud when `OTEL_ENABLED=true`. The legacy `/metrics` Prometheus exposition endpoint has been removed.
-- `/docs`, `/redoc`, and `/openapi.json` are available in `dev` and disabled in `prod`.
+- `/docs`, `/redoc`, and `/openapi.json` are available in both `dev` and `prod`,
+  but admin and HTML helper routes are excluded from the public schema.
 - `prod` rejects unexpected `Host` headers with the configured allowlist.
 - Forwarded proxy headers are not trusted by default at the application boundary.
 

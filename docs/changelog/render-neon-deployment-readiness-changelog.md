@@ -48,8 +48,8 @@ flowchart LR
     Client["Registry client"] --> DNS["api.aptitude-registry.dev"]
     DNS --> Render["Render Web Service<br/>FastAPI app.main:app"]
     Render --> Settings["Runtime env<br/>APP_ENV, ALLOWED_HOSTS_JSON, tokens"]
-    Render --> Alembic["Migration<br/>manual on Free, pre-deploy on paid"]
-    Render --> Neon["Neon Postgres<br/>DATABASE_URL"]
+    Render --> Alembic["Migration<br/>Starter pre-deploy"]
+    Render --> Neon["Neon Postgres<br/>DATABASE_URL pooled<br/>MIGRATION_DATABASE_URL direct"]
     Vercel["Vercel"] --> DNSMgmt["DNS/domain management only"]
     DNSMgmt --> DNS
 ```
@@ -62,9 +62,9 @@ Why this shape:
   [app/main.py](../../app/main.py),
   [pyproject.toml](../../pyproject.toml),
   [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md).
-- Postgres remains external infrastructure. The app reads `DATABASE_URL`,
-  Alembic resolves migrations through the same settings path, and readiness
-  probes the database at runtime:
+- Postgres remains external infrastructure. The app reads pooled `DATABASE_URL`,
+  Alembic resolves migrations through direct `MIGRATION_DATABASE_URL`, and
+  readiness probes the database at runtime:
   [app/core/settings.py](../../app/core/settings.py),
   [alembic/env.py](../../alembic/env.py),
   [app/interface/api/health.py](../../app/interface/api/health.py).
@@ -139,7 +139,8 @@ Source:
 | Field | Type | Nullable | Default / Constraint | Role |
 | --- | --- | --- | --- | --- |
 | `APP_ENV` | `string` | No | `prod` for Render | Enables production posture, including disabled docs and trusted-host enforcement. |
-| `DATABASE_URL` | `string` | No | Neon direct connection using `postgresql+psycopg://...` | Gives the app and Alembic the primary PostgreSQL connection string. |
+| `DATABASE_URL` | `string` | No | Neon pooled connection using `postgresql+psycopg://...-pooler...` | Gives the FastAPI runtime the primary PostgreSQL connection string. |
+| `MIGRATION_DATABASE_URL` | `string` | Yes | Neon direct connection using `postgresql+psycopg://...` | Gives Alembic a direct PostgreSQL connection string while runtime traffic uses pooling. |
 | `AUTH_SERVICE_TOKENS_JSON` | `JSON array` | No | token records with sha256 secret digests | Supplies governed bearer-token records for protected API routes and `/metrics`. |
 | `ALLOWED_HOSTS_JSON` | `JSON array[string]` | No in `prod` | includes `api.aptitude-registry.dev` and rollout Render host | Defines accepted `Host` headers for `TrustedHostMiddleware`. |
 | `ACTIVE_POLICY_PROFILE` | `string` | No | `default` | Selects the active governance policy profile without changing route shape. |
@@ -150,15 +151,15 @@ Source:
 | Resource | Current value | Role |
 | --- | --- | --- |
 | Render service | `aptitude-registry-api` / `srv-d7pqsd7avr4c73bfb8t0` | Persistent FastAPI web service running `app.main:app`. |
-| Render deploy | `dep-d7q5lqdckfvc739isqpg` / `fe0c54c996c2e973214892f59047ac17fb255293` | Live deploy after standalone Neon `DATABASE_URL` cutover. |
-| Render branch tracking | `master` in service metadata | Auto-deploy remains enabled for the tracked branch. |
+| Render deploy | `dep-d7q8pnf7f7vs73cpbvl0` / `f3689f1dd4a0ecb4bb68088c1fc83b1952355fac` | Live deploy before the pooled runtime URL cutover. |
+| Render branch tracking | `master` in service metadata | Auto-deploy currently uses commit triggers; Blueprint target is `checksPass`. |
 | Render URL | `https://aptitude-registry-api.onrender.com` | Verified fallback host while custom-domain TLS is pending. |
 | Neon organization | `Aptitude` / `org-wild-pond-20247201` | Standalone Neon Console-managed organization. |
 | Neon project | `aptitude-registry` / `bitter-night-16887852` | Standalone project that hosts production database resources. |
 | Neon branch | `production` / `br-calm-bonus-ambx0ki5` | Production-isolated database branch for the registry API. |
 | Neon database | `aptitude` | Application database used by SQLAlchemy and Alembic. |
 | Neon role | `aptitude_app` | Application database role used in `DATABASE_URL`. |
-| API domain | `api.aptitude-registry.dev` | Vercel DNS CNAME resolves toward Render, but HTTPS still returns a TLS handshake failure from the current environment. |
+| API domain | `api.aptitude-registry.dev` | Vercel DNS CNAME resolves toward Render and HTTPS reaches Render TLS from the current environment. |
 
 ### Removed Vercel deployment files
 
