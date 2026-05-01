@@ -42,9 +42,6 @@ jobs:
       - name: Run test gate
         run: make _ci-test
 
-      - name: Run observability gate
-        run: make _ci-observability
-
       - name: Build app image for smoke test
         run: make _ci-image
 

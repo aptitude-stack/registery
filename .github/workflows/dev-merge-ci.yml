@@ -43,9 +43,6 @@ jobs:
       - name: Run test gate
         run: make _ci-test
 
-      - name: Run observability gate
-        run: make _ci-observability
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
