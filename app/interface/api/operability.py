@@ -19,6 +19,7 @@ router = APIRouter(tags=["operability"])
         "dashboard validation."
     ),
     response_model=None,
+    include_in_schema=False,
 )
 def get_metrics(_caller: AdminCallerDep) -> Response:
     """Expose the current Prometheus metrics payload."""

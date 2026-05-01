@@ -43,6 +43,8 @@ Rules:
 - `expires_at` is optional and must include a timezone offset when present
 
 `ALLOWED_HOSTS_JSON` defines the required host allowlist in `APP_ENV=prod`.
+The deployed registry API host is `api.aptitude-registry.dev`, so production env must include it.
+During initial Render rollout, also include the Render `onrender.com` service host until custom-domain verification and health checks are stable.
 
 ## Scopes
 

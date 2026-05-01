@@ -230,6 +230,7 @@ def create_skill_version(
     response_model=SkillVersionStatusResponse,
     response_model_exclude_unset=True,
     responses=STATUS_RESPONSES,
+    include_in_schema=False,
 )
 def update_skill_version_status(
     http_request: Request,
