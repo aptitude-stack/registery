@@ -67,7 +67,8 @@ Authentication and authorization failures use stable API error codes:
 
 ## Prod Posture
 
-- `/docs`, `/redoc`, and `/openapi.json` are disabled in `prod`
+- `/docs`, `/redoc`, and `/openapi.json` are enabled in `prod`; admin and HTML
+  helper routes are excluded from the public schema
 - `TrustedHostMiddleware` enforces `ALLOWED_HOSTS_JSON` in `prod`
 - forwarded proxy headers remain untrusted by default at the app boundary
 - operational telemetry is shipped via OTLP/HTTP to Grafana Cloud rather than scraped from the app, so the public surface no longer exposes a metrics endpoint at all

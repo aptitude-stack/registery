@@ -29,6 +29,7 @@ class PublishRuleSettings(BaseModel):
 
 
 SETTINGS_ENV_FILE_ENV_VAR = "APP_SETTINGS_ENV_FILE"
+MIGRATION_DATABASE_URL_ENV_VAR = "MIGRATION_DATABASE_URL"
 OTEL_OTLP_ENDPOINT_ENV_VAR = "OTEL_EXPORTER_OTLP_ENDPOINT"
 AppEnv = Literal["dev", "prod"]
 
@@ -124,6 +125,7 @@ class Settings(BaseSettings):
     """Application configuration values."""
 
     database_url: str = Field(alias="DATABASE_URL")
+    migration_database_url: str | None = Field(default=None, alias="MIGRATION_DATABASE_URL")
     app_env: AppEnv = Field(default="dev", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")
