@@ -6,6 +6,8 @@ This changelog documents the deployment-readiness work captured in
 The change makes Render plus Neon the documented production deployment path for
 the registry API, removes the tracked Vercel serverless deployment surface, and
 keeps Vercel scoped to DNS/domain management until a website or docs app exists.
+It also records the first live Render and Neon deployment attempt on
+2026-04-30 and the follow-up standalone Neon cutover on 2026-05-01.
 
 ## Scope Delivered
 
@@ -32,6 +34,12 @@ keeps Vercel scoped to DNS/domain management until a website or docs app exists.
   [pyproject.toml](../../pyproject.toml),
   [uv.lock](../../uv.lock),
   [tests/unit/test_dependency_manifest.py](../../tests/unit/test_dependency_manifest.py).
+- Created the first live Render Web Service and Neon production database
+  resources through CLI-driven deployment work:
+  [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md).
+- Cut production over to a standalone Neon Console-managed project after the
+  Vercel-managed Neon project was removed:
+  [autonomous-neon-registry-db-cutover-changelog.md](autonomous-neon-registry-db-cutover-changelog.md).
 
 ## Architecture Snapshot
 
@@ -40,7 +48,7 @@ flowchart LR
     Client["Registry client"] --> DNS["api.aptitude-registry.dev"]
     DNS --> Render["Render Web Service<br/>FastAPI app.main:app"]
     Render --> Settings["Runtime env<br/>APP_ENV, ALLOWED_HOSTS_JSON, tokens"]
-    Render --> Alembic["Pre-deploy migration<br/>alembic upgrade head"]
+    Render --> Alembic["Migration<br/>manual on Free, pre-deploy on paid"]
     Render --> Neon["Neon Postgres<br/>DATABASE_URL"]
     Vercel["Vercel"] --> DNSMgmt["DNS/domain management only"]
     DNSMgmt --> DNS
@@ -100,6 +108,15 @@ sequenceDiagram
   through a pooled `-pooler` endpoint:
   [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md),
   [alembic/env.py](../../alembic/env.py).
+- Render Free does not execute configured pre-deploy commands. The live
+  deployment keeps the command documented for paid services, but the initial
+  migration was run manually against Neon before endpoint verification:
+  [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md).
+- The initial Neon organization was managed by Vercel and rejected creation of
+  a separate `aptitude-registry` project. Production has since been cut over to
+  a standalone Neon Console-managed project with its own `production` branch,
+  `aptitude` database, and `aptitude_app` role:
+  [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md).
 - CORS remains disabled because no browser client exists. The deployment work
   changes host and infrastructure guidance, not the public HTTP route contract:
   [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md),
@@ -128,6 +145,21 @@ Source:
 | `ACTIVE_POLICY_PROFILE` | `string` | No | `default` | Selects the active governance policy profile without changing route shape. |
 | `LOG_FORMAT` | `string` | No | `auto` | Keeps Render production logs structured through the existing logging settings. |
 
+### Live infrastructure resources
+
+| Resource | Current value | Role |
+| --- | --- | --- |
+| Render service | `aptitude-registry-api` / `srv-d7pqsd7avr4c73bfb8t0` | Persistent FastAPI web service running `app.main:app`. |
+| Render deploy | `dep-d7q5lqdckfvc739isqpg` / `fe0c54c996c2e973214892f59047ac17fb255293` | Live deploy after standalone Neon `DATABASE_URL` cutover. |
+| Render branch tracking | `master` in service metadata | Auto-deploy remains enabled for the tracked branch. |
+| Render URL | `https://aptitude-registry-api.onrender.com` | Verified fallback host while custom-domain TLS is pending. |
+| Neon organization | `Aptitude` / `org-wild-pond-20247201` | Standalone Neon Console-managed organization. |
+| Neon project | `aptitude-registry` / `bitter-night-16887852` | Standalone project that hosts production database resources. |
+| Neon branch | `production` / `br-calm-bonus-ambx0ki5` | Production-isolated database branch for the registry API. |
+| Neon database | `aptitude` | Application database used by SQLAlchemy and Alembic. |
+| Neon role | `aptitude_app` | Application database role used in `DATABASE_URL`. |
+| API domain | `api.aptitude-registry.dev` | Vercel DNS CNAME resolves toward Render, but HTTPS still returns a TLS handshake failure from the current environment. |
+
 ### Removed Vercel deployment files
 
 | File | Previous role | Current role |
@@ -152,6 +184,24 @@ Source:
   `UV_CACHE_DIR=.uv-cache uv run --extra dev python -m mypy app`,
   `UV_CACHE_DIR=.uv-cache uv run --extra dev python -m pytest tests/unit -q`,
   and `UV_CACHE_DIR=.uv-cache uv lock --check`.
-- No live Render service, Neon database, or DNS record was created by this
-  repository change. Those remain external infrastructure steps documented in
-  [docs/reference/render-neon-deployment.md](../reference/render-neon-deployment.md).
+- Live Render verification passed for
+  `https://aptitude-registry-api.onrender.com/healthz`,
+  `https://aptitude-registry-api.onrender.com/readyz`,
+  `https://aptitude-registry-api.onrender.com/docs`,
+  authenticated `/metrics`, and unauthenticated `/metrics`.
+- Standalone Neon cutover verification passed for
+  `https://aptitude-registry-api.onrender.com/healthz`,
+  `https://aptitude-registry-api.onrender.com/readyz`, and
+  `https://aptitude-registry-api.onrender.com/docs` after Render deploy
+  `dep-d7q5lqdckfvc739isqpg`.
+- Render was first created against `master`, then redeployed explicitly to
+  commit `33b4e10866e50b005a0aca19868e11862ed604d3` from
+  `feature/deployment-exploration` because the Render CLI did not persist the
+  requested branch update.
+- Neon migrations were applied manually for the Render Free deployments and
+  `alembic current` reported `0003_skill_bundle_storage (head)`.
+- DNS cutover configuration is complete: Vercel DNS has
+  `api CNAME aptitude-registry-api.onrender.com`, public resolvers return the
+  Render CNAME, and Render reports `api.aptitude-registry.dev` as verified.
+  Public HTTPS endpoint verification is still pending because the current
+  environment gets a TLS handshake failure from the Render edge.

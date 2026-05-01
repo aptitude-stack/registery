@@ -31,6 +31,7 @@ from app.interface.api.fetch import router as fetch_router
 from app.interface.api.health import router as health_router
 from app.interface.api.operability import router as operability_router
 from app.interface.api.resolution import router as resolution_router
+from app.interface.api.root import router as root_router
 from app.interface.api.skills import router as skills_router
 from app.observability.context import clear_request_context, set_request_context
 from app.observability.logging import (
@@ -204,6 +205,7 @@ def create_app() -> FastAPI:
         PolicyViolation,
         cast(ExceptionHandler, cast(object, policy_violation_exception_handler)),
     )
+    app.include_router(root_router)
     app.include_router(health_router)
     app.include_router(operability_router)
     app.include_router(discovery_router)

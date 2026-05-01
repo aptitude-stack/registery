@@ -11,6 +11,7 @@ This API stays registry-first.
 
 Public routes:
 
+- `GET /`
 - `GET /healthz`
 - `GET /readyz`
 
@@ -151,6 +152,7 @@ Error envelope:
 
 | Method | Path | Scope | Success | Notes |
 | --- | --- | --- | --- | --- |
+| `GET` | `/` | none | `200` | Work-in-progress default service page |
 | `GET` | `/healthz` | none | `200` | Liveness probe |
 | `GET` | `/readyz` | none | `200` or `503` | Dependency readiness probe |
 | `GET` | `/metrics` | `admin` | `200` | Prometheus-compatible operational metrics |
