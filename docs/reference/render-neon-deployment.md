@@ -27,16 +27,16 @@ Status as of 2026-05-01:
 | Render service | `aptitude-registry-api` / `srv-d7pqsd7avr4c73bfb8t0` |
 | Render primary URL | `https://aptitude-registry-api.onrender.com` |
 | Render region | `virginia`, matching the Neon `aws-us-east-1` project |
-| Live Render deploy | `dep-d7q5lqdckfvc739isqpg` from commit `fe0c54c996c2e973214892f59047ac17fb255293` |
-| Render branch tracking | Service metadata tracks `master` with auto-deploy enabled |
+| Live Render deploy | `dep-d7q8pnf7f7vs73cpbvl0` from commit `f3689f1dd4a0ecb4bb68088c1fc83b1952355fac` |
+| Render branch tracking | Service metadata tracks `master` with auto-deploy enabled on commits; target state is `checksPass` in `render.yaml` |
 | Neon organization | `Aptitude` / `org-wild-pond-20247201`, managed directly in Neon Console |
 | Neon project | `aptitude-registry` / `bitter-night-16887852` |
 | Neon branch | `production` / `br-calm-bonus-ambx0ki5` |
 | Neon database | `aptitude` |
 | Neon role | `aptitude_app` |
 | Neon PostgreSQL version | `17` |
-| DNS status | Vercel DNS has `api CNAME aptitude-registry-api.onrender.com`; public resolvers return the Render CNAME and Render edge A records |
-| HTTPS domain status | `https://aptitude-registry-api.onrender.com` is healthy; `https://api.aptitude-registry.dev` still returns a TLS handshake failure from the current environment |
+| DNS status | Vercel DNS has `api CNAME aptitude-registry-api.onrender.com`; public resolvers return the Render CNAME and Render edge A/AAAA records |
+| HTTPS domain status | `https://aptitude-registry-api.onrender.com` is healthy; `https://api.aptitude-registry.dev` reaches Render TLS from the current environment |
 
 The registry database now runs in a standalone Neon Console-managed
 organization. The earlier Vercel-managed Neon project was deleted during the
@@ -51,7 +51,7 @@ render deploys create srv-d7pqsd7avr4c73bfb8t0 --wait --confirm --output json
 ## Render Web Service
 
 Create a Render Web Service from the Git repository using the native Python runtime.
-Do not use Docker for the first free-tier deployment.
+Do not use Docker for the managed production deployment.
 
 Recommended settings:
 
@@ -59,12 +59,12 @@ Recommended settings:
 | --- | --- |
 | Service name | `aptitude-registry-api` |
 | Runtime | `Python 3` |
-| Instance type | `Free` for first validation |
+| Instance type | `Starter` for production so Render runs the pre-deploy migration hook |
 | Branch | `master` |
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
 | Build command | `uv sync --frozen --no-dev --extra otel` |
-| Pre-deploy command | `uv run alembic upgrade head` on paid plans; Render Free records this setting but does not run it |
+| Pre-deploy command | `uv run alembic upgrade head` |
 | Start command | `uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
 
@@ -80,11 +80,16 @@ APP_ENV=prod
 APP_NAME=aptitude-registry
 LOG_LEVEL=INFO
 LOG_FORMAT=auto
-DATABASE_URL=postgresql+psycopg://<neon-role>:<password>@<neon-host>/<database>?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql+psycopg://<neon-role>:<password>@<neon-pooler-host>/<database>?sslmode=require&channel_binding=require
+MIGRATION_DATABASE_URL=postgresql+psycopg://<neon-role>:<password>@<direct-neon-host>/<database>?sslmode=require&channel_binding=require
 AUTH_SERVICE_TOKENS_JSON=[{"token_id":"reader-token","secret_digest":"<sha256>","scopes":["read"],"active":true},{"token_id":"publisher-token","secret_digest":"<sha256>","scopes":["read","publish"],"active":true},{"token_id":"admin-token","secret_digest":"<sha256>","scopes":["read","publish","admin"],"active":true}]
 ALLOWED_HOSTS_JSON=["api.aptitude-registry.dev","<render-service>.onrender.com"]
 ACTIVE_POLICY_PROFILE=default
 ```
+
+For production runtime, `DATABASE_URL` should use the Neon pooled host
+(`-pooler`). `MIGRATION_DATABASE_URL` must use the direct Neon host because
+Alembic should not run through PgBouncer.
 
 Optional OpenTelemetry → Grafana Cloud variables (set together; see
 [`observability-grafana-cloud.md`](observability-grafana-cloud.md) for
@@ -122,8 +127,8 @@ Keep the Render `onrender.com` host in `ALLOWED_HOSTS_JSON` until custom-domain 
 6. Verify traces, logs, and metrics arrive in Grafana Cloud within ~60s of
    the first request after deploy. See "Verification" below.
 
-On Render Free, run Alembic manually from a trusted machine or CI job before or
-immediately after deploy:
+If the service is temporarily downgraded to Render Free, run Alembic manually
+from a trusted machine before or immediately after deploy:
 
 ```bash
 APP_SETTINGS_ENV_FILE=/path/to/prod.env UV_CACHE_DIR=.uv-cache uv run alembic upgrade head
@@ -146,10 +151,20 @@ organization:
 | Database | `aptitude` |
 | Role | `aptitude_app` |
 
-Use Neon's direct connection string for initial runtime and migration traffic.
-Convert the URL scheme to `postgresql+psycopg://` because the app uses `psycopg[binary]`.
+Use Neon's pooled connection string for runtime traffic and a direct connection
+string for migration traffic. Convert both URL schemes to
+`postgresql+psycopg://` because the app uses `psycopg[binary]`.
 
-Do not point Alembic at a Neon pooled `-pooler` host. If runtime pooling becomes necessary later, add a separate migration URL setting first so Alembic can keep using the direct connection while the web process uses the pooled runtime URL.
+Do not point Alembic at a Neon pooled `-pooler` host. The app exposes this split
+as `DATABASE_URL` for runtime and `MIGRATION_DATABASE_URL` for migrations.
+
+Enable the query-statistics extension once on the production database for
+observability:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+SELECT extname FROM pg_extension WHERE extname = 'pg_stat_statements';
+```
 
 ## DNS
 
@@ -193,9 +208,9 @@ Endpoint checks:
 curl -i https://<render-service>.onrender.com/healthz
 curl -i https://<render-service>.onrender.com/readyz
 curl -i https://<render-service>.onrender.com/docs
-curl -i https://api.aptitude-registry.dev/healthz
-curl -i https://api.aptitude-registry.dev/readyz
-curl -i https://api.aptitude-registry.dev/docs
+curl -i --max-time 20 https://api.aptitude-registry.dev/healthz
+curl -i --max-time 20 https://api.aptitude-registry.dev/readyz
+curl -i --max-time 20 https://api.aptitude-registry.dev/docs
 ```
 
 DNS checks:
@@ -206,15 +221,15 @@ dig +short api.aptitude-registry.dev A
 ```
 
 The API subdomain should resolve through the Render service host. Render
-TLS/routing can still lag behind DNS and custom-domain verification; keep using
-the `onrender.com` host for live API checks until
-`https://api.aptitude-registry.dev/healthz` returns the Render health payload.
+TLS/routing can still lag behind DNS and custom-domain verification; keep the
+`onrender.com` host in the allowlist as emergency access.
 
 Expected results:
 
 - `/healthz` returns `200` with `"environment":"prod"`.
 - `/readyz` returns `200` when Neon is reachable and `503` when the database is unavailable.
-- `/docs` returns `404` in production.
+- `/docs` returns `200` in production; admin and HTML helper routes are excluded
+  from the public OpenAPI schema.
 - Protected routes without a valid token return `401` or `403`.
 
 Telemetry verification (Grafana Cloud):

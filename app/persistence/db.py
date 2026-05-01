@@ -39,6 +39,7 @@ def init_engine(database_url: str, *, application_name: str | None = None) -> No
         _ENGINE = create_engine(
             database_url,
             pool_pre_ping=True,
+            pool_recycle=300,
             connect_args=connect_args,
         )
         _SESSION_FACTORY = sessionmaker(

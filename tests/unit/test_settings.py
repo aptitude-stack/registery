@@ -34,6 +34,7 @@ def test_settings_load_valid_environment(
     default_policy = build_default_policy_profile()
 
     assert settings.database_url.endswith("/aptitude")
+    assert settings.migration_database_url is None
     assert settings.app_env == app_env
     assert settings.log_level == "DEBUG"
     assert settings.log_format == "pretty"
@@ -50,6 +51,24 @@ def test_settings_require_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_settings_load_optional_migration_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://runtime:postgres@ep-runtime-pooler.us-east-1.aws.neon.tech/aptitude",
+    )
+    monkeypatch.setenv(
+        "MIGRATION_DATABASE_URL",
+        "postgresql+psycopg://migration:postgres@ep-runtime.us-east-1.aws.neon.tech/aptitude",
+    )
+
+    settings = Settings(_env_file=None)
+
+    assert settings.database_url.endswith("-pooler.us-east-1.aws.neon.tech/aptitude")
+    assert settings.migration_database_url is not None
+    assert settings.migration_database_url.endswith(".us-east-1.aws.neon.tech/aptitude")
 
 
 @pytest.mark.unit
