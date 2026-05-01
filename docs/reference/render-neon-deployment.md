@@ -63,10 +63,15 @@ Recommended settings:
 | Branch | `master` |
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
-| Build command | `uv sync --frozen --no-dev` |
+| Build command | `uv sync --frozen --no-dev --extra otel` |
 | Pre-deploy command | `uv run alembic upgrade head` on paid plans; Render Free records this setting but does not run it |
 | Start command | `uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
+
+The `--extra otel` flag installs the OpenTelemetry SDK, OTLP/HTTP exporters,
+and FastAPI/SQLAlchemy/psycopg/logging instrumentation packages used to ship
+traces, logs, and metrics to Grafana Cloud. Without it the app boots in a
+"no-op telemetry" mode and `OTEL_ENABLED=true` will fail at import time.
 
 Required Render environment variables:
 
@@ -81,7 +86,41 @@ ALLOWED_HOSTS_JSON=["api.aptitude-registry.dev","<render-service>.onrender.com"]
 ACTIVE_POLICY_PROFILE=default
 ```
 
+Optional OpenTelemetry → Grafana Cloud variables (set together; see
+[`observability-grafana-cloud.md`](observability-grafana-cloud.md) for
+details and Access Policy token scopes):
+
+```text
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64(instance_id:access_token)>
+OTEL_RESOURCE_ATTRIBUTES=service.namespace=aptitude,deployment.environment.name=prod
+OTEL_TRACES_SAMPLER=parentbased_traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.1
+```
+
+The free Grafana Cloud tier caps active series at 10k and traces/logs at 50 GB
+per month with 14-day retention; the 10% trace sampler keeps the deployment
+comfortably inside those limits. When `OTEL_ENABLED=true` and `APP_ENV=prod`,
+the Settings validator refuses to boot without `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
 Keep the Render `onrender.com` host in `ALLOWED_HOSTS_JSON` until custom-domain verification and health checks are stable. After that, either keep it for emergency access or disable the Render subdomain and remove it from the allowlist.
+
+### Render rollout sequence for OTel
+
+1. Provision a Grafana Cloud Access Policy with `metrics:write`,
+   `logs:write`, and `traces:write` scopes; copy the resulting token.
+2. Confirm the Grafana Cloud OTLP gateway URL for the stack region (the
+   "Send Data → OTLP" page in Grafana Cloud).
+3. In the Render service "Environment" tab add the OTel env vars above.
+   Use Render's "Encrypted" flag for `OTEL_EXPORTER_OTLP_HEADERS`.
+4. Update the Build Command from `uv sync --frozen --no-dev` to
+   `uv sync --frozen --no-dev --extra otel`.
+5. Trigger a manual deploy: `render deploys create srv-d7pqsd7avr4c73bfb8t0
+   --wait --confirm --output json`.
+6. Verify traces, logs, and metrics arrive in Grafana Cloud within ~60s of
+   the first request after deploy. See "Verification" below.
 
 On Render Free, run Alembic manually from a trusted machine or CI job before or
 immediately after deploy:
@@ -154,11 +193,9 @@ Endpoint checks:
 curl -i https://<render-service>.onrender.com/healthz
 curl -i https://<render-service>.onrender.com/readyz
 curl -i https://<render-service>.onrender.com/docs
-curl -i -H "Authorization: Bearer admin-token.<raw-secret>" https://<render-service>.onrender.com/metrics
 curl -i https://api.aptitude-registry.dev/healthz
 curl -i https://api.aptitude-registry.dev/readyz
 curl -i https://api.aptitude-registry.dev/docs
-curl -i -H "Authorization: Bearer admin-token.<raw-secret>" https://api.aptitude-registry.dev/metrics
 ```
 
 DNS checks:
@@ -178,8 +215,27 @@ Expected results:
 - `/healthz` returns `200` with `"environment":"prod"`.
 - `/readyz` returns `200` when Neon is reachable and `503` when the database is unavailable.
 - `/docs` returns `404` in production.
-- `/metrics` returns `200` only with an admin bearer token.
 - Protected routes without a valid token return `401` or `403`.
+
+Telemetry verification (Grafana Cloud):
+
+After a deploy with `OTEL_ENABLED=true`, fire a few requests against
+`/healthz`, `/readyz`, and one authenticated registry route, then check
+within ~60s in Grafana Cloud:
+
+- **Traces (Tempo)**: `Explore → Tempo → Service: aptitude-registry,
+  Environment: prod`. The probe URLs `/healthz` and `/readyz` should be
+  excluded; an authenticated route should produce a single root span with a
+  child SQLAlchemy / psycopg span.
+- **Logs (Loki)**: `Explore → Loki → service_name="aptitude-registry"`.
+  Application logs should carry `trace_id` and `span_id` fields populated by
+  the OpenTelemetry logging instrumentation.
+- **Metrics (Mimir)**: `Explore → Mimir → metric:
+  aptitude_http_requests_total{deployment_environment_name="prod"}`. After
+  one minute of traffic the counter should be incrementing.
+
+If any signal is missing, see [`observability-grafana-cloud.md`](observability-grafana-cloud.md)
+for the troubleshooting checklist.
 
 ## Constraints
 

@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
-from prometheus_client import generate_latest
 
 from app.observability.context import (
     clear_request_context,
     get_request_context,
     set_request_context,
 )
-from app.observability.metrics import REGISTRY
 
 
 @pytest.mark.unit
@@ -59,11 +59,46 @@ def test_request_context_round_trips_and_clears() -> None:
 
 
 @pytest.mark.unit
-def test_metrics_registry_exposes_operability_series() -> None:
-    payload = generate_latest(REGISTRY).decode("utf-8")
+def test_metrics_module_exposes_expected_aptitude_instruments() -> None:
+    """A request through observe_http_request should emit instruments with the
+    expected names. We install a temporary in-memory MeterProvider, reload the
+    metrics module so its proxy instruments rebind to it, then verify the
+    emitted metric names."""
+    from opentelemetry import metrics as otel_metrics
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-    assert "aptitude_http_requests_total" in payload
-    assert "aptitude_http_request_duration_seconds" in payload
-    assert "aptitude_registry_operation_total" in payload
-    assert "aptitude_registry_operation_duration_seconds" in payload
-    assert "aptitude_readiness_status" in payload
+    from tests.unit._otel_helpers import reset_otel_globals
+
+    reset_otel_globals()
+    reader = InMemoryMetricReader()
+    provider = MeterProvider(metric_readers=[reader])
+    otel_metrics.set_meter_provider(provider)
+    try:
+        metrics_module = importlib.import_module("app.observability.metrics")
+        importlib.reload(metrics_module)
+        metrics_module.observe_http_request(
+            method="POST",
+            route="/skills/{slug}",
+            status_code=201,
+            duration_seconds=0.123,
+        )
+        metrics_module.set_database_readiness(is_ready=True)
+
+        data = reader.get_metrics_data()
+        emitted: set[str] = set()
+        if data is not None:
+            for resource_metrics in data.resource_metrics:
+                for scope_metrics in resource_metrics.scope_metrics:
+                    for metric in scope_metrics.metrics:
+                        emitted.add(metric.name)
+
+        assert "aptitude_http_requests_total" in emitted
+        assert "aptitude_http_request_duration_seconds" in emitted
+        assert "aptitude_registry_operation_total" in emitted
+        assert "aptitude_registry_operation_duration_seconds" in emitted
+        assert "aptitude_readiness_status" in emitted
+    finally:
+        provider.shutdown()
+        reset_otel_globals()
+        importlib.reload(importlib.import_module("app.observability.metrics"))

@@ -225,28 +225,27 @@ Use the runtime and auth references for the exact settings contract:
 - [`../reference/runtime-profiles.md`](../reference/runtime-profiles.md)
 - [`../reference/service-token-governance.md`](../reference/service-token-governance.md)
 
-## Optional Local Observability Profile
+## Observability
 
-```bash
-make run-prod
-```
+The local Grafana/Loki/Prometheus stack has been removed. Telemetry now flows
+exclusively to Grafana Cloud over OTLP/HTTP from the running FastAPI process.
+Set `OTEL_ENABLED=true` plus the `OTEL_EXPORTER_OTLP_*` env vars in your local
+dotenv to ship local traces, logs, and metrics into the same Grafana Cloud
+stack used in production (tag with `deployment.environment.name=dev` via
+`OTEL_RESOURCE_ATTRIBUTES`).
 
-This starts the API plus:
+See [`../reference/observability-grafana-cloud.md`](../reference/observability-grafana-cloud.md)
+for the full env-var reference, Access Policy token scopes, and free-tier
+limits.
 
-- Prometheus at `http://127.0.0.1:9090`
-- Loki at `http://127.0.0.1:3100`
-- OTLP gRPC at `http://127.0.0.1:4317`
-- OTLP HTTP at `http://127.0.0.1:4318`
-- Grafana at `http://127.0.0.1:3000`
-
-`server` depends on `migrate`, so Compose applies the latest Alembic schema before the API starts.
-Prometheus is preconfigured with the same dev-only admin bearer token so local scraping keeps working after auth hardening.
+When `OTEL_ENABLED=false` (the default), the process simply emits structured
+JSON logs to stdout. That is sufficient for most app-level development.
 
 ## Optional Demo Profile
 
 The demo profile is a one-shot Compose service that seeds a rich multi-version catalog after migrations. Use it when you want meaningful discovery, exact fetch, lifecycle, and dependency-resolution behavior without hand-publishing skills. `make run-dev` is the public entrypoint that turns it on.
 
-Bring up the dev stack with demo data and observability:
+Bring up the dev stack with demo data:
 
 ```bash
 make run-dev
@@ -257,13 +256,5 @@ The `demo` profile remains opt-in. `make run-prod` stays bootstrap-only, while `
 Shut the stack down with:
 
 ```bash
-docker compose --profile observability down -v
+docker compose down -v
 ```
-
-### Verify Log Flow
-
-```bash
-curl -H 'X-Request-ID: setup-dev-loki-check' http://127.0.0.1:8000/healthz
-```
-
-Then open Grafana and search for `setup-dev-loki-check` in the `Aptitude Registry Logs` dashboard.

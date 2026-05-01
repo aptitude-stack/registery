@@ -29,6 +29,7 @@ class PublishRuleSettings(BaseModel):
 
 
 SETTINGS_ENV_FILE_ENV_VAR = "APP_SETTINGS_ENV_FILE"
+OTEL_OTLP_ENDPOINT_ENV_VAR = "OTEL_EXPORTER_OTLP_ENDPOINT"
 AppEnv = Literal["dev", "prod"]
 
 
@@ -126,7 +127,6 @@ class Settings(BaseSettings):
     app_env: AppEnv = Field(default="dev", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")
-    log_file_path: str | None = Field(default=None, alias="LOG_FILE_PATH")
     app_name: str = Field(default="aptitude-registry", alias="APP_NAME")
     auth_service_tokens: tuple[ServiceTokenSettings, ...] = Field(
         default_factory=tuple,
@@ -138,6 +138,7 @@ class Settings(BaseSettings):
         alias="POLICY_PROFILES_JSON",
     )
     active_policy_profile: str = Field(default="default", alias="ACTIVE_POLICY_PROFILE")
+    otel_enabled: bool = Field(default=False, alias="OTEL_ENABLED")
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -155,6 +156,14 @@ class Settings(BaseSettings):
             )
         if self.app_env == "prod" and not self.allowed_hosts:
             raise ValueError("ALLOWED_HOSTS_JSON must define at least one host when APP_ENV=prod.")
+        if (
+            self.otel_enabled
+            and self.app_env == "prod"
+            and not os.getenv(OTEL_OTLP_ENDPOINT_ENV_VAR)
+        ):
+            raise ValueError(
+                "OTEL_ENABLED=true requires OTEL_EXPORTER_OTLP_ENDPOINT when APP_ENV=prod."
+            )
         token_ids = [token.token_id for token in self.auth_service_tokens]
         duplicate_token_ids = {token_id for token_id in token_ids if token_ids.count(token_id) > 1}
         if duplicate_token_ids:

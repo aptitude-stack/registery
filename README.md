@@ -65,7 +65,6 @@ The current public HTTP baseline is:
 
 - `GET /healthz`
 - `GET /readyz`
-- `GET /metrics`
 - `POST /skills/{slug}`
 - `POST /discovery`
 - `GET /skills/{slug}`
@@ -91,7 +90,7 @@ uv sync --extra dev
 make run-dev
 ```
 
-`make run-dev` bootstraps the Docker stack with `APP_ENV=dev`, seeds demo data, and starts observability. Use `make run-prod` for the production-like variant with `APP_ENV=prod` and no demo seed.
+`make run-dev` bootstraps the Docker stack with `APP_ENV=dev` and seeds demo data. Use `make run-prod` for the production-like variant with `APP_ENV=prod` and no demo seed. Telemetry is shipped to Grafana Cloud over OTLP/HTTP when `OTEL_ENABLED=true`; see [`docs/reference/observability-grafana-cloud.md`](docs/reference/observability-grafana-cloud.md).
 
 Integration tests use a separate PostgreSQL container on `127.0.0.1:5433` so the test cycle never resets the local app database on `127.0.0.1:5432`. The default test URL is `postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test`.
 
@@ -105,7 +104,7 @@ Docker quick start:
 
 ### Dev Run
 
-Run the registry server with `APP_ENV=dev`, demo data, and observability.
+Run the registry server with `APP_ENV=dev` and demo data.
 
 ```bash
 make run-dev
@@ -113,7 +112,7 @@ make run-dev
 
 ### Prod Run
 
-Run the production-like stack with observability and no demo seed.
+Run the production-like stack with no demo seed.
 
 ```bash
 make run-prod
@@ -122,7 +121,7 @@ make run-prod
 Teardown:
 
 ```bash
-docker compose --profile observability down -v
+docker compose down -v
 ```
 
 Other public commands:
@@ -137,9 +136,8 @@ Local URLs:
 
 - API: `http://127.0.0.1:8000`
 - Swagger docs: `http://127.0.0.1:8000/docs`
-- Metrics: `http://127.0.0.1:8000/metrics`
 
-For the full setup flow, observability profile, verification commands, and troubleshooting entrypoints, use [`docs/contributors/development-setup.md`](docs/contributors/development-setup.md) and [`docs/reference/operations/README.md`](docs/reference/operations/README.md).
+For the full setup flow, verification commands, and troubleshooting entrypoints, use [`docs/contributors/development-setup.md`](docs/contributors/development-setup.md) and [`docs/reference/operations/README.md`](docs/reference/operations/README.md).
 
 ## Documentation
 

@@ -17,7 +17,6 @@ Public routes:
 
 Protected routes:
 
-- `GET /metrics`
 - `POST /skills/{slug}`
 - `POST /discovery`
 - `GET /skills/{slug}`
@@ -115,7 +114,7 @@ Protected routes require:
 
 Operational rules:
 
-- `GET /metrics` requires `admin` scope.
+- Operational telemetry (traces, logs, metrics) is exported over OTLP/HTTP to Grafana Cloud when `OTEL_ENABLED=true`. The legacy `/metrics` Prometheus exposition endpoint has been removed.
 - `/docs`, `/redoc`, and `/openapi.json` are available in `dev` and disabled in `prod`.
 - `prod` rejects unexpected `Host` headers with the configured allowlist.
 - Forwarded proxy headers are not trusted by default at the application boundary.
@@ -155,7 +154,6 @@ Error envelope:
 | `GET` | `/` | none | `200` | Work-in-progress default service page |
 | `GET` | `/healthz` | none | `200` | Liveness probe |
 | `GET` | `/readyz` | none | `200` or `503` | Dependency readiness probe |
-| `GET` | `/metrics` | `admin` | `200` | Prometheus-compatible operational metrics |
 | `POST` | `/skills/{slug}` | `publish` | `201` | Publish one immutable `slug@version` via `multipart/form-data` |
 | `POST` | `/discovery` | `read` | `200` | Returns ordered candidate `slug` values only |
 | `GET` | `/skills/{slug}` | `read` | `200` | Returns visible immutable versions for one skill identity |

@@ -66,22 +66,18 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
 
 
 @pytest.mark.integration
-def test_metrics_endpoint_requires_admin_token_and_exposes_prometheus_payload(
+def test_metrics_route_is_no_longer_served(
     monkeypatch: pytest.MonkeyPatch,
     require_integration_database: str,
 ) -> None:
+    """The /metrics Prometheus exposition endpoint was removed when telemetry
+    was migrated to OTLP push. Verify it is gone from the routing surface."""
     monkeypatch.setenv("DATABASE_URL", require_integration_database)
 
     with TestClient(create_app()) as client:
-        missing = client.get("/metrics")
-        reader = client.get("/metrics", headers=_headers("reader-token"))
         response = client.get("/metrics", headers=_headers("admin-token"))
 
-    assert missing.status_code == 401
-    assert reader.status_code == 403
-    assert response.status_code == 200
-    assert "text/plain" in response.headers["content-type"]
-    assert "aptitude_http_requests_total" in response.text
+    assert response.status_code == 404
 
 
 @pytest.mark.integration
@@ -123,14 +119,18 @@ def test_readyz_initializes_database_readiness_metric(
     monkeypatch: pytest.MonkeyPatch,
     require_integration_database: str,
 ) -> None:
+    """`/readyz` should flip the database readiness state to 1. With OTel push
+    metrics there is no scrape endpoint to inspect, so we assert against the
+    in-memory state managed by app.observability.metrics."""
+    from app.observability.metrics import _READINESS_STATE
+
     monkeypatch.setenv("DATABASE_URL", require_integration_database)
 
     with TestClient(create_app()) as client:
         readyz = client.get("/readyz")
-        metrics = client.get("/metrics", headers=_headers("admin-token"))
 
     assert readyz.status_code == 200
-    assert 'aptitude_readiness_status{dependency="database"} 1.0' in metrics.text
+    assert _READINESS_STATE["database"] == 1
 
 
 @pytest.mark.integration
@@ -152,7 +152,6 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
             },
             headers=_headers("publisher-token", request_id="req-publish"),
         )
-        metrics = client.get("/metrics", headers=_headers("admin-token"))
 
     audit_events = _query_audit_events(migrated_integration_database)
 
@@ -166,17 +165,16 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
         event["payload"] is not None and event["payload"].get("actor_token_id") == "publisher-token"
         for event in audit_events
     )
-    assert "aptitude_registry_operation_total" in metrics.text
 
 
 @pytest.mark.integration
 def test_structured_request_logs_capture_surface_outcome_and_error_code(
     monkeypatch: pytest.MonkeyPatch,
     require_integration_database: str,
-    tmp_path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", require_integration_database)
-    monkeypatch.setenv("LOG_FILE_PATH", str(tmp_path / "app.jsonl"))
+    monkeypatch.setenv("LOG_FORMAT", "json")
 
     with TestClient(create_app()) as client:
         response = client.post(
@@ -187,11 +185,16 @@ def test_structured_request_logs_capture_surface_outcome_and_error_code(
 
     assert response.status_code == 401
 
-    log_lines = [
-        json.loads(line)
-        for line in (tmp_path / "app.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
+    captured = capsys.readouterr()
+    log_lines: list[dict[str, Any]] = []
+    for line in captured.out.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            log_lines.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
     request_log = next(
         payload
         for payload in log_lines
