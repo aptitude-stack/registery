@@ -68,8 +68,11 @@ Docker Compose also uses profiles, but those are orchestration selectors, not ap
 Current Compose profiles include:
 
 - `demo`: adds the demo seed job
-- `observability`: adds Prometheus, Grafana, Loki, and related tooling
 - `test`: adds the dedicated test PostgreSQL container
+
+The previous `observability` profile (Prometheus, Grafana, Loki) has been
+removed; telemetry now flows over OTLP/HTTP directly to Grafana Cloud.
+See [`observability-grafana-cloud.md`](observability-grafana-cloud.md).
 
 These Compose profiles decide which containers run. They do not define new FastAPI behaviors or new `APP_ENV` values.
 
@@ -90,7 +93,8 @@ Tests and CI are execution environments, not runtime profiles.
 - `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`; deployed prod should include `api.aptitude-registry.dev` and the Render `onrender.com` host during rollout
 - `POLICY_PROFILES_JSON`: optional named governance-profile overrides merged over the built-in default profile
 - `ACTIVE_POLICY_PROFILE`: selects which policy profile is active at runtime; defaults to `default`
-- `LOG_LEVEL`, `LOG_FORMAT`, `LOG_FILE_PATH`: logging configuration
+- `LOG_LEVEL`, `LOG_FORMAT`: logging configuration
+- `OTEL_ENABLED` plus standard `OTEL_EXPORTER_OTLP_*` env vars: OpenTelemetry/Grafana Cloud configuration (see `observability-grafana-cloud.md`)
 - `APP_SETTINGS_ENV_FILE`: optional alternate dotenv file path for app-process startup; otherwise the app loads `.env`
 
 Service-token settings use this JSON shape:

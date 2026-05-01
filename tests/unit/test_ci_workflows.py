@@ -22,7 +22,7 @@ def test_dev_pr_ci_keeps_pr_gate_without_push_or_publish_jobs() -> None:
     assert "name: Dev PR Gate" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-observability" in document
+    assert "run: make _ci-observability" not in document
     assert "run: make _ci-image" in document
     assert (
         "TEST_DATABASE_URL: "
@@ -57,7 +57,7 @@ def test_dev_merge_ci_keeps_post_merge_gate_and_publishes_dev_images() -> None:
     assert "needs:\n      - dev-merge-gate" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-observability" in document
+    assert "run: make _ci-observability" not in document
     assert "run: make _ci-image" in document
     assert (
         "TEST_DATABASE_URL: "
@@ -89,7 +89,7 @@ def test_main_ci_keeps_master_gate_without_owning_vercel_deployments() -> None:
     assert "run: uv sync --extra dev --frozen" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-observability" in document
+    assert "run: make _ci-observability" not in document
     assert "run: make _ci-image" in document
     assert (
         "TEST_DATABASE_URL: "

@@ -50,7 +50,7 @@ During initial Render rollout, also include the Render `onrender.com` service ho
 
 - `read`: discovery, exact metadata/content fetch, resolution, and version listing
 - `publish`: immutable version publication
-- `admin`: lifecycle updates and `/metrics`
+- `admin`: lifecycle updates
 
 `admin` still implies the lower scopes in the runtime policy.
 
@@ -70,7 +70,7 @@ Authentication and authorization failures use stable API error codes:
 - `/docs`, `/redoc`, and `/openapi.json` are disabled in `prod`
 - `TrustedHostMiddleware` enforces `ALLOWED_HOSTS_JSON` in `prod`
 - forwarded proxy headers remain untrusted by default at the app boundary
-- `/metrics` is protected in-app with `admin` scope, including local observability
+- operational telemetry is shipped via OTLP/HTTP to Grafana Cloud rather than scraped from the app, so the public surface no longer exposes a metrics endpoint at all
 
 ## Dev Fixtures
 

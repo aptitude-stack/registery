@@ -43,7 +43,6 @@ def test_api_contract_docs_describe_tar_zst_upload_and_fetch() -> None:
     assert "application/zstd" in api_contract
     assert ".tar.zst" in api_contract
     assert "5 MiB" in api_contract
-    assert "| `GET` | `/metrics` | `admin` | `200` |" in api_contract
     assert "<token_id>.<token_secret>" in api_contract
     assert "multipart/form-data" in publish_contract
     assert "application/zstd" in publish_contract

@@ -7,7 +7,6 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from tests.conftest import DEFAULT_BEARER_TOKENS
 
 
 def _routes() -> set[tuple[str, str]]:
@@ -24,7 +23,6 @@ def _routes() -> set[tuple[str, str]]:
 def test_public_route_surface_exposes_exact_get_fetch_routes() -> None:
     routes = _routes()
 
-    assert ("/metrics", "GET") in routes
     assert ("/skills/{slug}", "POST") in routes
     assert ("/skills/{slug}", "GET") in routes
     assert ("/discovery", "POST") in routes
@@ -143,20 +141,9 @@ def test_prod_rejects_untrusted_host_header(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.unit
-def test_metrics_requires_admin_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_metrics_route_no_longer_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The /metrics Prometheus endpoint was removed when telemetry moved to OTLP push."""
     monkeypatch.setenv("APP_ENV", "prod")
+    routes = _routes()
 
-    with TestClient(create_app()) as client:
-        missing = client.get("/metrics")
-        reader = client.get(
-            "/metrics",
-            headers={"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS['reader-token']}"},
-        )
-        admin = client.get(
-            "/metrics",
-            headers={"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS['admin-token']}"},
-        )
-
-    assert missing.status_code == 401
-    assert reader.status_code == 403
-    assert admin.status_code == 200
+    assert ("/metrics", "GET") not in routes

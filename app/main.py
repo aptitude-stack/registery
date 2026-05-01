@@ -29,7 +29,6 @@ from app.interface.api.errors import (
 )
 from app.interface.api.fetch import router as fetch_router
 from app.interface.api.health import router as health_router
-from app.interface.api.operability import router as operability_router
 from app.interface.api.resolution import router as resolution_router
 from app.interface.api.root import router as root_router
 from app.interface.api.skills import router as skills_router
@@ -44,6 +43,7 @@ from app.observability.metrics import (
     outcome_for_status_code,
     surface_for_request,
 )
+from app.observability.telemetry import configure_otel, is_otel_active, shutdown_otel
 from app.persistence.db import dispose_engine
 from app.service_container import build_service_container
 
@@ -62,7 +62,6 @@ configure_logging(
     os.getenv("LOG_LEVEL", "INFO"),
     log_format=normalize_log_format(os.getenv("LOG_FORMAT")),
     app_env=os.getenv("APP_ENV", "dev"),
-    log_file_path=os.getenv("LOG_FILE_PATH"),
 )
 
 logger = logging.getLogger(__name__)
@@ -88,8 +87,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.log_level,
         log_format=settings.log_format,
         app_env=settings.app_env,
-        log_file_path=settings.log_file_path,
     )
+    configure_otel(settings)
+    if is_otel_active():
+        _instrument_app_for_otel(app)
     if settings.auth_service_tokens:
         logger.info(
             "loaded %d governed service token(s) from settings",
@@ -104,8 +105,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        shutdown_otel()
         dispose_engine()
         logger.info("service shutdown complete")
+
+
+def _instrument_app_for_otel(app: FastAPI) -> None:
+    """Attach FastAPI auto-instrumentation, excluding cheap probe routes."""
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app, excluded_urls="/healthz,/readyz")
 
 
 def create_app() -> FastAPI:
@@ -206,7 +215,6 @@ def create_app() -> FastAPI:
     )
     app.include_router(root_router)
     app.include_router(health_router)
-    app.include_router(operability_router)
     app.include_router(discovery_router)
     app.include_router(resolution_router)
     app.include_router(fetch_router)
@@ -237,7 +245,6 @@ def run_dev_server() -> None:
             log_level,
             log_format=log_format,
             app_env=app_env,
-            log_file_path=os.getenv("LOG_FILE_PATH"),
         ),
     )
 
