@@ -65,3 +65,4 @@ skills-lock.json
 .env*.local
 /bruno/environments/Prod.yml
 /.superpowers/
+/.worktrees/
