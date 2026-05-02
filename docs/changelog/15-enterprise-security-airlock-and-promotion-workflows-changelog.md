@@ -40,7 +40,7 @@ flowchart LR
 | `policy_pack_slug` | `skill_versions.policy_pack_fk` and search projection | mutable reference | Attaches registry-enforced policy-pack visibility rules. |
 | `trust_evidence` | `trust_evidence` | append-only | Stores evidence metadata and payloads without exposing raw payloads in responses. |
 
-Lifecycle status, trust tier, review state, and promotion channel stay independent. Review does not imply promotion, promotion does not imply lifecycle support, and trust evidence does not imply approval.
+Lifecycle status, trust tier, review state, and promotion channel stay independent. Review does not imply promotion, promotion does not imply lifecycle support, and trust evidence does not imply approval
 
 ## Runtime Flow
 
