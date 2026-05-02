@@ -66,16 +66,16 @@ enterprise moat sequence.
 - `Environment profile separation`: milestone 13.
 - `Security boundary hardening`: milestone 14.
 - `Enterprise control plane and supply-chain trust`: milestone 15.
-- `Enterprise security airlock and promotion workflows`: milestone 17, placed conceptually after milestone 15.
-- `Registry trust consumer contracts`: milestone 18, placed conceptually after milestone 17.
-- `Post-launch hybrid semantic and co-usage discovery`: milestone 16, placed conceptually after the enterprise trust foundations.
+- `Enterprise security airlock and promotion workflows`: milestone 16, placed conceptually after milestone 15.
+- `Registry trust consumer contracts`: milestone 17, placed conceptually after milestone 16.
+- `Post-launch hybrid semantic and co-usage discovery`: milestone 18, placed conceptually after the enterprise trust foundations.
 - `Optional Redis L1 caching over PostgreSQL read models`: unnumbered supporting plan, kept outside the main flow until measured scale pressure justifies it.
 - Resolver-specific initiatives (prompt interpretation, deterministic solving, reranking, plugin chains, and lock replay) are tracked in resolver planning and are out of scope for this roadmap.
 
 ## Roadmap Rules
 - Roadmap numbering is append-only after the one-time pre-implementation renumbering that inserted Plan 07.
 - The conceptual sequence may place newer append-only plan files before older optional files when the product strategy requires it.
-- Plans 15, 17, and 18 are intentionally placed after Plan 14 and before optional discovery/caching work so the roadmap reflects the enterprise moat before supporting capability expansion.
+- Plans 15, 16, and 17 are intentionally placed after Plan 14 and before optional discovery/caching work so the roadmap reflects the enterprise moat before supporting capability expansion.
 - The Plan 07 insertion and 07-13 to 08-14 shift are intentional cleanup to keep the MVP path simple before implementation work is finalized.
 - Plan filenames and titles may be corrected before implementation when the existing milestone framing is architecturally wrong.
 - Completed plans are never renamed or renumbered.
