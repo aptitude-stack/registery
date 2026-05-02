@@ -51,13 +51,15 @@ Rules:
 - `expires_at` is optional and must include a timezone offset when present
 
 `ALLOWED_HOSTS_JSON` defines the required host allowlist in `APP_ENV=prod`.
+The deployed registry API host is `api.aptitude-registry.dev`, so production env must include it.
+During initial Render rollout, also include the Render `onrender.com` service host until custom-domain verification and health checks are stable.
 
 ## Scopes
 
 - `read`: discovery, exact metadata/content fetch, resolution, and version listing
 - `publish`: immutable version publication
 - `review`: review, promotion, trust-tier, policy-pack, and trust-evidence workflow operations
-- `admin`: lifecycle updates, enterprise bootstrap routes, and `/metrics`
+- `admin`: lifecycle updates and enterprise bootstrap routes
 
 `admin` still implies the lower scopes in the runtime policy.
 
@@ -102,10 +104,11 @@ Authentication and authorization failures use stable API error codes:
 
 ## Prod Posture
 
-- `/docs`, `/redoc`, and `/openapi.json` are disabled in `prod`
+- `/docs`, `/redoc`, and `/openapi.json` are enabled in `prod`; admin and HTML
+  helper routes are excluded from the public schema
 - `TrustedHostMiddleware` enforces `ALLOWED_HOSTS_JSON` in `prod`
 - forwarded proxy headers remain untrusted by default at the app boundary
-- `/metrics` is protected in-app with `admin` scope, including local observability
+- operational telemetry is shipped via OTLP/HTTP to Grafana Cloud rather than scraped from the app, so the public surface no longer exposes a metrics endpoint at all
 
 ## Dev Fixtures
 

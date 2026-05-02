@@ -16,7 +16,7 @@ def test_readme_quick_start_documents_docker_profiles_and_demo_seed_flow() -> No
     assert "make run-prod" in readme
     assert "make test" in readme
     assert "127.0.0.1:5433/aptitude_test" in readme
-    assert "docker compose --profile observability down -v" in readme
+    assert "docker compose down -v" in readme
     assert "Database only:" not in readme
 
 

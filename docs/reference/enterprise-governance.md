@@ -95,4 +95,3 @@ Events include:
 - `enterprise.version_visibility_denied`
 
 Audit state is the source of truth for post-publish governance history. `version_checksum.digest` is not recomputed for review, promotion, trust-tier, policy-pack, ownership, or trust-evidence changes.
-

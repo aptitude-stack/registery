@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: aptitude-registry-api
+    runtime: python
+    repo: https://github.com/aptitude-stack/registery
+    branch: master
+    region: virginia
+    plan: starter
+    buildCommand: uv sync --frozen --no-dev --extra otel
+    preDeployCommand: uv run alembic upgrade head
+    startCommand: uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    domains:
+      - api.aptitude-registry.dev
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: APP_ENV
+        value: prod
+      - key: APP_NAME
+        value: aptitude-registry
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: auto
+      - key: ACTIVE_POLICY_PROFILE
+        value: default
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: AUTH_SERVICE_TOKENS_JSON
+        sync: false
+      - key: ALLOWED_HOSTS_JSON
+        sync: false
+      - key: OTEL_ENABLED
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_PROTOCOL
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_HEADERS
+        sync: false
+      - key: OTEL_RESOURCE_ATTRIBUTES
+        sync: false
+      - key: OTEL_TRACES_SAMPLER
+        sync: false
+      - key: OTEL_TRACES_SAMPLER_ARG
+        sync: false

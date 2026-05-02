@@ -1,47 +1,69 @@
-"""Prometheus-compatible process metrics."""
+"""Service metrics emitted via the OpenTelemetry Meter API.
+
+When OTel is active, instruments record into the global MeterProvider configured
+in `app.observability.telemetry`, which forwards them to Grafana Cloud over
+OTLP/HTTP. When OTel is inactive (default for tests and bare local runs),
+`get_meter` returns a no-op proxy and the recorded measurements are dropped on
+the floor.
+
+Metric names, attribute keys, and bucket boundaries are kept identical to the
+previous prometheus-client implementation so downstream dashboards continue to
+work after the global MeterProvider is wired up.
+"""
 
 from __future__ import annotations
 
-from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Gauge, Histogram
-from prometheus_client import generate_latest as prometheus_generate_latest
+from collections.abc import Iterable
+from typing import TYPE_CHECKING
+
+from opentelemetry import metrics as otel_metrics
+from opentelemetry.metrics import CallbackOptions, Observation
+
+if TYPE_CHECKING:
+    pass
 
 HTTP_DURATION_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)
 OPERATION_DURATION_BUCKETS = (0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0)
 
-REGISTRY = CollectorRegistry()
+_meter = otel_metrics.get_meter("aptitude.registry")
 
-HTTP_REQUESTS_TOTAL = Counter(
-    "aptitude_http_requests_total",
-    "Total HTTP requests handled by the service.",
-    labelnames=("method", "route", "status_class"),
-    registry=REGISTRY,
+HTTP_REQUESTS_TOTAL = _meter.create_counter(
+    name="aptitude_http_requests_total",
+    description="Total HTTP requests handled by the service.",
 )
-HTTP_REQUEST_DURATION_SECONDS = Histogram(
-    "aptitude_http_request_duration_seconds",
-    "HTTP request duration in seconds.",
-    labelnames=("method", "route"),
-    buckets=HTTP_DURATION_BUCKETS,
-    registry=REGISTRY,
+HTTP_REQUEST_DURATION_SECONDS = _meter.create_histogram(
+    name="aptitude_http_request_duration_seconds",
+    unit="s",
+    description="HTTP request duration in seconds.",
+    explicit_bucket_boundaries_advisory=list(HTTP_DURATION_BUCKETS),
 )
-REGISTRY_OPERATION_TOTAL = Counter(
-    "aptitude_registry_operation_total",
-    "Total registry operations by surface and outcome.",
-    labelnames=("surface", "outcome"),
-    registry=REGISTRY,
+REGISTRY_OPERATION_TOTAL = _meter.create_counter(
+    name="aptitude_registry_operation_total",
+    description="Total registry operations by surface and outcome.",
 )
-REGISTRY_OPERATION_DURATION_SECONDS = Histogram(
-    "aptitude_registry_operation_duration_seconds",
-    "Registry operation duration in seconds by surface.",
-    labelnames=("surface",),
-    buckets=OPERATION_DURATION_BUCKETS,
-    registry=REGISTRY,
+REGISTRY_OPERATION_DURATION_SECONDS = _meter.create_histogram(
+    name="aptitude_registry_operation_duration_seconds",
+    unit="s",
+    description="Registry operation duration in seconds by surface.",
+    explicit_bucket_boundaries_advisory=list(OPERATION_DURATION_BUCKETS),
 )
-READINESS_STATUS = Gauge(
-    "aptitude_readiness_status",
-    "Readiness state for critical dependencies.",
-    labelnames=("dependency",),
-    registry=REGISTRY,
+
+_READINESS_STATE: dict[str, int] = {"database": 0}
+
+
+def _readiness_callback(options: CallbackOptions) -> Iterable[Observation]:
+    return [
+        Observation(value=value, attributes={"dependency": dependency})
+        for dependency, value in _READINESS_STATE.items()
+    ]
+
+
+READINESS_STATUS = _meter.create_observable_gauge(
+    name="aptitude_readiness_status",
+    callbacks=[_readiness_callback],
+    description="Readiness state for critical dependencies.",
 )
+
 
 _ROUTE_TO_SURFACE: dict[tuple[str, str], str] = {
     ("POST", "/skills/{slug}"): "publish",
@@ -52,7 +74,7 @@ _ROUTE_TO_SURFACE: dict[tuple[str, str], str] = {
     ("GET", "/skills/{slug}/{version}/content"): "content",
     ("PATCH", "/skills/{slug}/{version}/status"): "lifecycle",
 }
-_SYSTEM_ROUTES = frozenset({"/metrics", "/healthz", "/readyz"})
+_SYSTEM_ROUTES = frozenset({"/healthz", "/readyz"})
 
 
 def observe_http_request(
@@ -64,40 +86,36 @@ def observe_http_request(
 ) -> None:
     """Record bounded HTTP and domain operation metrics."""
     normalized_method = method.upper()
-    HTTP_REQUESTS_TOTAL.labels(
-        method=normalized_method,
-        route=route,
-        status_class=_status_class(status_code),
-    ).inc()
-    HTTP_REQUEST_DURATION_SECONDS.labels(
-        method=normalized_method,
-        route=route,
-    ).observe(duration_seconds)
+    HTTP_REQUESTS_TOTAL.add(
+        1,
+        attributes={
+            "method": normalized_method,
+            "route": route,
+            "status_class": _status_class(status_code),
+        },
+    )
+    HTTP_REQUEST_DURATION_SECONDS.record(
+        duration_seconds,
+        attributes={"method": normalized_method, "route": route},
+    )
 
     surface = _ROUTE_TO_SURFACE.get((normalized_method, route))
     if surface is None:
         return
 
-    REGISTRY_OPERATION_TOTAL.labels(
-        surface=surface,
-        outcome=outcome_for_status_code(status_code),
-    ).inc()
-    REGISTRY_OPERATION_DURATION_SECONDS.labels(surface=surface).observe(duration_seconds)
+    REGISTRY_OPERATION_TOTAL.add(
+        1,
+        attributes={"surface": surface, "outcome": outcome_for_status_code(status_code)},
+    )
+    REGISTRY_OPERATION_DURATION_SECONDS.record(
+        duration_seconds,
+        attributes={"surface": surface},
+    )
 
 
 def set_database_readiness(*, is_ready: bool) -> None:
     """Track whether the primary database dependency is reachable."""
-    READINESS_STATUS.labels(dependency="database").set(1 if is_ready else 0)
-
-
-def generate_latest() -> bytes:
-    """Return the current Prometheus exposition payload."""
-    return prometheus_generate_latest(REGISTRY)
-
-
-def metrics_content_type() -> str:
-    """Return the Prometheus text exposition content type."""
-    return CONTENT_TYPE_LATEST
+    _READINESS_STATE["database"] = 1 if is_ready else 0
 
 
 def _status_class(status_code: int) -> str:

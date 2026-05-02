@@ -58,13 +58,10 @@ services:
       ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
       LOG_LEVEL: INFO
-      LOG_FILE_PATH: /var/log/aptitude/app.jsonl
       PORT: 8000
       UVICORN_RELOAD: "false"
     ports:
       - "${APP_PORT:-8000}:8000"
-    volumes:
-      - aptitude-logs:/var/log/aptitude
     healthcheck:
       test: ["CMD-SHELL", "python -c \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/readyz').read()\""]
       interval: 15s
@@ -103,37 +100,7 @@ services:
     command: ["python", "-m", "app.bootstrap.seed_demo"]
     restart: "no"
 
-  observability:
-    profiles: ["observability"]
-    image: ${OBSERVABILITY_IMAGE:-grafana/otel-lgtm:latest}
-    container_name: aptitude-observability
-    depends_on:
-      server:
-        condition: service_started
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
-    ports:
-      - "${GRAFANA_PORT:-3000}:3000"
-      - "${PROMETHEUS_PORT:-9090}:9090"
-      - "${LOKI_PORT:-3100}:3100"
-      - "${OTLP_GRPC_PORT:-4317}:4317"
-      - "${OTLP_HTTP_PORT:-4318}:4318"
-    volumes:
-      - ./ops/monitoring/prometheus/prometheus.yml:/otel-lgtm/prometheus.yaml:ro
-      - ./ops/monitoring/prometheus/alerts.yml:/otel-lgtm/alerts.yml:ro
-      - ./ops/monitoring/otel-lgtm/otelcol-config.yaml:/otel-lgtm/otelcol-config.yaml:ro
-      - ./ops/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./ops/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - aptitude-logs:/var/log/aptitude:ro
-      - observability-data:/data
-
 volumes:
   aptitude-postgres-data:
   aptitude-test-postgres-data:
     name: aptitude-test-postgres-data
-  aptitude-logs:
-  observability-data:

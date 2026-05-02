@@ -16,8 +16,13 @@ _SESSION_FACTORY: sessionmaker[Session] | None = None
 _ENGINE_LOCK = Lock()
 
 
-def init_engine(database_url: str) -> None:
-    """Initialize the shared SQLAlchemy engine/session factory."""
+def init_engine(database_url: str, *, application_name: str | None = None) -> None:
+    """Initialize the shared SQLAlchemy engine/session factory.
+
+    `application_name` is forwarded to libpq via psycopg's connect_args so the
+    connection identity surfaces in the database server (e.g. Neon Console
+    "Active Connections", `pg_stat_activity.application_name`).
+    """
     global _ENGINE, _SESSION_FACTORY
 
     with _ENGINE_LOCK:
@@ -27,13 +32,27 @@ def init_engine(database_url: str) -> None:
         if _ENGINE is not None:
             _ENGINE.dispose()
 
-        _ENGINE = create_engine(database_url, pool_pre_ping=True)
+        connect_args: dict[str, str] = {}
+        if application_name is not None:
+            connect_args["application_name"] = application_name
+
+        _ENGINE = create_engine(
+            database_url,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            connect_args=connect_args,
+        )
         _SESSION_FACTORY = sessionmaker(
             bind=_ENGINE,
             autoflush=False,
             autocommit=False,
             expire_on_commit=False,
         )
+
+
+def get_engine() -> Engine | None:
+    """Return the current shared engine if initialized."""
+    return _ENGINE
 
 
 def dispose_engine() -> None:

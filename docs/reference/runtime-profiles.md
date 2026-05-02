@@ -13,8 +13,7 @@ This repo has two different kinds of "profiles". They solve different problems a
 
 Runtime posture changes that do apply today:
 
-- `dev` keeps `/docs`, `/redoc`, and `/openapi.json` enabled.
-- `prod` disables `/docs`, `/redoc`, and `/openapi.json`.
+- `dev` and `prod` both keep `/docs`, `/redoc`, and `/openapi.json` enabled.
 - `prod` enforces `ALLOWED_HOSTS_JSON` through trusted-host validation.
 - protected routes require the same governed bearer-token auth in both `dev` and `prod`.
 
@@ -68,8 +67,11 @@ Docker Compose also uses profiles, but those are orchestration selectors, not ap
 Current Compose profiles include:
 
 - `demo`: adds the demo seed job
-- `observability`: adds Prometheus, Grafana, Loki, and related tooling
 - `test`: adds the dedicated test PostgreSQL container
+
+The previous `observability` profile (Prometheus, Grafana, Loki) has been
+removed; telemetry now flows over OTLP/HTTP directly to Grafana Cloud.
+See [`observability-grafana-cloud.md`](observability-grafana-cloud.md).
 
 These Compose profiles decide which containers run. They do not define new FastAPI behaviors or new `APP_ENV` values.
 
@@ -85,12 +87,15 @@ Tests and CI are execution environments, not runtime profiles.
 
 - `APP_ENV`: runtime profile for the app (`dev` or `prod`)
 - `DATABASE_URL`: primary application database
+- `MIGRATION_DATABASE_URL`: optional direct database URL for Alembic when the
+  runtime `DATABASE_URL` uses a pooled host
 - `TEST_DATABASE_URL`: dedicated database used by integration-test flows
 - `AUTH_SERVICE_TOKENS_JSON`: governed service-token registry records used by authenticated routes
-- `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`
+- `ALLOWED_HOSTS_JSON`: required host allowlist when `APP_ENV=prod`; deployed prod should include `api.aptitude-registry.dev` and the Render `onrender.com` host during rollout
 - `POLICY_PROFILES_JSON`: optional named governance-profile overrides merged over the built-in default profile
 - `ACTIVE_POLICY_PROFILE`: selects which policy profile is active at runtime; defaults to `default`
-- `LOG_LEVEL`, `LOG_FORMAT`, `LOG_FILE_PATH`: logging configuration
+- `LOG_LEVEL`, `LOG_FORMAT`: logging configuration
+- `OTEL_ENABLED` plus standard `OTEL_EXPORTER_OTLP_*` env vars: OpenTelemetry/Grafana Cloud configuration (see `observability-grafana-cloud.md`)
 - `APP_SETTINGS_ENV_FILE`: optional alternate dotenv file path for app-process startup; otherwise the app loads `.env`
 
 Service-token settings use this JSON shape:
@@ -129,6 +134,8 @@ create new `APP_ENV` values.
 - `make run-dev` starts the checked-in Compose stack with `APP_ENV=dev`, the `demo` profile, and the `observability` profile
 - `make run-prod` starts the checked-in Compose stack with `APP_ENV=prod` and the `observability` profile
 - raw `docker compose` usage defaults the checked-in app services to `APP_ENV=prod` unless you override `APP_ENV`
+- deployed prod at `https://api.aptitude-registry.dev` must set `ALLOWED_HOSTS_JSON` to include `api.aptitude-registry.dev`
+- the root domain `https://aptitude-registry.dev` is not an API host until a website or redirect is introduced
 - `make test` manages the dedicated `test` profile database container for the full test suite
 - `LOG_FORMAT=auto` prefers readable local logs in `dev` and structured JSON logs in `prod`
 - app-process startup reads local `.env` unless `APP_SETTINGS_ENV_FILE` points to another dotenv file

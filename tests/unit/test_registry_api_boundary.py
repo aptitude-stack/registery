@@ -7,7 +7,6 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from tests.conftest import DEFAULT_BEARER_TOKENS
 
 
 def _routes() -> set[tuple[str, str]]:
@@ -24,7 +23,6 @@ def _routes() -> set[tuple[str, str]]:
 def test_public_route_surface_exposes_exact_get_fetch_routes() -> None:
     routes = _routes()
 
-    assert ("/metrics", "GET") in routes
     assert ("/skills/{slug}", "POST") in routes
     assert ("/skills/{slug}", "GET") in routes
     assert ("/discovery", "POST") in routes
@@ -83,7 +81,6 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
         "content"
     ]
 
-    assert "/metrics" in paths
     assert "/discovery" in paths
     assert "/resolution/{slug}/{version}" in paths
     assert "/skills/{slug}" in paths
@@ -95,7 +92,6 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     assert "/admin/skills/{slug}/ownership" in paths
     assert "/admin/skills/{slug}/{version}/governance" in paths
     assert "/admin/skills/{slug}/{version}/trust-evidence" in paths
-    assert "get" in paths["/metrics"]
     assert "post" in paths["/skills/{slug}"]
     assert "get" in paths["/skills/{slug}"]
     assert "post" in paths["/discovery"]
@@ -118,28 +114,31 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
 
 
 @pytest.mark.unit
-def test_prod_disables_docs_and_openapi_routes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("APP_ENV", "prod")
+def test_openapi_schema_excludes_admin_and_html_routes() -> None:
+    """Admin/operational endpoints stay reachable but are filtered from the public schema."""
+    schema = create_app().openapi()
+    paths = schema["paths"]
+
+    assert "/" not in paths
+    assert "/metrics" not in paths
+    assert "patch" not in paths.get("/skills/{slug}/{version}/status", {})
+    assert "/skills/{slug}/{version}/status" not in paths
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("app_env", ["dev", "prod"])
+def test_docs_and_openapi_are_public_in_all_envs(
+    monkeypatch: pytest.MonkeyPatch, app_env: str
+) -> None:
+    monkeypatch.setenv("APP_ENV", app_env)
 
     with TestClient(create_app()) as client:
         docs = client.get("/docs")
         redoc = client.get("/redoc")
         openapi = client.get("/openapi.json")
 
-    assert docs.status_code == 404
-    assert redoc.status_code == 404
-    assert openapi.status_code == 404
-
-
-@pytest.mark.unit
-def test_dev_keeps_docs_and_openapi_routes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("APP_ENV", "dev")
-
-    with TestClient(create_app()) as client:
-        docs = client.get("/docs")
-        openapi = client.get("/openapi.json")
-
     assert docs.status_code == 200
+    assert redoc.status_code == 200
     assert openapi.status_code == 200
 
 
@@ -154,20 +153,9 @@ def test_prod_rejects_untrusted_host_header(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 @pytest.mark.unit
-def test_metrics_requires_admin_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_metrics_route_no_longer_registered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The /metrics Prometheus endpoint was removed when telemetry moved to OTLP push."""
     monkeypatch.setenv("APP_ENV", "prod")
+    routes = _routes()
 
-    with TestClient(create_app()) as client:
-        missing = client.get("/metrics")
-        reader = client.get(
-            "/metrics",
-            headers={"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS['reader-token']}"},
-        )
-        admin = client.get(
-            "/metrics",
-            headers={"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS['admin-token']}"},
-        )
-
-    assert missing.status_code == 401
-    assert reader.status_code == 403
-    assert admin.status_code == 200
+    assert ("/metrics", "GET") not in routes

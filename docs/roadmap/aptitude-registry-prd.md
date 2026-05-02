@@ -116,7 +116,7 @@ flowchart LR
 | Current | Digest-backed `ETag` + immutable cache headers | Exact content-read cache validation primitives. |
 | Current | Structured application logging | Auditable operational and lifecycle logs. |
 | Planned | Full conditional GET support | `If-None-Match` handling with `304 Not Modified` for immutable reads. |
-| Planned | Prometheus instrumentation + OpenTelemetry (optional) | Metrics and tracing for SLO monitoring and diagnostics. |
+| Current | OpenTelemetry traces, logs, and metrics streamed to Grafana Cloud over OTLP/HTTP | Distributed tracing, log/trace correlation, and metric series for SLO monitoring and diagnostics. |
 | Planned | Meilisearch (optional) | Future discovery capability beyond PostgreSQL-native indexing if needed. |
 - **Security & Privacy**:
   - Immutable `sha256` checksum per stored artifact and per published version binding.

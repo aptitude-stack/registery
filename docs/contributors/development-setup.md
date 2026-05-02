@@ -55,7 +55,7 @@ If you need the auth token shape, scope rules, or current dev fixture tokens, us
 Local URLs:
 
 - API: `http://127.0.0.1:8000`
-- Swagger docs: `http://127.0.0.1:8000/docs` in `APP_ENV=dev` only
+- Swagger docs: `http://127.0.0.1:8000/docs`
 - Metrics: `http://127.0.0.1:8000/metrics` with an admin bearer token
 
 Integration tests still use the dedicated PostgreSQL container on `127.0.0.1:5433`, but that lifecycle is intentionally behind the public `make test` entrypoint.
@@ -85,7 +85,7 @@ uv sync --extra dev
 3. Pick the app runtime profile explicitly.
 
 - Use `APP_ENV=dev` for local debugging with docs enabled.
-- Use `APP_ENV=prod` for production-like startup with docs disabled and host validation enabled.
+- Use `APP_ENV=prod` for production-like startup with docs and host validation enabled.
 
 4. Start the FastAPI CLI with the correct subcommand.
 
@@ -113,7 +113,7 @@ curl http://127.0.0.1:8000/docs
 Expected results:
 
 - in `APP_ENV=dev`, `/healthz` and `/docs` should both respond
-- in `APP_ENV=prod`, `/healthz` should respond and `/docs` should not be exposed
+- in `APP_ENV=prod`, `/healthz` and `/docs` should both respond when the host is allowed
 
 If you are validating protected routes, remember that Plan 14 keeps auth requirements aligned
 across both profiles. `dev` is not an auth bypass.
@@ -225,28 +225,27 @@ Use the runtime and auth references for the exact settings contract:
 - [`../reference/runtime-profiles.md`](../reference/runtime-profiles.md)
 - [`../reference/service-token-governance.md`](../reference/service-token-governance.md)
 
-## Optional Local Observability Profile
+## Observability
 
-```bash
-make run-prod
-```
+The local Grafana/Loki/Prometheus stack has been removed. Telemetry now flows
+exclusively to Grafana Cloud over OTLP/HTTP from the running FastAPI process.
+Set `OTEL_ENABLED=true` plus the `OTEL_EXPORTER_OTLP_*` env vars in your local
+dotenv to ship local traces, logs, and metrics into the same Grafana Cloud
+stack used in production (tag with `deployment.environment.name=dev` via
+`OTEL_RESOURCE_ATTRIBUTES`).
 
-This starts the API plus:
+See [`../reference/observability-grafana-cloud.md`](../reference/observability-grafana-cloud.md)
+for the full env-var reference, Access Policy token scopes, and free-tier
+limits.
 
-- Prometheus at `http://127.0.0.1:9090`
-- Loki at `http://127.0.0.1:3100`
-- OTLP gRPC at `http://127.0.0.1:4317`
-- OTLP HTTP at `http://127.0.0.1:4318`
-- Grafana at `http://127.0.0.1:3000`
-
-`server` depends on `migrate`, so Compose applies the latest Alembic schema before the API starts.
-Prometheus is preconfigured with the same dev-only admin bearer token so local scraping keeps working after auth hardening.
+When `OTEL_ENABLED=false` (the default), the process simply emits structured
+JSON logs to stdout. That is sufficient for most app-level development.
 
 ## Optional Demo Profile
 
 The demo profile is a one-shot Compose service that seeds a rich multi-version catalog after migrations. Use it when you want meaningful discovery, exact fetch, lifecycle, and dependency-resolution behavior without hand-publishing skills. `make run-dev` is the public entrypoint that turns it on.
 
-Bring up the dev stack with demo data and observability:
+Bring up the dev stack with demo data:
 
 ```bash
 make run-dev
@@ -257,13 +256,5 @@ The `demo` profile remains opt-in. `make run-prod` stays bootstrap-only, while `
 Shut the stack down with:
 
 ```bash
-docker compose --profile observability down -v
+docker compose down -v
 ```
-
-### Verify Log Flow
-
-```bash
-curl -H 'X-Request-ID: setup-dev-loki-check' http://127.0.0.1:8000/healthz
-```
-
-Then open Grafana and search for `setup-dev-loki-check` in the `Aptitude Registry Logs` dashboard.
