@@ -22,6 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.persistence.models.base import Base
 
 if TYPE_CHECKING:
+    from app.persistence.models.policy_pack import PolicyPack
     from app.persistence.models.skill import Skill
     from app.persistence.models.skill_content import SkillContent
     from app.persistence.models.skill_metadata import SkillMetadata
@@ -40,6 +41,18 @@ class SkillVersion(Base):
         CheckConstraint(
             "trust_tier IN ('untrusted', 'internal', 'verified')",
             name="ck_skill_versions_trust_tier",
+        ),
+        CheckConstraint(
+            "artifact_origin IN ('internal', 'imported', 'verified', 'restricted')",
+            name="ck_skill_versions_artifact_origin",
+        ),
+        CheckConstraint(
+            "review_state IN ('pending_review', 'approved', 'rejected')",
+            name="ck_skill_versions_review_state",
+        ),
+        CheckConstraint(
+            "promotion_channel IN ('dev', 'staging', 'prod')",
+            name="ck_skill_versions_promotion_channel",
         ),
         UniqueConstraint("skill_fk", "version", name="uq_skill_versions_skill_fk_version"),
         Index(
@@ -87,6 +100,27 @@ class SkillVersion(Base):
         nullable=False,
         server_default=text("'untrusted'"),
     )
+    artifact_origin: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'internal'"),
+    )
+    review_state: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'approved'"),
+    )
+    promotion_channel: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'prod'"),
+    )
+    policy_pack_fk: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("policy_packs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     provenance_repo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     provenance_commit_sha: Mapped[str | None] = mapped_column(Text, nullable=True)
     provenance_tree_path: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -109,6 +143,7 @@ class SkillVersion(Base):
     )
     content: Mapped[SkillContent] = relationship()
     metadata_row: Mapped[SkillMetadata] = relationship()
+    policy_pack: Mapped[PolicyPack | None] = relationship(back_populates="versions")
     relationship_selectors: Mapped[list[SkillRelationshipSelector]] = relationship(
         cascade="all, delete-orphan",
         order_by="SkillRelationshipSelector.ordinal",

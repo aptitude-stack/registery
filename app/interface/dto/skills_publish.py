@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.core.governance import TrustTier
+from app.core.governance import ArtifactOrigin, TrustTier
 from app.core.skills.models import PublishIntent
 from app.interface.dto.skills_shared import (
     normalize_optional_text,
@@ -174,8 +174,16 @@ class SkillGovernanceRequest(BaseModel):
 
     trust_tier: TrustTier = "untrusted"
     provenance: ProvenanceRequest | None = None
+    namespace: str = Field(default="public", min_length=1, max_length=128)
+    artifact_origin: ArtifactOrigin = "internal"
+    policy_pack_slug: str | None = Field(default=None, min_length=1, max_length=128)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("namespace", "policy_pack_slug")
+    @classmethod
+    def validate_optional_text_fields(cls, value: str | None) -> str | None:
+        return normalize_optional_text(value)
 
 
 class SkillVersionCreateRequest(BaseModel):

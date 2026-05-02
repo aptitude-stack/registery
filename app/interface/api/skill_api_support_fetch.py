@@ -40,6 +40,11 @@ def to_metadata_response(detail: SkillVersionDetail) -> SkillVersionMetadataResp
         metadata=_metadata_response(detail.metadata),
         lifecycle_status=detail.lifecycle_status,
         trust_tier=detail.trust_tier,
+        namespace=detail.namespace,
+        artifact_origin=detail.artifact_origin,
+        review_state=detail.review_state,
+        promotion_channel=detail.promotion_channel,
+        policy_pack_slug=None if detail.policy_pack is None else detail.policy_pack.slug,
         provenance=_provenance_response(detail.provenance, trust_tier=detail.trust_tier),
         published_at=detail.published_at,
     )
@@ -88,6 +93,11 @@ def _version_summary_response(summary: SkillVersionSummary) -> SkillVersionSumma
         version=summary.version,
         lifecycle_status=summary.lifecycle_status,
         trust_tier=summary.trust_tier,
+        namespace=summary.namespace,
+        artifact_origin=summary.artifact_origin,
+        review_state=summary.review_state,
+        promotion_channel=summary.promotion_channel,
+        policy_pack_slug=summary.policy_pack_slug,
         published_at=summary.published_at,
         is_current_default=summary.is_current_default,
     )

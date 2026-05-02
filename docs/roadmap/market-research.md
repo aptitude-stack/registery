@@ -105,16 +105,17 @@ policy references, provenance summary, and audit correlation identifiers.
 
 ## Planning Implications
 
-- Plan 15 should remain the market-backed product/moat anchor.
-- Plan 18 should turn the moat into concrete registry governance: security
+- The enterprise control-plane anchor in `.agents/plans/roadmap.md` should
+  remain the market-backed product/moat anchor.
+- Plan 16 should turn the moat into concrete registry governance: security
   airlock, private namespaces, promotion workflows, policy packs, verified
   publishers, signatures, attestations, and audit.
-- Plan 19 should define registry trust-consumer contracts for gateway, identity,
+- Plan 17 should define registry trust-consumer contracts for gateway, identity,
   and token/spend surfaces without moving those runtime responsibilities into
   the registry.
-- Hybrid discovery and Redis caching are useful supporting capabilities, but
-  they should follow the enterprise trust foundation instead of being treated as
-  the moat.
+- Plan 18 hybrid discovery and Redis caching are useful supporting capabilities,
+  but they should follow the enterprise trust foundation instead of being
+  treated as the moat.
 
 ## Explicit Non-Goals
 

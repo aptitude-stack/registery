@@ -29,5 +29,3 @@ docs: |-
   - API contract: `docs/project/api-contract.md`
   - Documentation hub: `docs/README.md`
   - OpenAPI spec: `specs/aptitude-openapi.json`
-
-activeEnvironmentUid: 18m196100000000000000

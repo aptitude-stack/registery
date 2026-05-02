@@ -1,7 +1,7 @@
 info:
   name: Fetch Published Skill Content
   type: http
-  seq: 12
+  seq: 14
 
 http:
   method: GET

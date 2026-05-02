@@ -9,7 +9,16 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload, sessionmaker
 
-from app.core.governance import LifecycleStatus, TrustTier
+from app.core.governance import (
+    ArtifactOrigin,
+    LifecycleStatus,
+    PromotionChannel,
+    ReviewState,
+    TrustTier,
+)
+from app.core.governance import (
+    PolicyPack as DomainPolicyPack,
+)
 from app.core.ports import (
     AuditEventRecord,
     CreateSkillVersionRecord,
@@ -19,20 +28,30 @@ from app.core.ports import (
     StoredSkillSearchCandidate,
 )
 from app.core.skills.models import (
+    NamespaceRecord,
+    OrganizationRecord,
+    PolicyPackRecord,
     SkillContentRecord,
+    SkillOwnershipUpdate,
     SkillRelationshipSource,
     SkillVersionDetail,
+    SkillVersionGovernanceUpdate,
     SkillVersionListEntry,
     SkillVersionStatusUpdate,
+    TrustEvidenceRecord,
 )
 from app.core.skills.version_ordering import select_current_default_version
 from app.persistence.models.audit_event import AuditEvent
+from app.persistence.models.namespace import Namespace
+from app.persistence.models.organization import Organization
+from app.persistence.models.policy_pack import PolicyPack
 from app.persistence.models.skill import Skill
 from app.persistence.models.skill_content import SkillContent
 from app.persistence.models.skill_metadata import SkillMetadata
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.models.skill_search_document import SkillSearchDocument
 from app.persistence.models.skill_version import SkillVersion
+from app.persistence.models.trust_evidence import TrustEvidence
 from app.persistence.skill_registry_repository_support import (
     SEARCH_CANDIDATES_SQL,
     build_contains_pattern,
@@ -77,7 +96,11 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
     ) -> SkillVersionDetail:
         with self._session_factory() as session:
             try:
-                skill = self._get_or_create_skill(session=session, slug=record.slug)
+                skill = self._get_or_create_skill(
+                    session=session,
+                    slug=record.slug,
+                    namespace_slug=record.governance.namespace,
+                )
                 content = self._get_or_create_content(session=session, record=record)
                 metadata = SkillMetadata(
                     name=record.metadata.name,
@@ -101,6 +124,13 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     lifecycle_status="published",
                     lifecycle_changed_at=datetime.now(UTC),
                     trust_tier=record.governance.trust_tier,
+                    artifact_origin=record.governance.artifact_origin,
+                    review_state=record.governance.review_state,
+                    promotion_channel=record.governance.promotion_channel,
+                    policy_pack_fk=self._policy_pack_id(
+                        session=session,
+                        slug=record.governance.policy_pack_slug,
+                    ),
                     provenance_repo_url=(
                         None
                         if record.governance.provenance is None
@@ -245,6 +275,11 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     "max_content_size_bytes": request.max_content_size_bytes,
                     "lifecycle_statuses": list(request.lifecycle_statuses),
                     "trust_tiers": list(request.trust_tiers),
+                    "namespaces": list(request.namespaces or ()),
+                    "namespaces_unrestricted": request.namespaces is None,
+                    "promotion_channels": list(request.promotion_channels or ()),
+                    "promotion_channels_unrestricted": request.promotion_channels is None,
+                    "review_states": list(request.review_states),
                     "limit": request.limit,
                 },
             ).mappings()
@@ -257,6 +292,18 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     tags=tuple(ensure_string_list(row["tags"])),
                     lifecycle_status=cast(LifecycleStatus, str(row["lifecycle_status"])),
                     trust_tier=cast(TrustTier, str(row["trust_tier"])),
+                    namespace=str(row["namespace"]),
+                    artifact_origin=cast(ArtifactOrigin, str(row["artifact_origin"])),
+                    review_state=cast(ReviewState, str(row["review_state"])),
+                    promotion_channel=cast(PromotionChannel, str(row["promotion_channel"])),
+                    policy_pack=(
+                        None
+                        if row["policy_pack_slug"] is None
+                        else DomainPolicyPack(
+                            slug=str(row["policy_pack_slug"]),
+                            rules=dict(row["policy_pack_rules"] or {}),
+                        )
+                    ),
                     published_at=ensure_datetime(row["published_at"]),
                     content_size_bytes=int(row["content_size_bytes"]),
                     usage_count=int(row["usage_count"]),
@@ -342,6 +389,224 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     "Failed to update immutable skill version status."
                 ) from exc
 
+    def create_organization(
+        self,
+        *,
+        slug: str,
+        display_name: str,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> OrganizationRecord:
+        with self._session_factory() as session:
+            try:
+                organization = Organization(slug=slug, display_name=display_name)
+                session.add(organization)
+                self._add_audit_events(session=session, audit_events=audit_events)
+                session.commit()
+                session.refresh(organization)
+                return OrganizationRecord(
+                    slug=organization.slug,
+                    display_name=organization.display_name,
+                    created_at=organization.created_at,
+                )
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise SkillRegistryPersistenceError("Failed to create organization.") from exc
+
+    def create_namespace(
+        self,
+        *,
+        slug: str,
+        organization_slug: str,
+        visibility: str,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> NamespaceRecord:
+        with self._session_factory() as session:
+            try:
+                organization = self._get_organization(session=session, slug=organization_slug)
+                namespace = Namespace(
+                    slug=slug,
+                    organization_fk=organization.id,
+                    visibility=visibility,
+                )
+                session.add(namespace)
+                self._add_audit_events(session=session, audit_events=audit_events)
+                session.commit()
+                session.refresh(namespace)
+                return NamespaceRecord(
+                    slug=namespace.slug,
+                    organization_slug=organization.slug,
+                    visibility=namespace.visibility,
+                    created_at=namespace.created_at,
+                )
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise SkillRegistryPersistenceError("Failed to create namespace.") from exc
+
+    def upsert_policy_pack(
+        self,
+        *,
+        slug: str,
+        description: str | None,
+        rules: dict[str, object],
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> PolicyPackRecord:
+        with self._session_factory() as session:
+            try:
+                policy_pack = session.execute(
+                    select(PolicyPack).where(PolicyPack.slug == slug)
+                ).scalar_one_or_none()
+                if policy_pack is None:
+                    policy_pack = PolicyPack(slug=slug, description=description, rules=rules)
+                    session.add(policy_pack)
+                else:
+                    policy_pack.description = description
+                    policy_pack.rules = rules
+                self._add_audit_events(session=session, audit_events=audit_events)
+                session.commit()
+                return PolicyPackRecord(
+                    slug=policy_pack.slug,
+                    description=policy_pack.description,
+                    rules=dict(policy_pack.rules),
+                )
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise SkillRegistryPersistenceError("Failed to upsert policy pack.") from exc
+
+    def update_skill_ownership(
+        self,
+        *,
+        slug: str,
+        namespace: str,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> SkillOwnershipUpdate | None:
+        with self._session_factory() as session:
+            try:
+                skill = self._get_skill(session=session, slug=slug)
+                if skill is None:
+                    return None
+                namespace_row = self._get_namespace(session=session, slug=namespace)
+                skill.namespace_fk = namespace_row.id
+                session.add(skill)
+                session.execute(
+                    update(SkillSearchDocument)
+                    .where(
+                        SkillSearchDocument.skill_version_fk.in_(
+                            select(SkillVersion.id).where(SkillVersion.skill_fk == skill.id)
+                        )
+                    )
+                    .values(namespace=namespace_row.slug)
+                )
+                self._add_audit_events(session=session, audit_events=audit_events)
+                session.commit()
+                return SkillOwnershipUpdate(slug=slug, namespace=namespace_row.slug)
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise SkillRegistryPersistenceError("Failed to update skill ownership.") from exc
+
+    def update_version_governance(
+        self,
+        *,
+        slug: str,
+        version: str,
+        review_state: ReviewState | None = None,
+        promotion_channel: PromotionChannel | None = None,
+        trust_tier: TrustTier | None = None,
+        policy_pack_slug: str | None = None,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> SkillVersionGovernanceUpdate | None:
+        with self._session_factory() as session:
+            try:
+                entity = self._get_version_entity(session=session, slug=slug, version=version)
+                if entity is None:
+                    return None
+                if review_state is not None:
+                    entity.review_state = review_state
+                if promotion_channel is not None:
+                    entity.promotion_channel = promotion_channel
+                if trust_tier is not None:
+                    entity.trust_tier = trust_tier
+                if policy_pack_slug is not None:
+                    entity.policy_pack_fk = self._policy_pack_id(
+                        session=session,
+                        slug=policy_pack_slug,
+                    )
+                session.add(entity)
+                session.flush()
+                if policy_pack_slug is not None:
+                    synced_policy_pack_slug = policy_pack_slug
+                elif entity.policy_pack is not None:
+                    synced_policy_pack_slug = entity.policy_pack.slug
+                else:
+                    synced_policy_pack_slug = None
+                self._sync_search_governance(
+                    session=session,
+                    entity=entity,
+                    policy_pack_slug=synced_policy_pack_slug,
+                )
+                self._add_audit_events(session=session, audit_events=audit_events)
+                session.commit()
+                reloaded = self._get_version_entity(session=session, slug=slug, version=version)
+                if reloaded is None:
+                    return None
+                return SkillVersionGovernanceUpdate(
+                    slug=slug,
+                    version=version,
+                    lifecycle_status=cast(LifecycleStatus, reloaded.lifecycle_status),
+                    trust_tier=cast(TrustTier, reloaded.trust_tier),
+                    namespace=reloaded.skill.namespace.slug,
+                    artifact_origin=cast(ArtifactOrigin, reloaded.artifact_origin),
+                    review_state=cast(ReviewState, reloaded.review_state),
+                    promotion_channel=cast(PromotionChannel, reloaded.promotion_channel),
+                    policy_pack_slug=(
+                        None if reloaded.policy_pack is None else reloaded.policy_pack.slug
+                    ),
+                )
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise SkillRegistryPersistenceError("Failed to update version governance.") from exc
+
+    def add_trust_evidence(
+        self,
+        *,
+        slug: str,
+        version: str,
+        evidence_type: str,
+        subject: str,
+        digest: str | None,
+        uri: str | None,
+        payload: dict[str, object] | None,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> TrustEvidenceRecord | None:
+        with self._session_factory() as session:
+            try:
+                entity = self._get_version_entity(session=session, slug=slug, version=version)
+                if entity is None:
+                    return None
+                evidence = TrustEvidence(
+                    skill_version_fk=entity.id,
+                    evidence_type=evidence_type,
+                    subject=subject,
+                    digest=digest,
+                    uri=uri,
+                    payload=payload,
+                )
+                session.add(evidence)
+                self._add_audit_events(session=session, audit_events=audit_events)
+                session.commit()
+                session.refresh(evidence)
+                return TrustEvidenceRecord(
+                    slug=slug,
+                    version=version,
+                    evidence_type=evidence.evidence_type,
+                    subject=evidence.subject,
+                    digest=evidence.digest,
+                    uri=evidence.uri,
+                    created_at=evidence.created_at,
+                )
+            except SQLAlchemyError as exc:
+                session.rollback()
+                raise SkillRegistryPersistenceError("Failed to append trust evidence.") from exc
+
     @staticmethod
     def _add_audit_events(
         *,
@@ -355,14 +620,21 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         )
 
     @staticmethod
-    def _get_or_create_skill(*, session: Session, slug: str) -> Skill:
-        existing = session.execute(select(Skill).where(Skill.slug == slug)).scalar_one_or_none()
+    def _get_or_create_skill(*, session: Session, slug: str, namespace_slug: str) -> Skill:
+        existing = session.execute(
+            select(Skill).options(joinedload(Skill.namespace)).where(Skill.slug == slug)
+        ).scalar_one_or_none()
         if existing is not None:
             return existing
 
-        created = Skill(slug=slug)
+        namespace = SQLAlchemySkillCatalogRepository._get_namespace(
+            session=session,
+            slug=namespace_slug,
+        )
+        created = Skill(slug=slug, namespace_fk=namespace.id)
         session.add(created)
         session.flush()
+        session.refresh(created, attribute_names=["namespace"])
         return created
 
     @staticmethod
@@ -411,13 +683,65 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             .join(Skill, Skill.id == SkillVersion.skill_fk)
             .options(
                 joinedload(SkillVersion.skill),
+                joinedload(SkillVersion.skill).joinedload(Skill.namespace),
                 joinedload(SkillVersion.content),
                 joinedload(SkillVersion.metadata_row),
+                joinedload(SkillVersion.policy_pack),
                 selectinload(SkillVersion.relationship_selectors),
             )
             .where(Skill.slug == slug, SkillVersion.version == version)
         )
         return session.execute(statement).scalar_one_or_none()
+
+    @staticmethod
+    def _get_skill(*, session: Session, slug: str) -> Skill | None:
+        return session.execute(select(Skill).where(Skill.slug == slug)).scalar_one_or_none()
+
+    @staticmethod
+    def _get_organization(*, session: Session, slug: str) -> Organization:
+        organization = session.execute(
+            select(Organization).where(Organization.slug == slug)
+        ).scalar_one_or_none()
+        if organization is None:
+            raise SkillRegistryPersistenceError(f"Organization not found: {slug}")
+        return organization
+
+    @staticmethod
+    def _get_namespace(*, session: Session, slug: str) -> Namespace:
+        namespace = session.execute(
+            select(Namespace).where(Namespace.slug == slug)
+        ).scalar_one_or_none()
+        if namespace is None:
+            raise SkillRegistryPersistenceError(f"Namespace not found: {slug}")
+        return namespace
+
+    @staticmethod
+    def _policy_pack_id(*, session: Session, slug: str | None) -> int | None:
+        if slug is None:
+            return None
+        policy_pack = session.execute(
+            select(PolicyPack).where(PolicyPack.slug == slug)
+        ).scalar_one_or_none()
+        if policy_pack is None:
+            raise SkillRegistryPersistenceError(f"Policy pack not found: {slug}")
+        return policy_pack.id
+
+    @staticmethod
+    def _sync_search_governance(
+        *,
+        session: Session,
+        entity: SkillVersion,
+        policy_pack_slug: str | None,
+    ) -> None:
+        search_document = session.get(SkillSearchDocument, entity.id)
+        if search_document is None:
+            return
+        search_document.trust_tier = entity.trust_tier
+        search_document.artifact_origin = entity.artifact_origin
+        search_document.review_state = entity.review_state
+        search_document.promotion_channel = entity.promotion_channel
+        search_document.policy_pack_slug = policy_pack_slug
+        session.add(search_document)
 
 
 SQLAlchemySkillRegistryRepository = SQLAlchemySkillCatalogRepository

@@ -11,6 +11,7 @@ The live artifact shape is now one immutable opaque artifact per version:
 - metadata, governance, provenance, and relationships stay normalized and queryable
 - exact artifact bytes are stored once per digest in `skill_contents`
 - version rows bind immutably to one digest-addressed artifact blob
+- enterprise workflow state changes separately from the stored artifact bytes
 - discovery and ranking never inspect artifact contents beyond publish-time validation
 - exact fetch returns the stored artifact bytes directly and emits the stored content digest as the artifact `ETag`
 
@@ -22,7 +23,7 @@ This is the simplest design that still preserves the right architectural boundar
 - Exact fetch stays precise because it returns the original `application/zstd` artifact.
 - Publish stays transactional because the registry still uses one storage system.
 - Deduplication stays cheap because identical artifacts share one digest-backed row.
-- Version identity stays stable because version checksums are derived from the content digest plus structured version data instead of unpacked artifact content.
+- Version identity stays stable because version checksums are derived from the content digest plus structured publish-time version data instead of unpacked artifact content or post-publish workflow state.
 
 ## Rejected Alternatives
 

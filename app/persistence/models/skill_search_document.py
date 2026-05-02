@@ -24,12 +24,27 @@ class SkillSearchDocument(Base):
             "trust_tier IN ('untrusted', 'internal', 'verified')",
             name="ck_skill_search_documents_trust_tier",
         ),
+        CheckConstraint(
+            "artifact_origin IN ('internal', 'imported', 'verified', 'restricted')",
+            name="ck_skill_search_documents_artifact_origin",
+        ),
+        CheckConstraint(
+            "review_state IN ('pending_review', 'approved', 'rejected')",
+            name="ck_skill_search_documents_review_state",
+        ),
+        CheckConstraint(
+            "promotion_channel IN ('dev', 'staging', 'prod')",
+            name="ck_skill_search_documents_promotion_channel",
+        ),
         Index("ix_skill_search_documents_normalized_slug", "normalized_slug"),
         Index("ix_skill_search_documents_normalized_name", "normalized_name"),
         Index("ix_skill_search_documents_published_at", "published_at"),
         Index("ix_skill_search_documents_content_size_bytes", "content_size_bytes"),
         Index("ix_skill_search_documents_lifecycle_status", "lifecycle_status"),
         Index("ix_skill_search_documents_trust_tier", "trust_tier"),
+        Index("ix_skill_search_documents_namespace", "namespace"),
+        Index("ix_skill_search_documents_review_state", "review_state"),
+        Index("ix_skill_search_documents_promotion_channel", "promotion_channel"),
         Index(
             "ix_skill_search_documents_normalized_tags_gin",
             "normalized_tags",
@@ -65,6 +80,27 @@ class SkillSearchDocument(Base):
         nullable=False,
         server_default=text("'untrusted'"),
     )
+    namespace: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'public'"),
+    )
+    artifact_origin: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'internal'"),
+    )
+    review_state: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'approved'"),
+    )
+    promotion_channel: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'prod'"),
+    )
+    policy_pack_slug: Mapped[str | None] = mapped_column(Text, nullable=True)
     search_vector: Mapped[str] = mapped_column(
         TSVECTOR,
         nullable=False,

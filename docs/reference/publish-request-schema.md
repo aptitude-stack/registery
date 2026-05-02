@@ -56,6 +56,9 @@ The request has two required parts:
   },
   "governance": {
     "trust_tier": "internal",
+    "namespace": "public",
+    "artifact_origin": "internal",
+    "policy_pack_slug": null,
     "provenance": {
       "repo_url": "https://github.com/example/skills",
       "commit_sha": "aabbccddeeff00112233445566778899aabbccdd",
@@ -122,7 +125,16 @@ The uploaded `bundle` part must:
 | Field | Required | Type | Default | Notes |
 | --- | --- | --- | --- | --- |
 | `trust_tier` | No | `string` | `untrusted` | Must be `untrusted`, `internal`, or `verified`. |
+| `namespace` | No | `string` | `public` | Skill identity namespace. The caller must have a `publish` grant for it. |
+| `artifact_origin` | No | `string` | `internal` | Must be `internal`, `imported`, `verified`, or `restricted`. |
+| `policy_pack_slug` | No | `string \| null` | `null` | Optional policy-pack reference enforced by registry visibility rules. |
 | `provenance` | No | `object \| null` | `null` | Additional publish-time provenance metadata. |
+
+Publish workflow defaults:
+
+- `internal` artifacts publish as `review_state=approved` and `promotion_channel=prod`.
+- `imported` artifacts publish as `review_state=pending_review` and `promotion_channel=dev`.
+- Imported artifacts stay hidden from normal production readers until a reviewer approves and promotes them.
 
 ### `metadata.relationships.depends_on[]`
 
@@ -162,6 +174,7 @@ Rules:
 | `403` | `POLICY_PROVENANCE_REQUIRED` | The chosen trust tier requires provenance and the request omitted it. |
 | `403` | `POLICY_PUBLISH_FORBIDDEN` | The caller is authenticated but the active policy profile denies the requested publish. |
 | `403` | `POLICY_PROVENANCE_INVALID` | Provenance metadata failed governance validation. |
+| `403` | `POLICY_NAMESPACE_FORBIDDEN` | The caller lacks a namespace/channel publish grant. |
 | `409` | `DUPLICATE_SKILL_VERSION` | The same `slug@version` already exists. |
 | `409` | `SKILL_ALREADY_EXISTS` | `intent=create_skill` was used for an existing slug. |
 | `404` | `SKILL_NOT_FOUND` | `intent=publish_version` was used for a missing slug. |
@@ -173,6 +186,7 @@ Rules:
 - The `slug` belongs in the path, not in the JSON metadata part.
 - The server stores the uploaded artifact as one immutable `application/zstd` `.tar.zst` blob.
 - The server computes `content.checksum.digest` from the stored artifact bytes.
-- The server computes `version_checksum.digest` from the content checksum plus normalized metadata, governance, and authored relationships.
+- The server computes `version_checksum.digest` from the content checksum plus normalized metadata, publish-time trust/provenance inputs, and authored relationships.
+- Post-publish review, promotion, trust-tier, policy-pack, ownership, and trust-evidence changes do not rewrite bundle bytes or recompute `version_checksum.digest`; audit rows are the source of post-publish governance history.
 - Queryable metadata, governance, and relationships remain normalized outside the artifact.
 - `content.raw_markdown` belongs to the retired contract and should be removed from publisher clients.

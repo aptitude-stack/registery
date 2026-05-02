@@ -1,8 +1,10 @@
-# Enterprise Security Airlock and Promotion Workflows Implementation Plan
+# Plan 15 - Enterprise Security Airlock and Promotion Workflows Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the registry into the enterprise security airlock for agentic skill artifacts: private ownership, artifact intake review, promotion channels, policy-pack visibility, trust evidence, and audit-backed workflow state.
+
+**Strategic Role:** This is the first implementation-facing milestone after the enterprise control-plane anchor in `roadmap.md`. It makes the registry the security airlock for agentic artifacts rather than only an immutable storage service.
 
 **Architecture:** Extend the existing `GovernancePolicy`, service-token identity, SQLAlchemy repository, and PostgreSQL schema instead of adding a parallel enterprise subsystem. Immutable artifact coordinates stay unchanged; mutable enterprise workflow state controls visibility and eligibility through the same discovery, resolution, metadata, content, and lifecycle read paths. Generic policy engines are deferred until policy complexity proves they are needed; cryptographic verification uses maintained supply-chain libraries instead of handwritten crypto.
 
