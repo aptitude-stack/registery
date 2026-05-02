@@ -39,8 +39,8 @@ connection.
 
 ## Environment variables
 
-The application reads only `OTEL_ENABLED` directly. All other knobs are the
-standard OpenTelemetry env vars consumed by the SDK.
+The application reads `OTEL_ENABLED` and `OTEL_SDK_DISABLED` directly. All other
+knobs are standard OpenTelemetry env vars consumed by the SDK.
 
 | Variable | Purpose |
 | --- | --- |
