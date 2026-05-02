@@ -149,6 +149,9 @@ def _exact_selector(item: ExactRelationshipSelectorRequest) -> SkillRelationship
 def _governance_input(item: SkillGovernanceRequest) -> SkillGovernanceInput:
     return SkillGovernanceInput(
         trust_tier=item.trust_tier,
+        namespace=item.namespace,
+        artifact_origin=item.artifact_origin,
+        policy_pack_slug=item.policy_pack_slug,
         provenance=(
             None
             if item.provenance is None

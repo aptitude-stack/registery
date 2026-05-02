@@ -30,7 +30,7 @@ Start small and add sources only when they change the decision.
 Open:
 - `docs/architecture/system-overview.md`
 - `docs/architecture/server-resolver-boundary.md`
-- `docs/roadmap/requirements-and-phases.md`
+- `docs/roadmap/aptitude-registry-prd.md`
 
 Use for:
 - new features

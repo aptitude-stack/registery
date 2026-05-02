@@ -23,6 +23,10 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         inspector = inspect(upgraded_engine)
         assert "audit_events" in inspector.get_table_names()
         assert "skills" in inspector.get_table_names()
+        assert "organizations" in inspector.get_table_names()
+        assert "namespaces" in inspector.get_table_names()
+        assert "policy_packs" in inspector.get_table_names()
+        assert "trust_evidence" in inspector.get_table_names()
         assert "skill_versions" in inspector.get_table_names()
         assert "skill_contents" in inspector.get_table_names()
         assert "skill_metadata" in inspector.get_table_names()
@@ -36,17 +40,28 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         metadata_columns = {column["name"] for column in inspector.get_columns("skill_metadata")}
         version_columns = {column["name"] for column in inspector.get_columns("skill_versions")}
         content_columns = {column["name"] for column in inspector.get_columns("skill_contents")}
+        trust_columns = {column["name"] for column in inspector.get_columns("trust_evidence")}
         search_columns = {
             column["name"] for column in inspector.get_columns("skill_search_documents")
         }
 
-        assert {"slug", "install_count", "created_at", "updated_at"} <= skill_columns
+        assert {
+            "slug",
+            "install_count",
+            "namespace_fk",
+            "created_at",
+            "updated_at",
+        } <= skill_columns
         assert "current_version_id" not in skill_columns
 
         assert {
             "lifecycle_status",
             "lifecycle_changed_at",
             "trust_tier",
+            "artifact_origin",
+            "review_state",
+            "promotion_channel",
+            "policy_pack_fk",
             "provenance_repo_url",
             "provenance_commit_sha",
             "provenance_tree_path",
@@ -56,7 +71,17 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "rendered_summary" not in content_columns
         assert "headers" not in metadata_columns
 
-        assert {"lifecycle_status", "trust_tier"} <= search_columns
+        assert {"evidence_type", "subject", "digest", "uri", "payload"} <= trust_columns
+
+        assert {
+            "namespace",
+            "artifact_origin",
+            "review_state",
+            "promotion_channel",
+            "policy_pack_slug",
+            "lifecycle_status",
+            "trust_tier",
+        } <= search_columns
     finally:
         upgraded_engine.dispose()
 
@@ -67,6 +92,10 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         inspector = inspect(downgraded_engine)
         assert "audit_events" not in inspector.get_table_names()
         assert "skills" not in inspector.get_table_names()
+        assert "organizations" not in inspector.get_table_names()
+        assert "namespaces" not in inspector.get_table_names()
+        assert "policy_packs" not in inspector.get_table_names()
+        assert "trust_evidence" not in inspector.get_table_names()
         assert "skill_versions" not in inspector.get_table_names()
         assert "skill_contents" not in inspector.get_table_names()
         assert "skill_metadata" not in inspector.get_table_names()

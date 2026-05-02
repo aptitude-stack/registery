@@ -1,7 +1,7 @@
 info:
   name: List Published Skill Versions
   type: http
-  seq: 10
+  seq: 12
 
 http:
   method: GET
@@ -70,11 +70,17 @@ runtime:
 
           expect(currentDefault.version).to.eql(bru.getVar('sanity_version_1'));
           expect(currentDefault.lifecycle_status).to.eql('published');
+          expect(currentDefault.namespace).to.eql('public');
+          expect(currentDefault.review_state).to.eql('approved');
+          expect(currentDefault.promotion_channel).to.eql('prod');
           expect(currentDefault.is_current_default).to.eql(true);
 
           expect(deprecatedVersion.version).to.eql(bru.getVar('sanity_version_2'));
           expect(deprecatedVersion.lifecycle_status).to.eql('deprecated');
           expect(deprecatedVersion.trust_tier).to.eql('internal');
+          expect(deprecatedVersion.namespace).to.eql('public');
+          expect(deprecatedVersion.review_state).to.eql('approved');
+          expect(deprecatedVersion.promotion_channel).to.eql('prod');
           expect(deprecatedVersion.is_current_default).to.eql(false);
         });
 

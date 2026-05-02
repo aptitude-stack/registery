@@ -4,7 +4,7 @@ Use this directory as the canonical documentation entrypoint for contributors, r
 
 ## Taxonomy
 
-- `architecture/`: current-state explanation of system shape, boundaries, and invariants
+- `architecture/`: current-state explanation of system shape, deployment topology, boundaries, and invariants
 - `contributors/`: tutorials and how-to guides for engineers and operators working in the repo
 - `reference/`: canonical technical reference for routes, schema, settings, storage, and runbooks
 - `roadmap/`: product requirements and forward-looking explanation; non-normative unless promoted
@@ -25,6 +25,7 @@ Related entrypoints outside this directory:
 - [`architecture/system-overview.md`](architecture/system-overview.md): high-level system shape
 - [`architecture/server-resolver-boundary.md`](architecture/server-resolver-boundary.md): hard ownership split with the resolver
 - [`architecture/decision-rules.md`](architecture/decision-rules.md): implementation invariants and doc-sync rules
+- [`architecture/render-neon-deployment.md`](architecture/render-neon-deployment.md): production deployment architecture for Render, Neon, and DNS ownership
 
 ### Make or review changes
 
@@ -40,6 +41,7 @@ Related entrypoints outside this directory:
 - [`reference/api-contract.md`](reference/api-contract.md): canonical HTTP contract
 - [`reference/runtime-profiles.md`](reference/runtime-profiles.md): runtime profiles, Compose profiles, and env-var roles
 - [`reference/service-token-governance.md`](reference/service-token-governance.md): bearer-token auth contract and prod auth posture
+- [`reference/enterprise-governance.md`](reference/enterprise-governance.md): namespace grants, promotion workflow, policy packs, trust evidence, and visibility rules
 - [`reference/publish-request-schema.md`](reference/publish-request-schema.md): publish request schema
 - [`reference/schema.md`](reference/schema.md): canonical PostgreSQL schema baseline
 - [`reference/storage-strategy.md`](reference/storage-strategy.md): current storage decision
@@ -57,7 +59,7 @@ Related entrypoints outside this directory:
 
 ## Ownership Rules
 
-- `docs/architecture/*`: canonical current-state explanation and invariants
+- `docs/architecture/*`: canonical current-state explanation, deployment topology, and invariants
 - `docs/contributors/*`: canonical how-to and workflow guidance
 - `docs/reference/*`: canonical contracts, schema, settings, and operations reference
 - `docs/roadmap/*`: product requirements and forward-looking rationale, explicitly non-normative unless promoted

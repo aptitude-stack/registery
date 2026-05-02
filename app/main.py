@@ -21,6 +21,7 @@ from starlette.types import ExceptionHandler
 from app.core.governance import PolicyViolation
 from app.core.settings import Settings, get_settings, load_settings, reset_settings_cache
 from app.interface.api.discovery import router as discovery_router
+from app.interface.api.enterprise import router as enterprise_router
 from app.interface.api.errors import (
     ApiError,
     api_error_exception_handler,
@@ -216,6 +217,7 @@ def create_app() -> FastAPI:
     app.include_router(root_router)
     app.include_router(health_router)
     app.include_router(discovery_router)
+    app.include_router(enterprise_router)
     app.include_router(resolution_router)
     app.include_router(fetch_router)
     app.include_router(skills_router)

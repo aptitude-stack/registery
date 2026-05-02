@@ -1,0 +1,11 @@
+name: Prod
+color: "#B83D7F"
+variables:
+  - name: baseUrl
+    value: https://aptitude-registry.dev
+  - secret: true
+    name: readToken
+  - secret: true
+    name: publishToken
+  - secret: true
+    name: adminToken

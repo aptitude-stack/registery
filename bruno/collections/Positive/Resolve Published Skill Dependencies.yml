@@ -1,7 +1,7 @@
 info:
   name: Resolve Published Skill Dependencies
   type: http
-  seq: 14
+  seq: 16
 
 http:
   method: GET

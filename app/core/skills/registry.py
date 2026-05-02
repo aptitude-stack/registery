@@ -6,14 +6,21 @@ import hashlib
 import json
 from typing import cast
 
-from app.core.audit_events import build_lifecycle_audit_event, build_publish_audit_event
+from app.core.audit_events import (
+    build_enterprise_audit_event,
+    build_lifecycle_audit_event,
+    build_publish_audit_event,
+)
 from app.core.governance import (
     CallerIdentity,
     GovernancePolicy,
     LifecycleStatus,
     PolicyViolation,
+    PromotionChannel,
     ProvenanceMetadata,
+    ReviewState,
     SkillGovernanceInput,
+    TrustTier,
 )
 from app.core.ports import (
     AuditPort,
@@ -33,6 +40,9 @@ from .models import (
     SHA256_ALGORITHM,
     CreateSkillVersionCommand,
     DuplicateSkillVersionError,
+    NamespaceRecord,
+    OrganizationRecord,
+    PolicyPackRecord,
     PublishIntent,
     SkillAlreadyExistsError,
     SkillChecksum,
@@ -41,12 +51,15 @@ from .models import (
     SkillMetadata,
     SkillMetadataInput,
     SkillNotFoundError,
+    SkillOwnershipUpdate,
     SkillRegistryError,
     SkillRelationshipSelector,
     SkillRelationshipsInput,
     SkillVersionDetail,
+    SkillVersionGovernanceUpdate,
     SkillVersionNotFoundError,
     SkillVersionStatusUpdate,
+    TrustEvidenceRecord,
 )
 
 __all__ = [
@@ -138,6 +151,11 @@ class SkillRegistryService:
         governance_record = GovernanceRecordInput(
             trust_tier=normalized_governance.trust_tier,
             provenance=normalized_governance.provenance,
+            namespace=normalized_governance.namespace,
+            artifact_origin=normalized_governance.artifact_origin,
+            review_state=normalized_governance.review_state or "approved",
+            promotion_channel=normalized_governance.promotion_channel or "prod",
+            policy_pack_slug=normalized_governance.policy_pack_slug,
         )
         relationship_records = _to_relationship_record_inputs(command.relationships)
         version_checksum_digest = _version_checksum_digest(
@@ -209,6 +227,7 @@ class SkillRegistryService:
                 caller=caller,
                 current_status=stored.lifecycle_status,
                 next_status=lifecycle_status,
+                namespace=stored.namespace,
             )
         except PolicyViolation as exc:
             denied_event = build_lifecycle_audit_event(
@@ -250,6 +269,256 @@ class SkillRegistryService:
         if updated is None:
             raise SkillVersionNotFoundError(slug=slug, version=version)
         return updated
+
+    def create_organization(
+        self,
+        *,
+        caller: CallerIdentity,
+        slug: str,
+        display_name: str,
+    ) -> OrganizationRecord:
+        """Create one enterprise organization."""
+        event = build_enterprise_audit_event(
+            caller=caller,
+            event_type="enterprise.organization_created",
+            surface="enterprise_admin",
+            outcome="allowed",
+            policy_profile=self._governance_policy.profile_name,
+            payload={"organization": slug},
+        )
+        return self._repository.create_organization(
+            slug=slug,
+            display_name=display_name,
+            audit_events=(event,),
+        )
+
+    def create_namespace(
+        self,
+        *,
+        caller: CallerIdentity,
+        slug: str,
+        organization_slug: str,
+        visibility: str,
+    ) -> NamespaceRecord:
+        """Create one enterprise namespace."""
+        event = build_enterprise_audit_event(
+            caller=caller,
+            event_type="enterprise.namespace_created",
+            surface="enterprise_admin",
+            outcome="allowed",
+            policy_profile=self._governance_policy.profile_name,
+            payload={
+                "namespace": slug,
+                "organization": organization_slug,
+                "visibility": visibility,
+            },
+        )
+        return self._repository.create_namespace(
+            slug=slug,
+            organization_slug=organization_slug,
+            visibility=visibility,
+            audit_events=(event,),
+        )
+
+    def upsert_policy_pack(
+        self,
+        *,
+        caller: CallerIdentity,
+        slug: str,
+        description: str | None,
+        rules: dict[str, object],
+    ) -> PolicyPackRecord:
+        """Create or update one policy pack reference."""
+        event = build_enterprise_audit_event(
+            caller=caller,
+            event_type="enterprise.policy_pack_upserted",
+            surface="enterprise_admin",
+            outcome="allowed",
+            policy_profile=self._governance_policy.profile_name,
+            payload={"policy_pack": slug},
+        )
+        return self._repository.upsert_policy_pack(
+            slug=slug,
+            description=description,
+            rules=rules,
+            audit_events=(event,),
+        )
+
+    def update_skill_ownership(
+        self,
+        *,
+        caller: CallerIdentity,
+        slug: str,
+        namespace: str,
+    ) -> SkillOwnershipUpdate:
+        """Move one skill identity into a namespace."""
+        event = build_enterprise_audit_event(
+            caller=caller,
+            event_type="enterprise.skill_ownership_updated",
+            surface="enterprise_admin",
+            outcome="allowed",
+            policy_profile=self._governance_policy.profile_name,
+            payload={"slug": slug, "namespace": namespace},
+        )
+        updated = self._repository.update_skill_ownership(
+            slug=slug,
+            namespace=namespace,
+            audit_events=(event,),
+        )
+        if updated is None:
+            raise SkillNotFoundError(slug=slug)
+        return updated
+
+    def update_version_governance(
+        self,
+        *,
+        caller: CallerIdentity,
+        slug: str,
+        version: str,
+        review_state: ReviewState | None = None,
+        promotion_channel: PromotionChannel | None = None,
+        trust_tier: TrustTier | None = None,
+        policy_pack_slug: str | None = None,
+        note: str | None = None,
+    ) -> SkillVersionGovernanceUpdate:
+        """Update mutable enterprise governance state for one immutable version."""
+        stored = self._repository.get_version_detail(slug=slug, version=version)
+        if stored is None:
+            raise SkillVersionNotFoundError(slug=slug, version=version)
+        if not caller.has_namespace_grant(
+            namespace=stored.namespace,
+            role="review",
+            promotion_channel=stored.promotion_channel,
+        ):
+            denied_event = build_enterprise_audit_event(
+                caller=caller,
+                event_type="enterprise.version_governance_update_denied",
+                surface="enterprise_admin",
+                outcome="denied",
+                policy_profile=self._governance_policy.profile_name,
+                reason_code="POLICY_NAMESPACE_FORBIDDEN",
+                payload={
+                    "slug": slug,
+                    "version": version,
+                    "namespace": stored.namespace,
+                    "required_role": "review",
+                },
+            )
+            self._audit_recorder.record_event(
+                event_type=denied_event.event_type,
+                payload=denied_event.payload,
+            )
+            raise PolicyViolation(
+                code="POLICY_NAMESPACE_FORBIDDEN",
+                message="Caller is not allowed to review this namespace.",
+                details={"namespace": stored.namespace, "required_role": "review"},
+            )
+        event = build_enterprise_audit_event(
+            caller=caller,
+            event_type="enterprise.version_governance_updated",
+            surface="enterprise_admin",
+            outcome="allowed",
+            policy_profile=self._governance_policy.profile_name,
+            payload={
+                "slug": slug,
+                "version": version,
+                "namespace": stored.namespace,
+                "previous_review_state": stored.review_state,
+                "next_review_state": review_state,
+                "previous_promotion_channel": stored.promotion_channel,
+                "next_promotion_channel": promotion_channel,
+                "previous_trust_tier": stored.trust_tier,
+                "next_trust_tier": trust_tier,
+                "policy_pack": policy_pack_slug,
+                "note": note,
+            },
+        )
+        updated = self._repository.update_version_governance(
+            slug=slug,
+            version=version,
+            review_state=review_state,
+            promotion_channel=promotion_channel,
+            trust_tier=trust_tier,
+            policy_pack_slug=policy_pack_slug,
+            audit_events=(event,),
+        )
+        if updated is None:
+            raise SkillVersionNotFoundError(slug=slug, version=version)
+        return updated
+
+    def add_trust_evidence(
+        self,
+        *,
+        caller: CallerIdentity,
+        slug: str,
+        version: str,
+        evidence_type: str,
+        subject: str,
+        digest: str | None,
+        uri: str | None,
+        payload: dict[str, object] | None,
+    ) -> TrustEvidenceRecord:
+        """Append evidence for one immutable version without exposing raw payloads in response."""
+        stored = self._repository.get_version_detail(slug=slug, version=version)
+        if stored is None:
+            raise SkillVersionNotFoundError(slug=slug, version=version)
+        if not caller.has_namespace_grant(
+            namespace=stored.namespace,
+            role="review",
+            promotion_channel=stored.promotion_channel,
+        ):
+            denied_event = build_enterprise_audit_event(
+                caller=caller,
+                event_type="enterprise.trust_evidence_add_denied",
+                surface="enterprise_admin",
+                outcome="denied",
+                policy_profile=self._governance_policy.profile_name,
+                reason_code="POLICY_NAMESPACE_FORBIDDEN",
+                payload={
+                    "slug": slug,
+                    "version": version,
+                    "namespace": stored.namespace,
+                    "required_role": "review",
+                },
+            )
+            self._audit_recorder.record_event(
+                event_type=denied_event.event_type,
+                payload=denied_event.payload,
+            )
+            raise PolicyViolation(
+                code="POLICY_NAMESPACE_FORBIDDEN",
+                message="Caller is not allowed to add trust evidence for this namespace.",
+                details={"namespace": stored.namespace, "required_role": "review"},
+            )
+        event = build_enterprise_audit_event(
+            caller=caller,
+            event_type="enterprise.trust_evidence_added",
+            surface="enterprise_admin",
+            outcome="allowed",
+            policy_profile=self._governance_policy.profile_name,
+            payload={
+                "slug": slug,
+                "version": version,
+                "namespace": stored.namespace,
+                "evidence_type": evidence_type,
+                "subject": subject,
+                "digest_present": digest is not None,
+                "uri_present": uri is not None,
+            },
+        )
+        created = self._repository.add_trust_evidence(
+            slug=slug,
+            version=version,
+            evidence_type=evidence_type,
+            subject=subject,
+            digest=digest,
+            uri=uri,
+            payload=payload,
+            audit_events=(event,),
+        )
+        if created is None:
+            raise SkillVersionNotFoundError(slug=slug, version=version)
+        return created
 
 
 def _to_relationship_record_inputs(

@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from app.core.audit_events import build_search_audit_event
-from app.core.governance import CallerIdentity, GovernancePolicy, LifecycleStatus, TrustTier
+from app.core.governance import (
+    ALL_REVIEW_STATES,
+    CallerIdentity,
+    GovernancePolicy,
+    LifecycleStatus,
+    TrustTier,
+)
 from app.core.ports import AuditPort, SearchCandidatesRequest, SkillCatalogRepository
 from app.intelligence.search_ranking import (
     build_search_audit_payload,
@@ -85,6 +91,10 @@ class SkillSearchService:
         trust_tiers = self._governance_policy.resolve_discovery_trust_tiers(
             requested_trust_tiers=query.trust_tier,
         )
+        namespaces = self._governance_policy.resolve_discovery_namespaces(caller=caller)
+        promotion_channels = self._governance_policy.resolve_discovery_promotion_channels(
+            caller=caller,
+        )
         stored_results = self._repository.search_candidates(
             request=SearchCandidatesRequest(
                 query_text=normalized_request.query_text,
@@ -93,7 +103,23 @@ class SkillSearchService:
                 max_content_size_bytes=normalized_request.max_footprint_bytes,
                 lifecycle_statuses=lifecycle_statuses,
                 trust_tiers=trust_tiers,
+                namespaces=namespaces,
+                promotion_channels=promotion_channels,
+                review_states=ALL_REVIEW_STATES if caller.has_scope("review") else ("approved",),
                 limit=normalized_request.limit,
+            )
+        )
+        visible_results = tuple(
+            item
+            for item in stored_results
+            if self._governance_policy.is_visible_in_list(
+                caller=caller,
+                lifecycle_status=item.lifecycle_status,
+                namespace=item.namespace,
+                review_state=item.review_state,
+                promotion_channel=item.promotion_channel,
+                trust_tier=item.trust_tier,
+                policy_pack=item.policy_pack,
             )
         )
         current_time = datetime.now(UTC)
@@ -115,7 +141,7 @@ class SkillSearchService:
                 matched_tags=explanation.matched_tags,
                 reasons=explanation.reasons,
             )
-            for item in stored_results
+            for item in visible_results
             for explanation in (
                 build_search_explanation(
                     query_terms=normalized_request.query_terms,

@@ -6,13 +6,29 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal, Protocol
 
-from app.core.governance import CallerScope, LifecycleStatus, ProvenanceMetadata, TrustTier
+from app.core.governance import (
+    ArtifactOrigin,
+    CallerScope,
+    LifecycleStatus,
+    NamespaceGrant,
+    PolicyPack,
+    PromotionChannel,
+    ProvenanceMetadata,
+    ReviewState,
+    TrustTier,
+)
 from app.core.skills.models import (
+    NamespaceRecord,
+    OrganizationRecord,
+    PolicyPackRecord,
     SkillContentRecord,
+    SkillOwnershipUpdate,
     SkillRelationshipSource,
     SkillVersionDetail,
+    SkillVersionGovernanceUpdate,
     SkillVersionListEntry,
     SkillVersionStatusUpdate,
+    TrustEvidenceRecord,
 )
 
 RelationshipEdgeType = Literal[
@@ -39,6 +55,7 @@ class ServiceTokenRecord:
     secret_digest: str
     scopes: frozenset[CallerScope]
     active: bool
+    namespace_grants: tuple[NamespaceGrant, ...] = ()
     expires_at: datetime | None = None
 
 
@@ -85,6 +102,11 @@ class GovernanceRecordInput:
 
     trust_tier: TrustTier
     provenance: ProvenanceMetadata | None
+    namespace: str
+    artifact_origin: ArtifactOrigin
+    review_state: ReviewState
+    promotion_channel: PromotionChannel
+    policy_pack_slug: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +132,9 @@ class SearchCandidatesRequest:
     max_content_size_bytes: int | None
     lifecycle_statuses: tuple[LifecycleStatus, ...]
     trust_tiers: tuple[TrustTier, ...]
+    namespaces: tuple[str, ...] | None
+    promotion_channels: tuple[PromotionChannel, ...] | None
+    review_states: tuple[ReviewState, ...]
     limit: int
 
 
@@ -124,6 +149,11 @@ class StoredSkillSearchCandidate:
     tags: tuple[str, ...]
     lifecycle_status: LifecycleStatus
     trust_tier: TrustTier
+    namespace: str
+    artifact_origin: ArtifactOrigin
+    review_state: ReviewState
+    promotion_channel: PromotionChannel
+    policy_pack: PolicyPack | None
     published_at: datetime
     content_size_bytes: int
     usage_count: int
@@ -203,6 +233,71 @@ class SkillCatalogRepository(Protocol):
         audit_events: tuple[AuditEventRecord, ...] = (),
     ) -> SkillVersionStatusUpdate | None:
         """Update lifecycle state for one immutable version and return the new projection."""
+
+    def create_organization(
+        self,
+        *,
+        slug: str,
+        display_name: str,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> OrganizationRecord:
+        """Create one organization record."""
+
+    def create_namespace(
+        self,
+        *,
+        slug: str,
+        organization_slug: str,
+        visibility: str,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> NamespaceRecord:
+        """Create one namespace record."""
+
+    def upsert_policy_pack(
+        self,
+        *,
+        slug: str,
+        description: str | None,
+        rules: dict[str, Any],
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> PolicyPackRecord:
+        """Create or update one policy pack."""
+
+    def update_skill_ownership(
+        self,
+        *,
+        slug: str,
+        namespace: str,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> SkillOwnershipUpdate | None:
+        """Move a skill identity into a namespace."""
+
+    def update_version_governance(
+        self,
+        *,
+        slug: str,
+        version: str,
+        review_state: ReviewState | None = None,
+        promotion_channel: PromotionChannel | None = None,
+        trust_tier: TrustTier | None = None,
+        policy_pack_slug: str | None = None,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> SkillVersionGovernanceUpdate | None:
+        """Update mutable enterprise governance state for one immutable version."""
+
+    def add_trust_evidence(
+        self,
+        *,
+        slug: str,
+        version: str,
+        evidence_type: str,
+        subject: str,
+        digest: str | None,
+        uri: str | None,
+        payload: dict[str, Any] | None,
+        audit_events: tuple[AuditEventRecord, ...] = (),
+    ) -> TrustEvidenceRecord | None:
+        """Append one trust evidence row to a version."""
 
 
 class AuditPort(Protocol):

@@ -1,0 +1,56 @@
+info:
+  name: Update Skill Version Governance
+  type: http
+  seq: 10
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/admin/skills/{{sanity_primary_slug}}/{{sanity_version_2}}/governance"
+  headers:
+    - name: Accept
+      value: application/json
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{reviewToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "review_state": "approved",
+        "promotion_channel": "prod",
+        "trust_tier": "internal",
+        "note": "Bruno sanity governance update."
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const json = res.getBody();
+
+        test('Status is 200', function () {
+          expect(res.getStatus()).to.equal(200);
+        });
+
+        test('Governance update returns enterprise workflow state', function () {
+          expect(json.slug).to.eql(bru.getVar('sanity_primary_slug'));
+          expect(json.version).to.eql(bru.getVar('sanity_version_2'));
+          expect(json.lifecycle_status).to.eql('deprecated');
+          expect(json.trust_tier).to.eql('internal');
+          expect(json.namespace).to.eql('public');
+          expect(json.artifact_origin).to.eql('internal');
+          expect(json.review_state).to.eql('approved');
+          expect(json.promotion_channel).to.eql('prod');
+          expect(json.policy_pack_slug).to.eql(null);
+        });
+
+        bru.runner.setNextRequest(
+          res.getStatus() === 200 ? 'Add Skill Version Trust Evidence' : null,
+        );
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

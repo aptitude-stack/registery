@@ -177,6 +177,28 @@ def build_exact_read_denied_audit_event(
     )
 
 
+def build_enterprise_audit_event(
+    *,
+    caller: CallerIdentity,
+    event_type: str,
+    surface: str,
+    outcome: AuditOutcome,
+    payload: dict[str, Any],
+    policy_profile: str,
+    reason_code: str | None = None,
+) -> AuditEventRecord:
+    """Return an audit event for enterprise control-plane operations."""
+    event_payload = _base_payload(
+        caller=caller,
+        policy_profile=policy_profile,
+        outcome=outcome,
+        surface=surface,
+        reason_code=reason_code,
+    )
+    event_payload.update(payload)
+    return AuditEventRecord(event_type=event_type, payload=event_payload)
+
+
 def _base_payload(
     *,
     caller: CallerIdentity,

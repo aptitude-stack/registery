@@ -54,6 +54,10 @@ class SkillResolutionService:
                 version=stored.version,
                 lifecycle_status=stored.lifecycle_status,
                 trust_tier=stored.trust_tier,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                policy_pack=stored.policy_pack,
             ),
             surface="resolution",
         )

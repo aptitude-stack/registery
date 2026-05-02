@@ -1,4 +1,4 @@
-"""Switch immutable content storage from markdown text to zip bundles.
+"""Switch immutable content storage from markdown text to tar.zst bundles.
 
 Revision ID: 0003_skill_bundle_storage
 Revises: 0002_skill_install_counts
@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tarfile
 from collections import defaultdict
 from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile
 
 import sqlalchemy as sa
+import zstandard
 
 from alembic import op
 
@@ -23,7 +24,8 @@ down_revision = "0002_skill_install_counts"
 branch_labels = None
 depends_on = None
 
-_MEDIA_TYPE = "application/zip"
+_MEDIA_TYPE = "application/zstd"
+_SKILL_BUNDLE_MARKDOWN_PATH = "skill-bundle/SKILL.md"
 _RELATIONSHIP_EDGE_ORDER = {
     "depends_on": 0,
     "extends": 1,
@@ -235,18 +237,32 @@ def _recompute_version_checksums(connection: sa.Connection) -> None:
 
 
 def _bundle_markdown(markdown: str) -> bytes:
-    buffer = BytesIO()
-    with ZipFile(buffer, mode="w", compression=ZIP_DEFLATED) as archive:
-        archive.writestr("legacy-skill/SKILL.md", markdown)
-    return buffer.getvalue()
+    tar_buffer = BytesIO()
+    payload = markdown.encode("utf-8")
+    with tarfile.open(fileobj=tar_buffer, mode="w") as archive:
+        info = tarfile.TarInfo(_SKILL_BUNDLE_MARKDOWN_PATH)
+        info.size = len(payload)
+        info.mode = 0o644
+        info.mtime = 0
+        info.uid = 0
+        info.gid = 0
+        info.uname = ""
+        info.gname = ""
+        archive.addfile(info, BytesIO(payload))
+
+    compressor = zstandard.ZstdCompressor()
+    return compressor.compress(tar_buffer.getvalue())
 
 
 def _extract_skill_markdown(payload: bytes) -> str:
-    with ZipFile(BytesIO(payload)) as archive:
-        for name in archive.namelist():
-            if name.count("/") == 1 and name.endswith("/SKILL.md"):
-                return archive.read(name).decode("utf-8")
-    raise RuntimeError("Could not locate root SKILL.md while downgrading bundle storage.")
+    with zstandard.ZstdDecompressor().stream_reader(BytesIO(payload)) as reader:
+        with tarfile.open(fileobj=reader, mode="r|") as archive:
+            for member in archive:
+                if member.name == _SKILL_BUNDLE_MARKDOWN_PATH:
+                    extracted = archive.extractfile(member)
+                    if extracted is not None:
+                        return extracted.read().decode("utf-8")
+    raise RuntimeError("Could not locate SKILL.md while downgrading bundle storage.")
 
 
 def _sha256(value: bytes) -> str:

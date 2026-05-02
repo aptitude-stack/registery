@@ -7,6 +7,7 @@ import pytest
 from app.core.governance import (
     CallerIdentity,
     GovernancePolicy,
+    NamespaceGrant,
     PolicyViolation,
     ProvenanceMetadata,
     SkillGovernanceInput,
@@ -43,6 +44,43 @@ def test_settings_parse_service_tokens_and_policy_profiles_from_json() -> None:
 
 
 @pytest.mark.unit
+def test_settings_parse_service_token_namespace_grants() -> None:
+    settings = Settings.model_validate(
+        {
+            "DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
+            "AUTH_SERVICE_TOKENS_JSON": [
+                {
+                    "token_id": "reviewer-token",
+                    "secret_digest": (
+                        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                    ),
+                    "scopes": ["read", "review"],
+                    "active": True,
+                    "namespace_grants": [
+                        {
+                            "namespace": "acme.private",
+                            "roles": ["read", "review"],
+                            "promotion_channels": ["dev", "staging"],
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    record = settings.service_token_records[0]
+
+    assert record.scopes == frozenset({"read", "review"})
+    assert record.namespace_grants == (
+        NamespaceGrant(
+            namespace="acme.private",
+            roles=frozenset({"read", "review"}),
+            promotion_channels=frozenset({"dev", "staging"}),
+        ),
+    )
+
+
+@pytest.mark.unit
 def test_governance_policy_blocks_missing_provenance_for_internal_publish() -> None:
     policy = GovernancePolicy(
         profile=Settings.model_validate(
@@ -57,6 +95,65 @@ def test_governance_policy_blocks_missing_provenance_for_internal_publish() -> N
         )
 
     assert exc_info.value.code == "POLICY_PROVENANCE_REQUIRED"
+
+
+@pytest.mark.unit
+def test_governance_policy_blocks_publish_without_namespace_grant() -> None:
+    policy = GovernancePolicy(
+        profile=Settings.model_validate(
+            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
+        ).active_policy
+    )
+
+    with pytest.raises(PolicyViolation) as exc_info:
+        policy.prepare_publish_governance(
+            caller=CallerIdentity(
+                token_id="publisher",
+                scopes=frozenset({"publish"}),
+                namespace_grants=(
+                    NamespaceGrant(
+                        namespace="public",
+                        roles=frozenset({"publish"}),
+                        promotion_channels=frozenset({"prod"}),
+                    ),
+                ),
+            ),
+            governance=SkillGovernanceInput(namespace="acme.private"),
+        )
+
+    assert exc_info.value.code == "POLICY_NAMESPACE_FORBIDDEN"
+
+
+@pytest.mark.unit
+def test_governance_policy_hides_pending_imports_from_prod_reader() -> None:
+    policy = GovernancePolicy(
+        profile=Settings.model_validate(
+            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
+        ).active_policy
+    )
+
+    with pytest.raises(PolicyViolation) as exc_info:
+        policy.ensure_exact_read_allowed(
+            caller=CallerIdentity(
+                token_id="reader",
+                scopes=frozenset({"read"}),
+                namespace_grants=(
+                    NamespaceGrant(
+                        namespace="acme.private",
+                        roles=frozenset({"read"}),
+                        promotion_channels=frozenset({"prod"}),
+                    ),
+                ),
+            ),
+            lifecycle_status="published",
+            namespace="acme.private",
+            review_state="pending_review",
+            promotion_channel="dev",
+            trust_tier="untrusted",
+            policy_pack=None,
+        )
+
+    assert exc_info.value.code == "POLICY_REVIEW_STATE_FORBIDDEN"
 
 
 @pytest.mark.unit

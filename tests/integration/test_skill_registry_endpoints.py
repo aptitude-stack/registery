@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 from uuid import uuid4
@@ -13,11 +14,27 @@ from sqlalchemy import create_engine, event, text
 from app.core.skills.bundle_archive import MAX_SKILL_BUNDLE_SIZE_BYTES, build_skill_bundle
 from app.main import create_app
 from app.persistence.db import get_session_factory
-from tests.conftest import DEFAULT_BEARER_TOKENS
+from tests.conftest import DEFAULT_AUTH_SERVICE_TOKENS, DEFAULT_BEARER_TOKENS
 
 
 def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {DEFAULT_BEARER_TOKENS.get(token, token)}"}
+
+
+def _token_record(
+    *,
+    token_id: str,
+    secret: str,
+    scopes: list[str],
+    namespace_grants: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "token_id": token_id,
+        "secret_digest": hashlib.sha256(secret.encode("utf-8")).hexdigest(),
+        "scopes": scopes,
+        "active": True,
+        "namespace_grants": namespace_grants,
+    }
 
 
 def _request(
@@ -332,6 +349,11 @@ def test_publish_discovery_resolution_and_exact_fetch(
                 "version": "2.0.0",
                 "lifecycle_status": "published",
                 "trust_tier": "internal",
+                "namespace": "public",
+                "artifact_origin": "internal",
+                "review_state": "approved",
+                "promotion_channel": "prod",
+                "policy_pack_slug": None,
                 "published_at": published["published_at"],
                 "is_current_default": True,
             }
@@ -826,6 +848,11 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
             "version": "1.0.0",
             "lifecycle_status": "archived",
             "trust_tier": "untrusted",
+            "namespace": "public",
+            "artifact_origin": "internal",
+            "review_state": "approved",
+            "promotion_channel": "prod",
+            "policy_pack_slug": None,
             "published_at": archived_versions_admin.json()["versions"][0]["published_at"],
             "is_current_default": False,
         }
@@ -840,6 +867,129 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
     assert archived_content_forbidden.json()["error"]["code"] == "POLICY_EXACT_READ_FORBIDDEN"
     assert archived_content_admin.status_code == 200
     assert archived_content_admin.content == _bundle("# Python Lint\n\nLint Python files.\n")
+
+
+@pytest.mark.integration
+def test_enterprise_namespace_review_promotion_and_trust_evidence_workflow(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    private_reader_secret = "dev-private-reader-secret"
+    token_records = [
+        *DEFAULT_AUTH_SERVICE_TOKENS,
+        _token_record(
+            token_id="private-reader",
+            secret=private_reader_secret,
+            scopes=["read"],
+            namespace_grants=[
+                {
+                    "namespace": "acme.private",
+                    "roles": ["read"],
+                    "promotion_channels": ["prod"],
+                }
+            ],
+        ),
+    ]
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    monkeypatch.setenv("AUTH_SERVICE_TOKENS_JSON", json.dumps(token_records))
+    suffix = uuid4().hex
+    slug = f"python.imported.{suffix}"
+    private_headers = {"Authorization": f"Bearer private-reader.{private_reader_secret}"}
+
+    with TestClient(create_app()) as client:
+        organization = client.post(
+            "/admin/organizations",
+            json={"slug": "acme", "display_name": "Acme Corp"},
+            headers=_headers("admin-token"),
+        )
+        namespace = client.post(
+            "/admin/namespaces",
+            json={"slug": "acme.private", "organization_slug": "acme", "visibility": "private"},
+            headers=_headers("admin-token"),
+        )
+        published = _publish(
+            client,
+            slug,
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                name="Imported Review Candidate",
+                description="Third-party imported artifact awaiting review",
+                tags=["python", "imported-review"],
+                trust_tier="untrusted",
+                provenance=None,
+            )
+            | {
+                "governance": {
+                    "trust_tier": "untrusted",
+                    "namespace": "acme.private",
+                    "artifact_origin": "imported",
+                    "provenance": None,
+                }
+            },
+            token="admin-token",
+        )
+        hidden_discovery = client.post(
+            "/discovery",
+            json={"name": "Imported Review Candidate"},
+            headers=private_headers,
+        )
+        hidden_metadata = client.get(f"/skills/{slug}/1.0.0", headers=private_headers)
+        promoted = client.patch(
+            f"/admin/skills/{slug}/1.0.0/governance",
+            json={
+                "review_state": "approved",
+                "promotion_channel": "prod",
+                "note": "review approved",
+            },
+            headers=_headers("admin-token"),
+        )
+        evidence = client.post(
+            f"/admin/skills/{slug}/1.0.0/trust-evidence",
+            json={
+                "evidence_type": "attestation",
+                "subject": "build-pipeline",
+                "digest": "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+                "uri": "https://example.com/attestations/build.json",
+                "payload": {"pipeline": "ci", "run_id": "123"},
+            },
+            headers=_headers("admin-token"),
+        )
+        visible_discovery = client.post(
+            "/discovery",
+            json={"name": "Imported Review Candidate"},
+            headers=private_headers,
+        )
+        metadata = client.get(f"/skills/{slug}/1.0.0", headers=private_headers)
+        content = client.get(f"/skills/{slug}/1.0.0/content", headers=private_headers)
+
+    audit_events = _query_audit_events(migrated_registry_database)
+    event_types = [event["event_type"] for event in audit_events]
+
+    assert organization.status_code == 201, organization.text
+    assert namespace.status_code == 201, namespace.text
+    assert published["namespace"] == "acme.private"
+    assert published["artifact_origin"] == "imported"
+    assert published["review_state"] == "pending_review"
+    assert published["promotion_channel"] == "dev"
+    assert hidden_discovery.status_code == 200
+    assert slug not in hidden_discovery.json()["candidates"]
+    assert hidden_metadata.status_code == 403
+    assert hidden_metadata.json()["error"]["code"] == "POLICY_REVIEW_STATE_FORBIDDEN"
+    assert promoted.status_code == 200, promoted.text
+    assert promoted.json()["review_state"] == "approved"
+    assert promoted.json()["promotion_channel"] == "prod"
+    assert evidence.status_code == 201, evidence.text
+    assert visible_discovery.status_code == 200
+    assert slug in visible_discovery.json()["candidates"]
+    assert metadata.status_code == 200
+    assert metadata.json()["review_state"] == "approved"
+    assert content.status_code == 200
+    assert content.headers["ETag"] == published["content"]["checksum"]["digest"]
+    assert "enterprise.namespace_created" in event_types
+    assert "enterprise.version_visibility_denied" in event_types
+    assert "enterprise.version_governance_updated" in event_types
+    assert "enterprise.trust_evidence_added" in event_types
 
 
 @pytest.mark.integration
