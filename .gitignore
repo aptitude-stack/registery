@@ -64,3 +64,4 @@ htmlcov/
 skills-lock.json
 .env*.local
 /bruno/environments/Prod.yml
+/.cursor/AGENTS.md
