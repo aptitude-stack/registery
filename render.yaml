@@ -6,7 +6,7 @@ services:
     branch: master
     region: virginia
     plan: starter
-    buildCommand: uv sync --frozen --no-dev --extra otel
+    buildCommand: uv sync --frozen --no-dev
     preDeployCommand: uv run alembic upgrade head
     startCommand: uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /healthz
@@ -24,6 +24,10 @@ services:
         value: INFO
       - key: LOG_FORMAT
         value: auto
+      - key: OTEL_ENABLED
+        value: "false"
+      - key: OTEL_SDK_DISABLED
+        value: "true"
       - key: ACTIVE_POLICY_PROFILE
         value: default
       - key: DATABASE_URL
@@ -33,18 +37,4 @@ services:
       - key: AUTH_SERVICE_TOKENS_JSON
         sync: false
       - key: ALLOWED_HOSTS_JSON
-        sync: false
-      - key: OTEL_ENABLED
-        sync: false
-      - key: OTEL_EXPORTER_OTLP_PROTOCOL
-        sync: false
-      - key: OTEL_EXPORTER_OTLP_ENDPOINT
-        sync: false
-      - key: OTEL_EXPORTER_OTLP_HEADERS
-        sync: false
-      - key: OTEL_RESOURCE_ATTRIBUTES
-        sync: false
-      - key: OTEL_TRACES_SAMPLER
-        sync: false
-      - key: OTEL_TRACES_SAMPLER_ARG
         sync: false
