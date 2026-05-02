@@ -20,7 +20,6 @@ It should answer exact questions about the current contract without retelling th
 
 - [`api-contract.md`](api-contract.md): canonical HTTP contract
 - [`runtime-profiles.md`](runtime-profiles.md): `APP_ENV`, Compose profiles, and env-var roles
-- [`render-neon-deployment.md`](render-neon-deployment.md): production API deployment on Render with Neon Postgres
 - [`service-token-governance.md`](service-token-governance.md): governed bearer-token auth contract
 - [`enterprise-governance.md`](enterprise-governance.md): namespaces, promotion workflow, policy packs, trust evidence, and visibility rules
 - [`publish-request-schema.md`](publish-request-schema.md): publish request reference
