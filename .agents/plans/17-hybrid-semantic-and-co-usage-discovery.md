@@ -1,4 +1,4 @@
-# Plan 16 - Hybrid Semantic Retrieval and Co-Usage Discovery Signals
+# Plan 17 - Hybrid Semantic Retrieval and Co-Usage Discovery Signals
 
 ## Goal
 Add a post-launch semantic candidate-expansion layer to `POST /discovery`

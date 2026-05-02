@@ -102,3 +102,10 @@ Harden `aptitude-server` for repeatable deployment and reliable operation after 
 - If Plan 15 is implemented later, its semantic-discovery observability should
   reuse the log schema and Grafana Loki conventions introduced here instead of
   creating a parallel logging vocabulary.
+
+## Plan Numbering Clarification (2026-04-25)
+- The semantic-discovery work referenced in the historical Plan 15 follow-on
+  notes is now tracked by Plan 18 after later roadmap reorganization.
+- The enterprise control-plane direction formerly held in standalone Plan 15 is
+  now embedded directly in `roadmap.md` as a strategic anchor, not as an
+  implementation plan.

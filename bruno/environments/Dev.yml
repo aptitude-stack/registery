@@ -4,8 +4,10 @@ variables:
   - name: baseUrl
     value: http://localhost:8000
   - name: readToken
-    value: reader-token
+    value: reader-token.dev-reader-secret
   - name: publishToken
-    value: publisher-token
+    value: publisher-token.dev-publisher-secret
+  - name: reviewToken
+    value: admin-token.dev-admin-secret
   - name: adminToken
-    value: admin-token
+    value: admin-token.dev-admin-secret

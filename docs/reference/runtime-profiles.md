@@ -106,6 +106,13 @@ Service-token settings use this JSON shape:
     "token_id": "reader-token",
     "secret_digest": "sha256-hex-of-secret",
     "scopes": ["read"],
+    "namespace_grants": [
+      {
+        "namespace": "public",
+        "roles": ["read"],
+        "promotion_channels": ["prod"]
+      }
+    ],
     "active": true,
     "expires_at": null
   }
@@ -117,6 +124,10 @@ Clients send the raw secret only over HTTP:
 ```text
 Authorization: Bearer reader-token.dev-reader-secret
 ```
+
+Promotion channels are governance workflow state, not runtime profiles. `dev`,
+`staging`, and `prod` promotion channels control enterprise visibility; they do not
+create new `APP_ENV` values.
 
 ## Practical Defaults
 

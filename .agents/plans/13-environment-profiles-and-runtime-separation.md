@@ -77,8 +77,8 @@ Standardize `dev` and `prod` as the only explicit runtime profiles before any au
 - There is no separate `staging` profile in this milestone; staging should use `prod` semantics unless a later plan introduces a third profile for a concrete reason.
 - The repo keeps one FastAPI app and one settings model; environment behavior is controlled by validated settings and runner commands, not separate codebases.
 
-## Plan 15 Follow-On Note (2026-04-16)
-- Plan 15 inherits the same `dev` and `prod` profile model; semantic indexing,
+## Plan 18 Follow-On Note (2026-04-16, renumbered 2026-04-25)
+- Plan 18 inherits the same `dev` and `prod` profile model; semantic indexing,
   embedding-provider configuration, co-usage aggregation jobs, and feature
   flags must fit inside these existing runtime profiles rather than introducing
   search-specific environments.

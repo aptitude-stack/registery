@@ -81,7 +81,7 @@ runtime:
         });
 
         bru.runner.setNextRequest(
-          res.getStatus() === 200 ? 'List Published Skill Versions' : null,
+          res.getStatus() === 200 ? 'Update Skill Version Governance' : null,
         );
 
 settings:

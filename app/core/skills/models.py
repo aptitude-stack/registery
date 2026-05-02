@@ -7,8 +7,12 @@ from datetime import datetime
 from typing import Any, Literal
 
 from app.core.governance import (
+    ArtifactOrigin,
     LifecycleStatus,
+    PolicyPack,
+    PromotionChannel,
     ProvenanceMetadata,
+    ReviewState,
     SkillGovernanceInput,
     TrustTier,
 )
@@ -112,6 +116,11 @@ class SkillContentRecord:
     size_bytes: int
     lifecycle_status: LifecycleStatus
     trust_tier: TrustTier
+    namespace: str = "public"
+    artifact_origin: ArtifactOrigin = "internal"
+    review_state: ReviewState = "approved"
+    promotion_channel: PromotionChannel = "prod"
+    policy_pack: PolicyPack | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +151,11 @@ class SkillVersionDetail:
     trust_tier: TrustTier
     provenance: ProvenanceMetadata | None
     published_at: datetime
+    namespace: str = "public"
+    artifact_origin: ArtifactOrigin = "internal"
+    review_state: ReviewState = "approved"
+    promotion_channel: PromotionChannel = "prod"
+    policy_pack: PolicyPack | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +167,11 @@ class SkillVersionSummary:
     trust_tier: TrustTier
     published_at: datetime
     is_current_default: bool
+    namespace: str = "public"
+    artifact_origin: ArtifactOrigin = "internal"
+    review_state: ReviewState = "approved"
+    promotion_channel: PromotionChannel = "prod"
+    policy_pack_slug: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +183,11 @@ class SkillVersionListEntry:
     lifecycle_status: LifecycleStatus
     trust_tier: TrustTier
     published_at: datetime
+    namespace: str = "public"
+    artifact_origin: ArtifactOrigin = "internal"
+    review_state: ReviewState = "approved"
+    promotion_channel: PromotionChannel = "prod"
+    policy_pack: PolicyPack | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,6 +207,11 @@ class SkillRelationshipSource:
     lifecycle_status: LifecycleStatus
     trust_tier: TrustTier
     relationships: tuple[SkillRelationshipSelector, ...]
+    namespace: str = "public"
+    artifact_origin: ArtifactOrigin = "internal"
+    review_state: ReviewState = "approved"
+    promotion_channel: PromotionChannel = "prod"
+    policy_pack: PolicyPack | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,6 +224,70 @@ class SkillVersionStatusUpdate:
     trust_tier: TrustTier
     lifecycle_changed_at: datetime
     is_current_default: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SkillVersionGovernanceUpdate:
+    """Enterprise governance update result returned by admin APIs."""
+
+    slug: str
+    version: str
+    lifecycle_status: LifecycleStatus
+    trust_tier: TrustTier
+    namespace: str
+    artifact_origin: ArtifactOrigin
+    review_state: ReviewState
+    promotion_channel: PromotionChannel
+    policy_pack_slug: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class OrganizationRecord:
+    """Enterprise organization record."""
+
+    slug: str
+    display_name: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class NamespaceRecord:
+    """Enterprise namespace record."""
+
+    slug: str
+    organization_slug: str
+    visibility: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PolicyPackRecord:
+    """Enterprise policy-pack record."""
+
+    slug: str
+    description: str | None
+    rules: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class SkillOwnershipUpdate:
+    """Skill namespace ownership update result."""
+
+    slug: str
+    namespace: str
+
+
+@dataclass(frozen=True, slots=True)
+class TrustEvidenceRecord:
+    """Trust evidence append result returned without raw payload contents."""
+
+    slug: str
+    version: str
+    evidence_type: str
+    subject: str
+    digest: str | None
+    uri: str | None
+    created_at: datetime
 
 
 class SkillRegistryError(RuntimeError):
