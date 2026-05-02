@@ -35,3 +35,15 @@ def test_server_and_migrate_are_available_without_profiles() -> None:
 
     assert 'profiles: ["observability"]' not in server_section
     assert 'profiles: ["observability"]' not in migrate_section
+
+
+def test_local_stack_keeps_otel_explicitly_disabled() -> None:
+    compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    server_section = compose.split("  server:\n", maxsplit=1)[1].split(
+        "\n  migrate:\n",
+        maxsplit=1,
+    )[0]
+
+    assert 'OTEL_ENABLED: "false"' in server_section
+    assert 'OTEL_SDK_DISABLED: "true"' in server_section
+    assert "OTEL_EXPORTER_OTLP" not in compose

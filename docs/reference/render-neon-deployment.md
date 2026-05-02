@@ -63,15 +63,16 @@ Recommended settings:
 | Branch | `master` |
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
-| Build command | `uv sync --frozen --no-dev --extra otel` |
+| Build command | `uv sync --frozen --no-dev` |
 | Pre-deploy command | `uv run alembic upgrade head` |
 | Start command | `uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
 
-The `--extra otel` flag installs the OpenTelemetry SDK, OTLP/HTTP exporters,
-and FastAPI/SQLAlchemy/psycopg/logging instrumentation packages used to ship
-traces, logs, and metrics to Grafana Cloud. Without it the app boots in a
-"no-op telemetry" mode and `OTEL_ENABLED=true` will fail at import time.
+The default Render blueprint keeps telemetry dormant: it does not install the
+optional OpenTelemetry exporter extra, sets `OTEL_ENABLED=false`, and sets
+`OTEL_SDK_DISABLED=true`. In this posture the app emits stdout logs and serves
+health/readiness only; it does not ship traces, logs, or metrics to Grafana
+Cloud.
 
 Required Render environment variables:
 
@@ -85,18 +86,22 @@ MIGRATION_DATABASE_URL=postgresql+psycopg://<neon-role>:<password>@<direct-neon-
 AUTH_SERVICE_TOKENS_JSON=[{"token_id":"reader-token","secret_digest":"<sha256>","scopes":["read"],"active":true},{"token_id":"publisher-token","secret_digest":"<sha256>","scopes":["read","publish"],"active":true},{"token_id":"admin-token","secret_digest":"<sha256>","scopes":["read","publish","admin"],"active":true}]
 ALLOWED_HOSTS_JSON=["api.aptitude-registry.dev","<render-service>.onrender.com"]
 ACTIVE_POLICY_PROFILE=default
+OTEL_ENABLED=false
+OTEL_SDK_DISABLED=true
 ```
 
 For production runtime, `DATABASE_URL` should use the Neon pooled host
 (`-pooler`). `MIGRATION_DATABASE_URL` must use the direct Neon host because
 Alembic should not run through PgBouncer.
 
-Optional OpenTelemetry → Grafana Cloud variables (set together; see
-[`observability-grafana-cloud.md`](observability-grafana-cloud.md) for
+Optional OpenTelemetry → Grafana Cloud variables (only set together after
+updating the Render build command to `uv sync --frozen --no-dev --extra otel`;
+see [`observability-grafana-cloud.md`](observability-grafana-cloud.md) for
 details and Access Policy token scopes):
 
 ```text
 OTEL_ENABLED=true
+OTEL_SDK_DISABLED=false
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp
 OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64(instance_id:access_token)>
@@ -118,7 +123,8 @@ Keep the Render `onrender.com` host in `ALLOWED_HOSTS_JSON` until custom-domain 
    `logs:write`, and `traces:write` scopes; copy the resulting token.
 2. Confirm the Grafana Cloud OTLP gateway URL for the stack region (the
    "Send Data → OTLP" page in Grafana Cloud).
-3. In the Render service "Environment" tab add the OTel env vars above.
+3. In the Render service "Environment" tab add the OTel env vars above and set
+   `OTEL_SDK_DISABLED=false`.
    Use Render's "Encrypted" flag for `OTEL_EXPORTER_OTLP_HEADERS`.
 4. Update the Build Command from `uv sync --frozen --no-dev` to
    `uv sync --frozen --no-dev --extra otel`.

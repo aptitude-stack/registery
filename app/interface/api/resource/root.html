@@ -653,8 +653,6 @@
       }
 
       let readyOk = false;
-      let failingCount = 0;
-      let totalChecks = 0;
       if (ready.status === 'fulfilled' && ready.value.body) {
         const body = ready.value.body;
         readyOk = body.status === 'ready';
@@ -664,11 +662,6 @@
           readyOk ? 'READY' : 'NOT READY',
           String(ready.value.status),
         );
-        const checks = Array.isArray(body.checks) ? body.checks : [];
-        for (const check of checks) {
-          if (check.status !== 'ok') failingCount += 1;
-        }
-        totalChecks = checks.length;
       } else {
         const reason = ready.status === 'rejected'
           ? String(ready.reason?.message ?? ready.reason ?? 'error')
@@ -676,13 +669,13 @@
         setRow(readiness, 'unknown', 'UNKNOWN', reason, reason);
       }
 
-      const probeCount = 2 + totalChecks;
-      const passed = (healthOk ? 1 : 0) + (readyOk ? 1 : 0) + (totalChecks - failingCount);
+      const probeCount = 2;
+      const passed = (healthOk ? 1 : 0) + (readyOk ? 1 : 0);
       const metaText = `${passed} / ${probeCount} passing`;
 
-      if (healthOk && readyOk && failingCount === 0) {
+      if (healthOk && readyOk) {
         setHeadline('ok', 'All Systems Operational', metaText);
-      } else if (healthOk && (failingCount > 0 || !readyOk)) {
+      } else if (healthOk) {
         setHeadline('degraded', 'Partial Degradation', metaText);
       } else {
         setHeadline('outage', 'Service Unreachable', metaText);
