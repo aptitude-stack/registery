@@ -15,8 +15,8 @@ def test_render_blueprint_keeps_otel_dormant_by_default() -> None:
 
     assert "buildCommand: uv sync --frozen --no-dev\n" in document
     assert "--extra otel" not in document
-    assert "      - key: OTEL_ENABLED\n        value: \"false\"\n" in document
-    assert "      - key: OTEL_SDK_DISABLED\n        value: \"true\"\n" in document
+    assert '      - key: OTEL_ENABLED\n        value: "false"\n' in document
+    assert '      - key: OTEL_SDK_DISABLED\n        value: "true"\n' in document
 
 
 @pytest.mark.unit
