@@ -6,12 +6,13 @@ This directory contains the canonical current-state explanation of `Aptitude Reg
 
 - system shape and layering
 - hard ownership boundaries
+- production deployment topology and deployment invariants
 - implementation invariants that should survive refactors
 
 ## What Does Not
 
 - endpoint-by-endpoint payload reference
-- step-by-step setup or operator recipes
+- broad setup tutorials or operator recipes that are not tied to architecture
 - future design proposals or historical delivery notes
 
 ## Reading Order
@@ -20,6 +21,7 @@ This directory contains the canonical current-state explanation of `Aptitude Reg
 2. [`server-resolver-boundary.md`](server-resolver-boundary.md)
 3. [`decision-rules.md`](decision-rules.md)
 4. [`discovery-and-ranking.md`](discovery-and-ranking.md)
+5. [`render-neon-deployment.md`](render-neon-deployment.md)
 
 ## Update Rules
 
