@@ -114,6 +114,22 @@ For production runtime, `DATABASE_URL` should use the Neon pooled host
 (`-pooler`). `MIGRATION_DATABASE_URL` must use the direct Neon host because
 Alembic should not run through PgBouncer.
 
+Semantic discovery is off by default. When enabling it, keep the runtime mode
+explicit:
+
+```text
+SEMANTIC_DISCOVERY_MODE=shadow
+SEMANTIC_EMBEDDING_MODEL=metadata-1536-v1
+SEMANTIC_EMBEDDING_DIMENSIONS=1536
+SEMANTIC_CANDIDATE_LIMIT=20
+SEMANTIC_QUERY_TIMEOUT_MS=150
+SEMANTIC_HNSW_EF_SEARCH=100
+```
+
+Use `shadow` before `hybrid` so semantic retrieval can be observed without
+changing discovery ordering. Do not enable `hybrid` until an embedding provider
+and indexing job are actually writing `indexed` rows.
+
 Keep the Render `onrender.com` host in `ALLOWED_HOSTS_JSON` until custom-domain
 verification and health checks are stable. After that, either keep it for
 emergency access or disable the Render subdomain and remove it from the
@@ -139,6 +155,21 @@ string for migration traffic. Convert both URL schemes to
 Do not point Alembic at a Neon pooled `-pooler` host. The app exposes this
 split as `DATABASE_URL` for runtime and `MIGRATION_DATABASE_URL` for
 migrations.
+
+Semantic discovery uses Neon Postgres through `pgvector`, not a separate vector
+database. Migration `0005_semantic_discovery_signals` enables the `vector`
+extension and creates the `skill_search_embeddings` read model with a
+`halfvec(1536)` column plus an HNSW cosine index. This means:
+
+- the production database role used for migrations must be able to run
+  `CREATE EXTENSION IF NOT EXISTS vector`;
+- the migration must run over `MIGRATION_DATABASE_URL`, not the pooled runtime
+  URL;
+- runtime discovery may continue using the pooled `DATABASE_URL` because
+  semantic queries use `SET LOCAL hnsw.ef_search` for the current transaction;
+- HNSW tuning should start from the checked-in defaults and be changed through
+  `SEMANTIC_HNSW_EF_SEARCH` only after measuring recall and latency on the
+  production branch or a Neon branch.
 
 Enable the query-statistics extension once on the production database for
 observability:
@@ -207,6 +238,9 @@ Preferred production migration path:
   pre-deploy command.
 - `DATABASE_URL` remains pooled for the running app.
 - `MIGRATION_DATABASE_URL` remains direct for Alembic.
+- `alembic/env.py` rejects a selected Neon `-pooler` host before running
+  migrations, including semantic-search migrations that create `pgvector`
+  objects.
 
 Fallback path when the service is temporarily on Render Free:
 
