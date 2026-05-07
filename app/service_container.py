@@ -45,7 +45,11 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
     if engine is not None:
         instrument_database_engine(engine)
     session_factory = get_session_factory()
-    catalog_repository = SQLAlchemySkillCatalogRepository(session_factory=session_factory)
+    catalog_repository = SQLAlchemySkillCatalogRepository(
+        session_factory=session_factory,
+        semantic_embedding_model=settings.semantic_embedding_model,
+        semantic_embedding_dimensions=settings.semantic_embedding_dimensions,
+    )
     audit_recorder = SQLAlchemyAuditRecorder(session_factory=session_factory)
     governance_policy = GovernancePolicy(profile=settings.active_policy)
     return ServiceContainer(
@@ -64,6 +68,15 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
             repository=catalog_repository,
             audit_recorder=audit_recorder,
             governance_policy=governance_policy,
+            semantic_discovery_mode=settings.semantic_discovery_mode,
+            semantic_embedding_model=settings.semantic_embedding_model,
+            semantic_embedding_dimensions=settings.semantic_embedding_dimensions,
+            semantic_candidate_limit=settings.semantic_candidate_limit,
+            semantic_query_timeout_ms=settings.semantic_query_timeout_ms,
+            semantic_hnsw_ef_search=settings.semantic_hnsw_ef_search,
+            co_usage_ranking_enabled=settings.co_usage_ranking_enabled,
+            co_usage_boost_cap=settings.co_usage_boost_cap,
+            co_usage_context_limit=settings.co_usage_context_limit,
         ),
         skill_fetch_service=SkillFetchService(
             repository=catalog_repository,

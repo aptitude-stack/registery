@@ -11,6 +11,7 @@ http:
       value: application/json
     - name: Authorization
       value: Bearer {{publishToken}}
+      disabled: true
   body:
     type: multipart-form
     data:
@@ -44,8 +45,11 @@ http:
       - name: bundle
         type: file
         value:
-          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/dependency.tar.zst
+          - ../../fixtures/dependency.tar.zst
         contentType: application/zstd
+  auth:
+    type: bearer
+    token: "{{publishToken}}"
 
 runtime:
   scripts:

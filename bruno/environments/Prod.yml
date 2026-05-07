@@ -2,7 +2,7 @@ name: Prod
 color: "#B83D7F"
 variables:
   - name: baseUrl
-    value: https://aptitude-registry.dev
+    value: https://api.aptitude-registry.dev
   - secret: true
     name: readToken
   - secret: true

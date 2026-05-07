@@ -16,6 +16,7 @@ class SkillDiscoveryRequest:
     name: str
     description: str | None
     tags: tuple[str, ...]
+    context_skills: tuple[str, ...] = ()
 
 
 class SkillDiscoveryService(SkillSearchService):
@@ -37,6 +38,7 @@ class SkillDiscoveryService(SkillSearchService):
                 fresh_within_days=None,
                 max_footprint_bytes=None,
                 limit=20,
+                context_skills=request.context_skills,
             ),
         )
         return tuple(item.slug for item in results)

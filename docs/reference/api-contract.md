@@ -201,6 +201,12 @@ Default publish behavior:
 
 Visibility is enforced consistently for discovery, version listing, exact metadata, exact content, and resolution. Discovery still returns candidate slugs only, resolution still returns direct authored `depends_on` selectors only, and exact content still returns the same immutable `.tar.zst` bytes.
 
+Discovery remains lexical-primary. Optional semantic expansion and co-usage
+signals are internal ranking inputs inside `POST /discovery`; they do not add
+routes or response fields. The request may include `context_skills` to identify
+already selected/installed skill slugs for bounded co-usage boosts, but those
+values are not dependency declarations.
+
 Trust evidence is append-only. Evidence response payloads expose evidence type, subject, digest, URI, and creation time, but not the raw evidence payload.
 
 Detailed state, policy-pack, and audit rules live in [`enterprise-governance.md`](enterprise-governance.md).

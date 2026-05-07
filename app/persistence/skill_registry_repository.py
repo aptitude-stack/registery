@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload, sessionmaker
 
@@ -21,8 +22,11 @@ from app.core.governance import (
 )
 from app.core.ports import (
     AuditEventRecord,
+    CoUsageBoostRequest,
     CreateSkillVersionRecord,
+    MetadataRecordInput,
     SearchCandidatesRequest,
+    SearchSemanticCandidatesRequest,
     SkillCatalogRepository,
     SkillRegistryPersistenceError,
     StoredSkillSearchCandidate,
@@ -41,6 +45,11 @@ from app.core.skills.models import (
     TrustEvidenceRecord,
 )
 from app.core.skills.version_ordering import select_current_default_version
+from app.intelligence.discovery_signals import (
+    build_embedding_source,
+    build_source_checksum_digest,
+    serialize_embedding_vector,
+)
 from app.persistence.models.audit_event import AuditEvent
 from app.persistence.models.namespace import Namespace
 from app.persistence.models.organization import Organization
@@ -70,8 +79,16 @@ from app.persistence.skill_registry_repository_support import (
 class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
     """SQLAlchemy implementation for normalized immutable skill persistence."""
 
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        *,
+        semantic_embedding_model: str = "metadata-1536-v1",
+        semantic_embedding_dimensions: int = 1536,
+    ) -> None:
         self._session_factory = session_factory
+        self._semantic_embedding_model = semantic_embedding_model
+        self._semantic_embedding_dimensions = semantic_embedding_dimensions
 
     def skill_exists(self, *, slug: str) -> bool:
         with self._session_factory() as session:
@@ -190,6 +207,12 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                         content_size_bytes=record.content.size_bytes,
                     )
                 )
+                self._add_pending_search_embedding(
+                    session=session,
+                    skill_version_id=skill_version.id,
+                    slug=record.slug,
+                    metadata=record.metadata,
+                )
                 self._add_audit_events(session=session, audit_events=audit_events)
                 session.commit()
 
@@ -283,37 +306,141 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     "limit": request.limit,
                 },
             ).mappings()
-            return tuple(
-                StoredSkillSearchCandidate(
-                    slug=str(row["slug"]),
-                    version=str(row["version"]),
-                    name=str(row["name"]),
-                    description=str(row["description"]) if row["description"] is not None else None,
-                    tags=tuple(ensure_string_list(row["tags"])),
-                    lifecycle_status=cast(LifecycleStatus, str(row["lifecycle_status"])),
-                    trust_tier=cast(TrustTier, str(row["trust_tier"])),
-                    namespace=str(row["namespace"]),
-                    artifact_origin=cast(ArtifactOrigin, str(row["artifact_origin"])),
-                    review_state=cast(ReviewState, str(row["review_state"])),
-                    promotion_channel=cast(PromotionChannel, str(row["promotion_channel"])),
-                    policy_pack=(
-                        None
-                        if row["policy_pack_slug"] is None
-                        else DomainPolicyPack(
-                            slug=str(row["policy_pack_slug"]),
-                            rules=dict(row["policy_pack_rules"] or {}),
-                        )
-                    ),
-                    published_at=ensure_datetime(row["published_at"]),
-                    content_size_bytes=int(row["content_size_bytes"]),
-                    usage_count=int(row["usage_count"]),
-                    exact_slug_match=bool(row["exact_slug_match"]),
-                    exact_name_match=bool(row["exact_name_match"]),
-                    lexical_score=float(row["lexical_score"]),
-                    tag_overlap_count=int(row["tag_overlap_count"]),
-                )
-                for row in rows
-            )
+            return tuple(self._to_search_candidate(row) for row in rows)
+
+    def search_semantic_candidates(
+        self,
+        *,
+        request: SearchSemanticCandidatesRequest,
+    ) -> tuple[StoredSkillSearchCandidate, ...]:
+        published_after = None
+        if request.fresh_within_days is not None:
+            published_after = datetime.now(UTC) - timedelta(days=request.fresh_within_days)
+
+        query_embedding = serialize_embedding_vector(request.query_embedding)
+        vector_type = f"halfvec({request.embedding_dimensions})"
+        with self._session_factory() as session:
+            session.execute(text(f"SET LOCAL hnsw.ef_search = {request.hnsw_ef_search}"))
+            rows = session.execute(
+                text(
+                    f"""
+                    SELECT
+                        doc.skill_version_fk,
+                        doc.slug,
+                        doc.version,
+                        doc.name,
+                        doc.description,
+                        doc.tags,
+                        doc.lifecycle_status,
+                        doc.trust_tier,
+                        doc.namespace,
+                        doc.artifact_origin,
+                        doc.review_state,
+                        doc.promotion_channel,
+                        doc.policy_pack_slug,
+                        pack.rules AS policy_pack_rules,
+                        doc.published_at,
+                        doc.content_size_bytes,
+                        doc.usage_count,
+                        FALSE AS exact_slug_match,
+                        FALSE AS exact_name_match,
+                        0.0 AS lexical_score,
+                        CASE
+                            WHEN :required_tag_count > 0 THEN (
+                                SELECT COUNT(*)
+                                FROM unnest(doc.normalized_tags) AS tag
+                                WHERE tag = ANY(:required_tags)
+                            )
+                            ELSE 0
+                        END AS tag_overlap_count,
+                        emb.embedding_vector <=> CAST(:query_embedding AS {vector_type})
+                            AS semantic_distance
+                    FROM skill_search_embeddings AS emb
+                    JOIN skill_search_documents AS doc
+                        ON doc.skill_version_fk = emb.skill_version_fk
+                    LEFT JOIN policy_packs AS pack
+                        ON pack.slug = doc.policy_pack_slug
+                    WHERE emb.embedding_model = :embedding_model
+                      AND emb.embedding_dimensions = :embedding_dimensions
+                      AND emb.index_status = 'indexed'
+                      AND emb.embedding_vector IS NOT NULL
+                      AND (
+                        :required_tag_count = 0
+                        OR doc.normalized_tags @> :required_tags
+                      )
+                      AND (
+                        :published_after IS NULL
+                        OR doc.published_at >= :published_after
+                      )
+                      AND (
+                        :max_content_size_bytes IS NULL
+                        OR doc.content_size_bytes <= :max_content_size_bytes
+                      )
+                      AND doc.lifecycle_status = ANY(:lifecycle_statuses)
+                      AND doc.trust_tier = ANY(:trust_tiers)
+                      AND (
+                        :namespaces_unrestricted
+                        OR doc.namespace = ANY(:namespaces)
+                      )
+                      AND (
+                        :promotion_channels_unrestricted
+                        OR doc.promotion_channel = ANY(:promotion_channels)
+                      )
+                      AND doc.review_state = ANY(:review_states)
+                    ORDER BY semantic_distance ASC, doc.slug ASC, doc.skill_version_fk DESC
+                    LIMIT :limit
+                    """
+                ),
+                {
+                    "query_embedding": query_embedding,
+                    "embedding_model": request.embedding_model,
+                    "embedding_dimensions": request.embedding_dimensions,
+                    "required_tags": list(request.required_tags),
+                    "required_tag_count": len(request.required_tags),
+                    "published_after": published_after,
+                    "max_content_size_bytes": request.max_content_size_bytes,
+                    "lifecycle_statuses": list(request.lifecycle_statuses),
+                    "trust_tiers": list(request.trust_tiers),
+                    "namespaces": list(request.namespaces or ()),
+                    "namespaces_unrestricted": request.namespaces is None,
+                    "promotion_channels": list(request.promotion_channels or ()),
+                    "promotion_channels_unrestricted": request.promotion_channels is None,
+                    "review_states": list(request.review_states),
+                    "limit": request.limit,
+                },
+            ).mappings()
+            return tuple(self._to_search_candidate(row) for row in rows)
+
+    def get_co_usage_boosts(self, *, request: CoUsageBoostRequest) -> dict[str, float]:
+        if not request.context_skill_slugs or not request.candidate_slugs:
+            return {}
+        with self._session_factory() as session:
+            rows = session.execute(
+                text(
+                    """
+                    SELECT
+                        related.slug,
+                        LEAST(
+                            :boost_cap,
+                            GREATEST(0.0, MAX(pair.co_usage_rate)::float * :boost_cap)
+                        ) AS boost
+                    FROM skill_co_usage_pairs AS pair
+                    JOIN skills AS anchor
+                        ON anchor.id = pair.anchor_skill_fk
+                    JOIN skills AS related
+                        ON related.id = pair.related_skill_fk
+                    WHERE anchor.slug = ANY(:context_skill_slugs)
+                      AND related.slug = ANY(:candidate_slugs)
+                    GROUP BY related.slug
+                    """
+                ),
+                {
+                    "context_skill_slugs": list(request.context_skill_slugs),
+                    "candidate_slugs": list(request.candidate_slugs),
+                    "boost_cap": request.boost_cap,
+                },
+            ).mappings()
+            return {str(row["slug"]): float(row["boost"]) for row in rows}
 
     def record_install(self, *, slug: str, version: str) -> None:
         with self._session_factory() as session:
@@ -725,6 +852,90 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         if policy_pack is None:
             raise SkillRegistryPersistenceError(f"Policy pack not found: {slug}")
         return policy_pack.id
+
+    def _add_pending_search_embedding(
+        self,
+        *,
+        session: Session,
+        skill_version_id: int,
+        slug: str,
+        metadata: MetadataRecordInput,
+    ) -> None:
+        source = build_embedding_source(
+            slug=slug,
+            name=metadata.name,
+            description=metadata.description,
+            tags=metadata.tags,
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO skill_search_embeddings (
+                    skill_version_fk,
+                    embedding_model,
+                    embedding_dimensions,
+                    source_checksum_digest,
+                    index_status
+                )
+                VALUES (
+                    :skill_version_fk,
+                    :embedding_model,
+                    :embedding_dimensions,
+                    :source_checksum_digest,
+                    'pending'
+                )
+                ON CONFLICT (skill_version_fk, embedding_model)
+                DO UPDATE SET
+                    embedding_dimensions = EXCLUDED.embedding_dimensions,
+                    source_checksum_digest = EXCLUDED.source_checksum_digest,
+                    index_status = 'stale',
+                    updated_at = CURRENT_TIMESTAMP
+                """
+            ),
+            {
+                "skill_version_fk": skill_version_id,
+                "embedding_model": self._semantic_embedding_model,
+                "embedding_dimensions": self._semantic_embedding_dimensions,
+                "source_checksum_digest": build_source_checksum_digest(source),
+            },
+        )
+
+    @staticmethod
+    def _to_search_candidate(row: RowMapping) -> StoredSkillSearchCandidate:
+        return StoredSkillSearchCandidate(
+            skill_version_fk=int(row["skill_version_fk"]),
+            slug=str(row["slug"]),
+            version=str(row["version"]),
+            name=str(row["name"]),
+            description=str(row["description"]) if row["description"] is not None else None,
+            tags=tuple(ensure_string_list(row["tags"])),
+            lifecycle_status=cast(LifecycleStatus, str(row["lifecycle_status"])),
+            trust_tier=cast(TrustTier, str(row["trust_tier"])),
+            namespace=str(row["namespace"]),
+            artifact_origin=cast(ArtifactOrigin, str(row["artifact_origin"])),
+            review_state=cast(ReviewState, str(row["review_state"])),
+            promotion_channel=cast(PromotionChannel, str(row["promotion_channel"])),
+            policy_pack=(
+                None
+                if row["policy_pack_slug"] is None
+                else DomainPolicyPack(
+                    slug=str(row["policy_pack_slug"]),
+                    rules=dict(row["policy_pack_rules"] or {}),
+                )
+            ),
+            published_at=ensure_datetime(row["published_at"]),
+            content_size_bytes=int(row["content_size_bytes"]),
+            usage_count=int(row["usage_count"]),
+            exact_slug_match=bool(row["exact_slug_match"]),
+            exact_name_match=bool(row["exact_name_match"]),
+            lexical_score=float(row["lexical_score"]),
+            tag_overlap_count=int(row["tag_overlap_count"]),
+            semantic_distance=(
+                None
+                if "semantic_distance" not in row or row["semantic_distance"] is None
+                else float(row["semantic_distance"])
+            ),
+        )
 
     @staticmethod
     def _sync_search_governance(

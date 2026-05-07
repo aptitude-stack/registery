@@ -77,7 +77,7 @@ http:
       - name: bundle
         type: file
         value:
-          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/primary-v2.tar.zst
+          - ../../fixtures/primary-v2.tar.zst
         contentType: application/zstd
 
 runtime:

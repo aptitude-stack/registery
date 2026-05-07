@@ -36,6 +36,7 @@ SETTINGS_ENV_FILE_ENV_VAR = "APP_SETTINGS_ENV_FILE"
 MIGRATION_DATABASE_URL_ENV_VAR = "MIGRATION_DATABASE_URL"
 OTEL_OTLP_ENDPOINT_ENV_VAR = "OTEL_EXPORTER_OTLP_ENDPOINT"
 AppEnv = Literal["dev", "prod"]
+SemanticDiscoveryMode = Literal["off", "shadow", "hybrid"]
 
 
 def _default_publish_rules() -> dict[TrustTier, PublishRuleSettings]:
@@ -200,6 +201,52 @@ class Settings(BaseSettings):
     )
     active_policy_profile: str = Field(default="default", alias="ACTIVE_POLICY_PROFILE")
     otel_enabled: bool = Field(default=False, alias="OTEL_ENABLED")
+    semantic_discovery_mode: SemanticDiscoveryMode = Field(
+        default="off",
+        alias="SEMANTIC_DISCOVERY_MODE",
+    )
+    semantic_embedding_model: str = Field(
+        default="metadata-1536-v1",
+        alias="SEMANTIC_EMBEDDING_MODEL",
+    )
+    semantic_embedding_dimensions: int = Field(
+        default=1536,
+        alias="SEMANTIC_EMBEDDING_DIMENSIONS",
+    )
+    semantic_candidate_limit: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        alias="SEMANTIC_CANDIDATE_LIMIT",
+    )
+    semantic_query_timeout_ms: int = Field(
+        default=150,
+        ge=1,
+        le=5_000,
+        alias="SEMANTIC_QUERY_TIMEOUT_MS",
+    )
+    semantic_hnsw_ef_search: int = Field(
+        default=100,
+        ge=1,
+        le=1_000,
+        alias="SEMANTIC_HNSW_EF_SEARCH",
+    )
+    co_usage_ranking_enabled: bool = Field(
+        default=False,
+        alias="CO_USAGE_RANKING_ENABLED",
+    )
+    co_usage_boost_cap: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=0.25,
+        alias="CO_USAGE_BOOST_CAP",
+    )
+    co_usage_context_limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        alias="CO_USAGE_CONTEXT_LIMIT",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
