@@ -58,13 +58,26 @@ for exact and near-exact lookup, not embedding input.
 - Default vector shape: `1536` dimensions, stored as `halfvec(1536)`
 - Background execution: Render Workflow for production indexing, triggered by
   Render Cron because Workflows do not provide built-in scheduling
+- Current external references for implementation:
+  - OpenAI embeddings guide: `https://platform.openai.com/docs/guides/embeddings`
+  - OpenAI `text-embedding-3-small` model page:
+    `https://platform.openai.com/docs/models/text-embedding-3-small`
+  - Neon AI concepts / pgvector support:
+    `https://neon.com/docs/ai/ai-concepts`
+  - Neon supported extensions:
+    `https://neon.com/docs/extensions/extensions-intro`
 
 ## Scope
 - Add OpenAI embedding-provider settings:
   - `OPENAI_API_KEY`
   - `SEMANTIC_EMBEDDING_PROVIDER=openai`
   - `SEMANTIC_EMBEDDING_MODEL=text-embedding-3-small`
+  - `SEMANTIC_EMBEDDING_INDEX_KEY=openai:text-embedding-3-small:description-tags-v1`
   - `SEMANTIC_EMBEDDING_DIMENSIONS=1536`
+- Keep a strict distinction between:
+  - provider model name sent to OpenAI: `text-embedding-3-small`
+  - persisted embedding index key stored in `skill_search_embeddings.embedding_model`:
+    `openai:text-embedding-3-small:description-tags-v1`
 - Wire an OpenAI implementation of `EmbeddingProviderPort`.
 - Keep `SEMANTIC_DISCOVERY_MODE=off|shadow|hybrid` as the rollout control.
 - Build semantic source text only from:
@@ -83,6 +96,21 @@ for exact and near-exact lookup, not embedding input.
   verification using the same indexing service.
 - Update the canonical discovery/ranking documentation during implementation to
   explain the final search model clearly.
+
+## Architecture Decisions
+- Keep the provider behind `EmbeddingProviderPort`; do not let OpenAI SDK calls
+  leak into API routers, repository code, or SQL helpers.
+- Keep query-time embedding generation inside the discovery service boundary,
+  under the existing semantic timeout budget.
+- Keep index-time embedding generation in a separate application service that
+  depends on repository/indexing ports and the same provider abstraction.
+- Keep `skill_search_embeddings` as a derived read model. It is rebuildable and
+  never the authoritative skill catalog.
+- Do not couple publish transactions to OpenAI availability. Publish may create
+  or update pending rows, but vector generation remains post-commit work.
+- Treat the persisted embedding index key as the compatibility boundary. Any
+  future source change, model change, provider change, or dimension change must
+  use a new key or an explicit migration/backfill plan.
 
 ## Non-Goals
 - No new public semantic-search route.
@@ -113,9 +141,21 @@ Tags remain structured filters when supplied in discovery requests. If a caller
 requests tags, matching candidates must contain those normalized tags. Semantic
 similarity must not turn requested tags into soft preferences.
 
+Tags therefore have two roles:
+- hard filter when supplied as `tags` in the discovery request
+- semantic source text when persisted as part of a skill's metadata
+
 ### Semantic Search
 Semantic search is optional expansion. It embeds description and tags only for
 both indexed skill rows and discovery queries.
+
+The semantic query source is:
+- normalized discovery `description`, if present
+- normalized discovery `tags`, if present
+
+The required discovery `name` is not semantic input. If a request has only
+`name` and no description or tags, semantic expansion is skipped even when
+`SEMANTIC_DISCOVERY_MODE` is `shadow` or `hybrid`.
 
 Semantic search owns:
 - recovering semantically similar candidates when wording differs
@@ -140,9 +180,17 @@ Fusion remains lexical-primary:
 Raw vector distance must not be exposed publicly and must not be compared
 directly against lexical scores as a standalone global relevance score.
 
+### Failure Behavior
+- Missing provider configuration in `off` mode must not block app startup.
+- Missing provider configuration in `shadow` or `hybrid` must fail startup
+  clearly, because the selected mode cannot operate as configured.
+- Provider timeouts, rate limits, invalid vectors, or SQL vector-query failures
+  during a request must degrade that request to lexical-only results.
+- Indexing failures must mark rows failed and must not affect publish, exact
+  fetch, resolution, lifecycle changes, or lexical discovery.
+
 ## OpenAI Provider Design
-- Use the official OpenAI Python SDK unless a later implementation spike proves
-  direct HTTPX is materially simpler.
+- Use the official OpenAI Python SDK as a runtime dependency.
 - Read credentials from `OPENAI_API_KEY`.
 - Treat missing credentials as a startup/configuration problem only when
   semantic mode requires a provider. `SEMANTIC_DISCOVERY_MODE=off` must not
@@ -151,20 +199,28 @@ directly against lexical scores as a standalone global relevance score.
 - Pass the configured `model` and `dimensions`.
 - Validate that returned vectors contain exactly the configured number of finite
   floats.
+- Use one embedding input per call for query-time embedding.
+- Permit batch embedding only in the indexing service, where provider rate
+  limits and partial failures can be handled without user-facing latency.
 - Catch provider timeouts, rate limits, and malformed responses at the semantic
   boundary so discovery degrades to lexical-only behavior.
 - Never log `OPENAI_API_KEY` or full provider response bodies.
+- Log only sanitized provider metadata: provider name, configured model,
+  dimensions, input count, elapsed time, success/failure class, and row counts.
 
 ## Indexing Workflow
 - Publish continues to create pending semantic rows after metadata persistence.
 - The indexer claims work in small batches using a PostgreSQL-safe queue pattern
   such as `FOR UPDATE SKIP LOCKED`.
-- The indexer processes rows with `index_status IN ('pending', 'stale',
-  'failed')` when retry policy allows it.
+- The indexer processes rows with `index_status IN ('pending', 'stale')`.
+- Failed rows are retried only by an explicit retry/backfill mode in the first
+  implementation. Do not blindly retry failed rows on every scheduled run.
 - For each claimed row:
   - rebuild the description/tag source text from canonical metadata
   - recompute the checksum
-  - skip or mark stale if the source no longer matches the row expectation
+  - skip empty sources and mark them failed with a non-secret reason such as
+    `empty semantic source`
+  - mark rows stale if the source checksum no longer matches the row expectation
   - call OpenAI embeddings
   - validate the vector
   - persist `embedding_vector`, `indexed_at`, and `index_status='indexed'`
@@ -172,15 +228,60 @@ directly against lexical scores as a standalone global relevance score.
     failure
 - Indexing failure must never roll back publish success.
 - Backfills must be idempotent and safe to rerun.
+- The first implementation should avoid adding a new queue table. Use the
+  existing `skill_search_embeddings` status fields unless implementation proves
+  that retry scheduling requires more state.
+
+### Source Migration and Backfill
+Plan 17 pending rows may have checksums based on slug/name/description/tags.
+Plan 18 changes the source definition. Implementation must include a deliberate
+backfill path:
+
+- Insert or update rows using
+  `SEMANTIC_EMBEDDING_INDEX_KEY=openai:text-embedding-3-small:description-tags-v1`.
+- Treat any prior `metadata-1536-v1` or slug/name-based rows as obsolete for
+  Plan 18 semantic retrieval.
+- Do not reuse the old `embedding_model` key for the new description/tag source.
+- Provide a local backfill command that can create pending Plan 18 rows for all
+  eligible published skill versions.
+- Make the query path request only the Plan 18 index key so mixed old and new
+  semantic rows cannot affect ranking.
 
 ## Database and Neon Notes
 - Keep PostgreSQL as the only runtime search store.
 - Use pgvector in Neon/Postgres with `CREATE EXTENSION IF NOT EXISTS vector`.
+- Neon currently documents pgvector support and supported extension version
+  `0.8.0` for recent Postgres versions; verify this against Neon docs before
+  implementation if the production project version changes.
 - Keep `halfvec(1536)` and HNSW cosine indexing as the default path.
+- Keep the current partial HNSW shape:
+  `WHERE embedding_vector IS NOT NULL AND index_status = 'indexed'`.
 - Keep governance filters in SQL before semantic rows are returned to the
   service layer.
+- Cast query vectors explicitly to `halfvec(1536)` so prepared statements do not
+  rely on implicit vector casts.
+- Use the cosine operator `<=>` to match the `halfvec_cosine_ops` index.
+- Keep `SET LOCAL hnsw.ef_search = :value` inside the semantic query
+  transaction, with a bounded setting such as the existing
+  `SEMANTIC_HNSW_EF_SEARCH`.
+- Add or preserve B-tree indexes that support queue claiming and filters before
+  tuning ANN settings. At minimum, the existing `(embedding_model,
+  index_status)` index must remain.
+- If filtered semantic queries return too few candidates, prefer measured
+  over-fetching or pgvector iterative scan over weakening governance filters.
 - Monitor HNSW index size and p95/p99 discovery latency before increasing
   candidate limits or `hnsw.ef_search`.
+
+### Neon Connection Boundaries
+- Runtime app connections may use the pooled Neon host if the current app
+  configuration supports it.
+- Alembic migrations, extension creation, and HNSW index maintenance must use a
+  direct Neon connection, not the PgBouncer `-pooler` host.
+- Render Workflow indexers should use the same database URL policy as the app:
+  pooled for ordinary short transactions only if safe, direct for maintenance
+  or migration-like work.
+- Document `MIGRATION_DATABASE_URL` or equivalent direct-connection use when
+  implementation touches migrations or extension/index maintenance.
 
 ## Render Workflow Notes
 - Add a Python Render Workflow task for embedding indexing when implementation
@@ -196,14 +297,31 @@ directly against lexical scores as a standalone global relevance score.
   fallback.
 
 ## Rollout Plan
-1. Ship provider and indexing code with `SEMANTIC_DISCOVERY_MODE=off`.
-2. Run local/manual backfill against a small dataset.
-3. Deploy indexing workflow with semantic discovery still off.
-4. Enable `SEMANTIC_DISCOVERY_MODE=shadow` and observe provider failures,
-   indexing lag, query latency, and semantic candidate coverage.
-5. Enable `SEMANTIC_DISCOVERY_MODE=hybrid` only after shadow mode proves lexical
+1. Add settings, source construction, provider, and tests with
+   `SEMANTIC_DISCOVERY_MODE=off`.
+2. Add indexing service and local backfill command.
+3. Run local/manual backfill against a small dataset.
+4. Deploy Render Workflow indexing with semantic discovery still off.
+5. Backfill production Plan 18 rows under the new embedding index key.
+6. Enable `SEMANTIC_DISCOVERY_MODE=shadow` and observe provider failures,
+   indexing lag, query latency, candidate coverage, and exact-match stability.
+7. Enable `SEMANTIC_DISCOVERY_MODE=hybrid` only after shadow mode proves lexical
    fallback and governance filtering are reliable.
-6. Keep the ability to return to `off` without a database rollback.
+8. Keep the ability to return to `off` without a database rollback.
+
+## Observability and Operations
+- Track indexed, pending, stale, and failed embedding row counts by embedding
+  index key.
+- Track indexing batch duration, rows claimed, rows indexed, rows failed, and
+  provider failure classes.
+- Track query-time semantic provider latency and semantic fallback count.
+- Track semantic SQL latency separately from lexical discovery latency.
+- Add an operation note for responding to:
+  - OpenAI outage or rate limiting
+  - indexing backlog growth
+  - unexpectedly high HNSW query latency
+  - failed-row accumulation
+  - rollback from `hybrid` to `shadow` or `off`
 
 ## Required Documentation Updates During Implementation
 - Update `docs/architecture/discovery-and-ranking.md` to define lexical search,
@@ -235,12 +353,18 @@ Required test coverage:
   tag filters before returning candidates
 - shadow mode calls semantic retrieval without changing returned lexical order
 - hybrid mode can add semantic recall candidates after lexical candidates
+- old Plan 17 slug/name-based semantic rows are ignored when the Plan 18 index
+  key is active
+- Neon migration/index maintenance guidance rejects pooled migration URLs when
+  direct connections are required
 
 ## Acceptance Criteria
 - The app can run without `OPENAI_API_KEY` when semantic discovery is off.
 - With `OPENAI_API_KEY` configured, the provider can create valid
   1536-dimensional embeddings for description/tag text.
 - The indexing workflow can turn pending rows into indexed pgvector rows.
+- Backfill can create Plan 18 pending rows without relying on slug/name source
+  text.
 - `POST /discovery` remains available and lexical-only when the provider fails.
 - `shadow` mode exercises semantic retrieval without changing public results.
 - `hybrid` mode adds governed semantic recall candidates without changing the
