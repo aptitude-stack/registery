@@ -5,11 +5,30 @@ from __future__ import annotations
 from threading import Lock
 
 from sqlalchemy import create_engine, text
+from sqlalchemy import types as sqltypes
+from sqlalchemy.dialects.postgresql.base import ischema_names
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.ports import DatabaseReadinessPort
+
+
+class ReflectedHalfVec(sqltypes.UserDefinedType[tuple[float, ...]]):
+    """Reflection-only SQLAlchemy type for pgvector halfvec columns."""
+
+    cache_ok = True
+
+    def __init__(self, dimensions: str | int | None = None) -> None:
+        self.dimensions = int(dimensions) if dimensions is not None else None
+
+    def get_col_spec(self, **_: object) -> str:
+        if self.dimensions is None:
+            return "halfvec"
+        return f"halfvec({self.dimensions})"
+
+
+ischema_names.setdefault("halfvec", ReflectedHalfVec)
 
 _ENGINE: Engine | None = None
 _SESSION_FACTORY: sessionmaker[Session] | None = None

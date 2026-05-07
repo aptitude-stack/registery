@@ -32,6 +32,10 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_metadata" in inspector.get_table_names()
         assert "skill_relationship_selectors" in inspector.get_table_names()
         assert "skill_search_documents" in inspector.get_table_names()
+        assert "skill_search_embeddings" in inspector.get_table_names()
+        assert "skill_usage_observation_runs" in inspector.get_table_names()
+        assert "skill_usage_observations" in inspector.get_table_names()
+        assert "skill_co_usage_pairs" in inspector.get_table_names()
         assert "skill_dependencies" not in inspector.get_table_names()
         assert "skill_relationship_edges" not in inspector.get_table_names()
         assert "skill_version_checksums" not in inspector.get_table_names()
@@ -43,6 +47,12 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         trust_columns = {column["name"] for column in inspector.get_columns("trust_evidence")}
         search_columns = {
             column["name"] for column in inspector.get_columns("skill_search_documents")
+        }
+        embedding_columns = {
+            column["name"] for column in inspector.get_columns("skill_search_embeddings")
+        }
+        co_usage_columns = {
+            column["name"] for column in inspector.get_columns("skill_co_usage_pairs")
         }
 
         assert {
@@ -82,6 +92,26 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
             "lifecycle_status",
             "trust_tier",
         } <= search_columns
+        assert {
+            "skill_version_fk",
+            "embedding_model",
+            "embedding_dimensions",
+            "source_checksum_digest",
+            "embedding_vector",
+            "index_status",
+            "indexed_at",
+            "last_error",
+        } <= embedding_columns
+        assert {
+            "anchor_skill_fk",
+            "related_skill_fk",
+            "observation_count",
+            "distinct_run_count",
+            "co_usage_rate",
+            "lift_score",
+            "pmi_score",
+            "window_days",
+        } <= co_usage_columns
     finally:
         upgraded_engine.dispose()
 
@@ -101,5 +131,9 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_metadata" not in inspector.get_table_names()
         assert "skill_relationship_selectors" not in inspector.get_table_names()
         assert "skill_search_documents" not in inspector.get_table_names()
+        assert "skill_search_embeddings" not in inspector.get_table_names()
+        assert "skill_usage_observation_runs" not in inspector.get_table_names()
+        assert "skill_usage_observations" not in inspector.get_table_names()
+        assert "skill_co_usage_pairs" not in inspector.get_table_names()
     finally:
         downgraded_engine.dispose()

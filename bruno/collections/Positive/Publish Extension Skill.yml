@@ -48,7 +48,7 @@ http:
       - name: bundle
         type: file
         value:
-          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/duplicate.tar.zst
+          - ../../fixtures/duplicate.tar.zst
         contentType: application/zstd
 
 runtime:

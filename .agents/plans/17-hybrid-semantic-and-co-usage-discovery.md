@@ -1,10 +1,12 @@
-# Plan 17 - Hybrid Semantic Retrieval and Co-Usage Discovery Signals
+# Plan 17 - Lexical-Primary Semantic Expansion and Co-Usage Discovery Signals
 
 ## Goal
 Add a post-launch semantic candidate-expansion layer to `POST /discovery`
-using PostgreSQL `pgvector`, while also introducing a bounded statistical
-signal for "commonly used together" skills that can improve advisory ranking
-without changing the server/resolver boundary or the frozen public route set.
+using PostgreSQL `pgvector`, while keeping deterministic lexical discovery as
+the primary ranking model. Also introduce a bounded statistical signal for
+"commonly used together" skills that can improve advisory ranking when caller
+context exists, without changing the server/resolver boundary or the frozen
+public route set.
 
 ## Positioning
 This milestone is post-launch and optional. It is not part of MVP readiness,
@@ -17,9 +19,9 @@ It assumes the summary unification cleanup is already complete, with
 `metadata.description` as the only canonical short-text field.
 
 ## Strategic Role
-Hybrid semantic retrieval and co-usage signals improve governed reuse and
-progressive disclosure inside an enterprise catalog. They help consumers find
-approved capabilities without turning the registry into the final decision
+Lexical-primary semantic expansion and co-usage signals improve governed reuse
+and progressive disclosure inside an enterprise catalog. They help consumers
+find approved capabilities without turning the registry into the final decision
 maker.
 
 This is a moat enabler, not the moat itself. Discovery quality only matters when
@@ -45,9 +47,9 @@ would otherwise hide or reject.
   plan, lexical search remains the baseline but no longer the only candidate
   source.
 - It supersedes any post-Plan-05 reading that discovery ranking is purely
-  `tsvector`-based. Ranking becomes hybrid lexical plus semantic, with optional
-  bounded co-usage boosts, while preserving exact-match precedence and
-  deterministic tie-breakers.
+  `tsvector`-based. Ranking remains lexical-primary, with optional semantic
+  expansion and bounded co-usage boosts, while preserving exact-match
+  precedence and deterministic tie-breakers.
 - It extends the PostgreSQL-only storage direction from Plan 08 by adding new
   derived PostgreSQL read models such as `skill_search_embeddings` and
   co-usage aggregates. It does not reopen the decision to keep PostgreSQL as the
@@ -72,9 +74,10 @@ would otherwise hide or reject.
   workers only if observed scale requires it
 
 ## Recommended Architecture
-- Keep lexical retrieval from `skill_search_documents` as the always-on
-  baseline.
-- Add semantic retrieval as a second, additive, best-effort candidate source.
+- Keep lexical retrieval from `skill_search_documents` as the always-on primary
+  ranking path.
+- Add semantic retrieval as a second, additive, best-effort candidate expansion
+  source.
 - Keep embeddings in a separate derived table so lexical and semantic indexing
   can evolve independently.
 - Generate embeddings asynchronously after publish commit so immutable publish
@@ -89,7 +92,7 @@ would otherwise hide or reject.
   lexical, semantic, and co-usage ranking only order eligible candidates.
 
 ## Scope
-- Add a `pgvector`-backed semantic retrieval layer for `POST /discovery`.
+- Add a `pgvector`-backed semantic expansion layer for `POST /discovery`.
 - Keep semantic retrieval metadata-centric by embedding:
   - `slug`
   - `name`
@@ -108,15 +111,16 @@ would otherwise hide or reject.
   - `indexed_at`
   - `created_at`
   - `last_error`
-- Add deterministic hybrid retrieval flow:
+- Add deterministic lexical-primary retrieval flow:
   - lexical retrieval
-  - semantic retrieval
+  - optional semantic expansion
   - candidate union
-  - deterministic fusion
+  - lexical-biased deterministic fusion
   - per-slug collapse
   - final ordering and limit
-- Use Reciprocal Rank Fusion (RRF) to combine lexical and semantic candidate
-  ranks instead of comparing raw cosine distance directly with lexical scores.
+- Use lexical-biased Reciprocal Rank Fusion (RRF), or an equivalent
+  deterministic fusion rule, to combine lexical and semantic candidate ranks
+  instead of comparing raw cosine distance directly with lexical scores.
 - Keep exact slug match and exact name match above fused semantic relevance.
 - Add a derived co-usage statistics layer for skills that are commonly used
   together.
@@ -146,16 +150,16 @@ would otherwise hide or reject.
   - generate one query embedding under a strict timeout budget
   - fetch top semantic candidates from `skill_search_embeddings`
   - union those candidates with lexical results
-  - apply deterministic fusion and existing tie-breakers
+  - apply lexical-biased deterministic fusion and existing tie-breakers
 - Lexical retrieval remains mandatory.
-- Semantic retrieval is best-effort and must degrade cleanly to lexical-only
-  behavior.
+- Semantic retrieval is thin, bounded, best-effort, and must degrade cleanly to
+  lexical-only behavior.
 
 ### Ranking Rules
 Recommended fused ordering:
 1. exact slug match
 2. exact name match
-3. `rrf_score`
+3. lexical-primary fused score
 4. `tag_overlap_count`
 5. `usage_count`
 6. newer `published_at`
@@ -229,7 +233,7 @@ true association strength rather than raw popularity alone.
   conservative tie-break role.
 - Co-usage must never outrank exact identifier matches on its own.
 - Co-usage boosts must be capped to prevent popularity loops from dominating
-  semantic relevance.
+  lexical or semantic relevance.
 
 ## Component Boundaries
 - `app/intelligence/`
@@ -238,7 +242,7 @@ true association strength rather than raw popularity alone.
   - RRF fusion helpers
   - co-usage score-combination helpers
 - `app/core/`
-  - hybrid discovery orchestration
+  - lexical-primary discovery orchestration
   - fallback behavior
   - latency budgeting
   - feature-flag and rollout rules
@@ -268,9 +272,9 @@ true association strength rather than raw popularity alone.
 - Generate query embeddings in shadow mode.
 - Log semantic overlap with lexical results without changing responses.
 
-### Phase 3 - Hybrid Retrieval
+### Phase 3 - Lexical-Primary Expansion
 - Enable lexical + semantic union under a feature flag.
-- Roll out RRF fusion on a controlled traffic slice.
+- Roll out lexical-biased fusion on a controlled traffic slice.
 - Benchmark latency, recall, and candidate stability.
 
 ### Phase 4 - Co-Usage Signals
@@ -286,7 +290,7 @@ true association strength rather than raw popularity alone.
 ## Deliverables
 - Migration plan for PostgreSQL `pgvector` enablement and
   `skill_search_embeddings`.
-- Discovery design note describing hybrid lexical + semantic retrieval and
+- Discovery design note describing lexical-primary semantic expansion and
   deterministic fusion.
 - Derived co-usage signal design note with event source, aggregation method, and
   bounded ranking impact.
@@ -298,8 +302,8 @@ true association strength rather than raw popularity alone.
 - `POST /discovery` continues to work when embeddings are unavailable, stale, or
   timing out.
 - Semantic retrieval never blocks immutable publish success.
-- Semantic ranking is additive and keeps exact slug/name matches ahead of fused
-  relevance.
+- Semantic ranking is additive, secondary, and keeps exact slug/name matches
+  ahead of fused relevance.
 - No new public semantic-search or statistical-discovery route family is added.
 - Governance filters are enforced consistently across lexical and semantic
   retrieval paths.
@@ -320,17 +324,17 @@ true association strength rather than raw popularity alone.
 - Integration tests for per-slug collapse with hybrid candidates.
 - Migration tests for embedding backfill on historical published versions.
 - Migration or persistence tests for co-usage aggregate rebuilds.
-- Performance tests for discovery p95 under lexical-only, dark-launch, and
-  hybrid modes.
+- Performance tests for discovery p95 under lexical-only, shadow, and hybrid
+  modes.
 - Regression tests proving exact fetch and dependency-resolution behavior remain
   independent of semantic and co-usage state.
 
 ## Open Design Questions
-- Whether `POST /discovery` should gain an optional caller-context field such as
-  `context_skills` for high-quality co-usage boosts, or whether the first
-  co-usage version should stay purely internal and conservative.
-- Which explicit outcome feed should be the canonical input for co-usage:
-  resolver lock snapshots, curated bundle exports, or another bounded source.
+- `POST /discovery` gains optional `context_skills` for high-quality co-usage
+  boosts.
+- Resolver lock snapshots or selected-skill outcome facts are the canonical
+  input for co-usage; curated exports can seed analysis but are not the trusted
+  runtime source.
 - Which ANN index type and vector distance function perform best on the target
   PostgreSQL deployment.
 - Whether hot query embedding caching is needed after initial latency
@@ -338,7 +342,8 @@ true association strength rather than raw popularity alone.
 
 ## Recommendation Summary
 - Implement semantic search with `pgvector`, not agent traversal.
-- Keep lexical retrieval as the baseline and semantic retrieval as additive.
+- Keep lexical retrieval as the primary path and semantic retrieval as additive
+  expansion.
 - Keep semantic indexing asynchronous and rebuildable.
 - Add co-usage as a bounded statistical ranking signal only after a trustworthy
   explicit outcome feed exists.

@@ -11,9 +11,24 @@ from app.core.governance import (
     CallerIdentity,
     GovernancePolicy,
     LifecycleStatus,
+    PromotionChannel,
+    ReviewState,
     TrustTier,
 )
-from app.core.ports import AuditPort, SearchCandidatesRequest, SkillCatalogRepository
+from app.core.ports import (
+    AuditPort,
+    CoUsageBoostRequest,
+    EmbeddingProviderPort,
+    SearchCandidatesRequest,
+    SearchSemanticCandidatesRequest,
+    SkillCatalogRepository,
+    StoredSkillSearchCandidate,
+)
+from app.core.settings import SemanticDiscoveryMode
+from app.intelligence.discovery_signals import (
+    fuse_discovery_candidates,
+    validate_embedding_vector,
+)
 from app.intelligence.search_ranking import (
     build_search_audit_payload,
     build_search_explanation,
@@ -33,6 +48,7 @@ class SkillSearchQuery:
     limit: int
     status: tuple[LifecycleStatus, ...] = ()
     trust_tier: tuple[TrustTier, ...] = ()
+    context_skills: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,10 +80,30 @@ class SkillSearchService:
         repository: SkillCatalogRepository,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
+        semantic_discovery_mode: SemanticDiscoveryMode = "off",
+        embedding_provider: EmbeddingProviderPort | None = None,
+        semantic_embedding_model: str = "metadata-1536-v1",
+        semantic_embedding_dimensions: int = 1536,
+        semantic_candidate_limit: int = 20,
+        semantic_query_timeout_ms: int = 150,
+        semantic_hnsw_ef_search: int = 100,
+        co_usage_ranking_enabled: bool = False,
+        co_usage_boost_cap: float = 0.05,
+        co_usage_context_limit: int = 10,
     ) -> None:
         self._repository = repository
         self._audit_recorder = audit_recorder
         self._governance_policy = governance_policy
+        self._semantic_discovery_mode = semantic_discovery_mode
+        self._embedding_provider = embedding_provider
+        self._semantic_embedding_model = semantic_embedding_model
+        self._semantic_embedding_dimensions = semantic_embedding_dimensions
+        self._semantic_candidate_limit = semantic_candidate_limit
+        self._semantic_query_timeout_ms = semantic_query_timeout_ms
+        self._semantic_hnsw_ef_search = semantic_hnsw_ef_search
+        self._co_usage_ranking_enabled = co_usage_ranking_enabled
+        self._co_usage_boost_cap = co_usage_boost_cap
+        self._co_usage_context_limit = co_usage_context_limit
 
     def search(
         self,
@@ -95,7 +131,7 @@ class SkillSearchService:
         promotion_channels = self._governance_policy.resolve_discovery_promotion_channels(
             caller=caller,
         )
-        stored_results = self._repository.search_candidates(
+        lexical_results = self._repository.search_candidates(
             request=SearchCandidatesRequest(
                 query_text=normalized_request.query_text,
                 required_tags=normalized_request.effective_tags,
@@ -108,6 +144,24 @@ class SkillSearchService:
                 review_states=ALL_REVIEW_STATES if caller.has_scope("review") else ("approved",),
                 limit=normalized_request.limit,
             )
+        )
+        semantic_results = self._semantic_candidates(
+            query_text=normalized_request.query_text,
+            normalized_request_limit=normalized_request.limit,
+            required_tags=normalized_request.effective_tags,
+            fresh_within_days=normalized_request.fresh_within_days,
+            max_content_size_bytes=normalized_request.max_footprint_bytes,
+            lifecycle_statuses=lifecycle_statuses,
+            trust_tiers=trust_tiers,
+            namespaces=namespaces,
+            promotion_channels=promotion_channels,
+            review_states=ALL_REVIEW_STATES if caller.has_scope("review") else ("approved",),
+        )
+        stored_results = self._combine_candidates(
+            lexical_results=lexical_results,
+            semantic_results=semantic_results,
+            context_skills=query.context_skills,
+            limit=normalized_request.limit,
         )
         visible_results = tuple(
             item
@@ -168,3 +222,83 @@ class SkillSearchService:
         )
         self._audit_recorder.record_event(event_type=event.event_type, payload=event.payload)
         return results
+
+    def _semantic_candidates(
+        self,
+        *,
+        query_text: str | None,
+        normalized_request_limit: int,
+        required_tags: tuple[str, ...],
+        fresh_within_days: int | None,
+        max_content_size_bytes: int | None,
+        lifecycle_statuses: tuple[LifecycleStatus, ...],
+        trust_tiers: tuple[TrustTier, ...],
+        namespaces: tuple[str, ...] | None,
+        promotion_channels: tuple[PromotionChannel, ...] | None,
+        review_states: tuple[ReviewState, ...],
+    ) -> tuple[StoredSkillSearchCandidate, ...]:
+        if (
+            self._semantic_discovery_mode == "off"
+            or query_text is None
+            or self._embedding_provider is None
+        ):
+            return ()
+        try:
+            query_embedding = validate_embedding_vector(
+                self._embedding_provider.embed_query(
+                    text=query_text,
+                    model=self._semantic_embedding_model,
+                    dimensions=self._semantic_embedding_dimensions,
+                    timeout_ms=self._semantic_query_timeout_ms,
+                ),
+                dimensions=self._semantic_embedding_dimensions,
+            )
+        except Exception:
+            return ()
+        return self._repository.search_semantic_candidates(
+            request=SearchSemanticCandidatesRequest(
+                query_embedding=query_embedding,
+                embedding_model=self._semantic_embedding_model,
+                embedding_dimensions=self._semantic_embedding_dimensions,
+                required_tags=required_tags,
+                fresh_within_days=fresh_within_days,
+                max_content_size_bytes=max_content_size_bytes,
+                lifecycle_statuses=lifecycle_statuses,
+                trust_tiers=trust_tiers,
+                namespaces=namespaces,
+                promotion_channels=promotion_channels,
+                review_states=review_states,
+                limit=min(self._semantic_candidate_limit, normalized_request_limit),
+                hnsw_ef_search=self._semantic_hnsw_ef_search,
+            )
+        )
+
+    def _combine_candidates(
+        self,
+        *,
+        lexical_results: tuple[StoredSkillSearchCandidate, ...],
+        semantic_results: tuple[StoredSkillSearchCandidate, ...],
+        context_skills: tuple[str, ...],
+        limit: int,
+    ) -> tuple[StoredSkillSearchCandidate, ...]:
+        if self._semantic_discovery_mode == "shadow":
+            semantic_results = ()
+        co_usage_boosts: dict[str, float] = {}
+        if self._co_usage_ranking_enabled and context_skills:
+            candidate_slugs = tuple(
+                dict.fromkeys(item.slug for item in (*lexical_results, *semantic_results))
+            )
+            co_usage_boosts = self._repository.get_co_usage_boosts(
+                request=CoUsageBoostRequest(
+                    context_skill_slugs=context_skills[: self._co_usage_context_limit],
+                    candidate_slugs=candidate_slugs,
+                    boost_cap=self._co_usage_boost_cap,
+                )
+            )
+        return fuse_discovery_candidates(
+            lexical_candidates=lexical_results,
+            semantic_candidates=semantic_results,
+            co_usage_boosts=co_usage_boosts,
+            limit=limit,
+            co_usage_boost_cap=self._co_usage_boost_cap,
+        )

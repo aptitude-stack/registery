@@ -185,12 +185,14 @@ def test_discovery_request_trims_name_and_deduplicates_tags() -> None:
             "name": "  Python Lint  ",
             "description": "  Lint Python files  ",
             "tags": ["python", " lint ", "python"],
+            "context_skills": [" Python.Format ", "python.format", "python.test"],
         }
     )
 
     assert request.name == "Python Lint"
     assert request.description == "Lint Python files"
     assert request.tags == ["python", "lint"]
+    assert request.context_skills == ["python.format", "python.test"]
 
 
 @pytest.mark.unit

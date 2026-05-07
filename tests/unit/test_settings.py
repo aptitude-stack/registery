@@ -43,6 +43,33 @@ def test_settings_load_valid_environment(
         settings.active_policy.discovery_default_statuses
         == default_policy.discovery_default_statuses
     )
+    assert settings.semantic_discovery_mode == "off"
+    assert settings.semantic_embedding_dimensions == 1536
+    assert settings.semantic_candidate_limit == 20
+    assert settings.semantic_query_timeout_ms == 150
+    assert settings.co_usage_ranking_enabled is False
+    assert settings.co_usage_boost_cap == 0.05
+
+
+@pytest.mark.unit
+def test_settings_validate_semantic_discovery_controls(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
+    )
+    monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "hybrid")
+    monkeypatch.setenv("SEMANTIC_CANDIDATE_LIMIT", "12")
+    monkeypatch.setenv("SEMANTIC_QUERY_TIMEOUT_MS", "75")
+    monkeypatch.setenv("CO_USAGE_RANKING_ENABLED", "true")
+    monkeypatch.setenv("CO_USAGE_BOOST_CAP", "0.03")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.semantic_discovery_mode == "hybrid"
+    assert settings.semantic_candidate_limit == 12
+    assert settings.semantic_query_timeout_ms == 75
+    assert settings.co_usage_ranking_enabled is True
+    assert settings.co_usage_boost_cap == 0.03
 
 
 @pytest.mark.unit

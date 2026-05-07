@@ -118,6 +118,7 @@ DISCOVERY_REQUEST_EXAMPLE = {
     "name": "Python Lint",
     "description": "Lint Python files consistently",
     "tags": ["python", "lint"],
+    "context_skills": ["python.format"],
 }
 
 DISCOVERY_RESPONSE_EXAMPLE = {

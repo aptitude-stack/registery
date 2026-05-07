@@ -44,7 +44,7 @@ http:
       - name: bundle
         type: file
         value:
-          - /Users/yonatan/Dev/Aptitude/registry/bruno/fixtures/overlap.tar.zst
+          - ../../fixtures/overlap.tar.zst
         contentType: application/zstd
 
 runtime:

@@ -2,7 +2,7 @@ name: aptitude-local
 
 services:
   db:
-    image: ${POSTGRES_IMAGE:-postgres:15.17}
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg15}
     container_name: aptitude-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-aptitude}
@@ -21,7 +21,7 @@ services:
 
   test-db:
     profiles: ["test"]
-    image: ${POSTGRES_IMAGE:-postgres:15.17}
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg15}
     container_name: aptitude-test-postgres
     environment:
       POSTGRES_DB: ${TEST_POSTGRES_DB:-aptitude_test}
