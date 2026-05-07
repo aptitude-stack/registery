@@ -16,16 +16,18 @@ Important boundary:
 
 ```mermaid
 flowchart TD
-    A["Discovery request: {name, description, tags}"] --> B["DTO validation and normalization"]
+    A["Discovery request: {name, description, tags, context_skills?}"] --> B["DTO validation and normalization"]
     B --> C["Build query text from name + description"]
     C --> D["Normalize query and tags"]
     D --> E["Resolve governance filters"]
-    E --> F["Search skill_search_documents"]
-    F --> G["Filter matching versions"]
-    G --> H["Rank versions per slug"]
-    H --> I["Keep best version for each slug"]
-    I --> J["Globally order surviving slugs"]
-    J --> K["Return ordered candidates: [slug, ...]"]
+    E --> F["Lexical search over skill_search_documents"]
+    E --> G["Optional semantic expansion over skill_search_embeddings"]
+    F --> H["Lexical-primary fusion"]
+    G --> H
+    H --> I["Optional bounded co-usage boost"]
+    I --> J["Keep best version for each slug"]
+    J --> K["Globally order surviving slugs"]
+    K --> L["Return ordered candidates: [slug, ...]"]
 ```
 
 ## Request Shape
@@ -35,12 +37,16 @@ Discovery accepts:
 - `name`: required
 - `description`: optional
 - `tags`: optional
+- `context_skills`: optional selected/installed skill slugs used only for
+  bounded co-usage boosts
 
 The request is normalized before search:
 
 - `name` is trimmed and must not be blank
 - `description` is trimmed and blank values become `null`
 - `tags` are normalized, deduplicated, and ordered deterministically
+- `context_skills` are normalized, deduplicated, and never treated as authored
+  dependencies
 
 The discovery service then builds one search string by concatenating:
 
@@ -53,8 +59,9 @@ That combined text becomes the free-text query. Tags remain structured filters.
 
 Discovery does not search raw artifact contents.
 
-Instead it queries the derived `skill_search_documents` table, which stores one
-denormalized search row per immutable skill version. Each row contains:
+The always-on lexical path queries the derived `skill_search_documents` table,
+which stores one denormalized search row per immutable skill version. Each row
+contains:
 
 - `slug`
 - `normalized_slug`
@@ -72,6 +79,12 @@ denormalized search row per immutable skill version. Each row contains:
 - `search_vector`
 
 This keeps discovery fast and body-free.
+
+Semantic expansion, when enabled, reads a second derived table:
+`skill_search_embeddings`. Those rows are keyed by immutable skill version and
+embedding model, store metadata-only `halfvec(1536)` vectors, and are allowed to
+be `pending`, `indexed`, `failed`, or `stale`. Semantic rows are rebuildable and
+never authoritative catalog data.
 
 ## What Goes Into `search_vector`
 
@@ -207,7 +220,8 @@ the shared ranking pipeline supports them.
 
 ## Ranking Algorithm
 
-Once the candidate versions have been filtered, SQL ranks them in this order:
+Lexical search is primary. Once candidate versions have been filtered, SQL ranks
+lexical candidates in this order:
 
 1. exact slug match first
 2. exact name match second
@@ -218,6 +232,20 @@ Once the candidate versions have been filtered, SQL ranks them in this order:
 7. smaller `content_size_bytes`
 8. lexical slug ordering for stable ties
 9. higher internal version row id as the last tie-break
+
+If `SEMANTIC_DISCOVERY_MODE=hybrid`, semantic search may add a small bounded set
+of eligible candidates after lexical retrieval. Fusion is conservative:
+
+- exact slug/name matches always win
+- lexical candidates keep primary ordering
+- semantic candidates fill recall gaps
+- raw vector distance is not compared directly to lexical score
+- provider failure or timeout falls back to lexical-only results
+
+If `CO_USAGE_RANKING_ENABLED=true` and `context_skills` are supplied, co-usage
+can apply a capped "commonly used together" boost. Co-usage is derived from
+resolver lock/selection outcomes, not clicks, page views, or discovery requests,
+and it never becomes dependency truth.
 
 ### `ts_rank_cd`
 

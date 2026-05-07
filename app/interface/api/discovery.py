@@ -52,6 +52,7 @@ def discover_skills(
             name=request.name,
             description=request.description,
             tags=tuple(request.tags),
+            context_skills=tuple(request.context_skills),
         ),
     )
     return SkillDiscoveryResponse(candidates=list(candidates))

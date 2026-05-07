@@ -274,6 +274,42 @@ Indexes:
 
 - B-tree indexes exist for equality filtering on namespace, lifecycle status, trust tier, review state, promotion channel, tags, and freshness/ranking fields.
 
+### `skill_search_embeddings`
+
+Derived semantic-search read model for lexical-primary discovery expansion.
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `skill_version_fk` | `bigint` | PK and FK to `skill_versions.id`. |
+| `embedding_model` | `text` | PK component for model-specific rebuilds. |
+| `embedding_dimensions` | `integer` | Fixed at `1536` for the first semantic index. |
+| `source_checksum_digest` | `text` | Detects stale metadata-only embedding sources. |
+| `embedding_vector` | `halfvec(1536)` | Optional pgvector embedding, indexed only when ready. |
+| `index_status` | `text` | `pending`, `indexed`, `failed`, or `stale`. |
+| `indexed_at` | `timestamptz` | Last successful embedding write time. |
+| `created_at` / `updated_at` | `timestamptz` | Derived-row timestamps. |
+| `last_error` | `text` | Last indexing failure, if any. |
+
+Rule:
+
+- semantic rows are derived and rebuildable; discovery must still succeed when
+  they are missing, stale, or failed
+
+Index:
+
+- HNSW cosine index exists on indexed non-null `embedding_vector` values.
+
+### `skill_usage_observation_runs`, `skill_usage_observations`, `skill_co_usage_pairs`
+
+Derived co-usage signal tables for "commonly used together" ranking boosts.
+
+Rules:
+
+- observations come from explicit resolver lock/selection outcomes
+- co-usage is not dependency truth
+- boosts require caller context and are capped inside discovery ranking
+- aggregates are rebuildable
+
 ### `trust_evidence`
 
 Append-only evidence attached to one immutable version.
@@ -298,6 +334,8 @@ The schema is intentionally optimized around three read paths.
 Discovery path:
 
 - hit `skill_search_documents`
+- optionally expand candidates through `skill_search_embeddings`
+- optionally apply capped co-usage boosts from `skill_co_usage_pairs`
 - apply namespace, lifecycle, review-state, promotion-channel, trust-tier, and policy-pack visibility filters
 - rely on canonical `skills`, `skill_versions`, `skill_metadata`, and `skill_contents` only through the derived projection refresh path
 - do not hit `skill_contents.payload`

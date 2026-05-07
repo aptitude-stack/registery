@@ -19,6 +19,7 @@ DOCKER_BUILDER ?= aptitude-multiarch
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 APP_IMAGE_DEFAULT := $(DOCKER_IMAGE):$(DOCKER_LOCAL_TAG)
 export APP_IMAGE ?= $(APP_IMAGE_DEFAULT)
+export POSTGRES_IMAGE ?= pgvector/pgvector:pg15
 
 TEST_POSTGRES_DB ?= aptitude_test
 TEST_POSTGRES_USER ?= postgres

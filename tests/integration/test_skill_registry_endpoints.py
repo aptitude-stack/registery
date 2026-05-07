@@ -226,6 +226,34 @@ def _query_install_counts(database_url: str, *, slug: str) -> dict[str, int]:
         engine.dispose()
 
 
+def _query_embedding_statuses(database_url: str, *, slug: str) -> list[str]:
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT skill_search_embeddings.index_status
+                        FROM skill_search_embeddings
+                        JOIN skill_versions
+                            ON skill_versions.id = skill_search_embeddings.skill_version_fk
+                        JOIN skills
+                            ON skills.id = skill_versions.skill_fk
+                        WHERE skills.slug = :slug
+                        ORDER BY skill_versions.id
+                        """
+                    ),
+                    {"slug": slug},
+                )
+                .scalars()
+                .all()
+            )
+            return [str(item) for item in rows]
+    finally:
+        engine.dispose()
+
+
 def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
     engine = create_engine(database_url)
     try:
@@ -324,6 +352,7 @@ def test_publish_discovery_resolution_and_exact_fetch(
 
     assert discovery.status_code == 200
     assert discovery.json()["candidates"] == [source_slug]
+    assert _query_embedding_statuses(migrated_registry_database, slug=source_slug) == ["pending"]
 
     assert resolution.status_code == 200
     resolution_body = resolution.json()

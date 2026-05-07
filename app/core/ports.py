@@ -139,9 +139,59 @@ class SearchCandidatesRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class SearchSemanticCandidatesRequest:
+    """Governance-safe semantic retrieval request sent to persistence."""
+
+    query_embedding: tuple[float, ...]
+    embedding_model: str
+    embedding_dimensions: int
+    required_tags: tuple[str, ...]
+    fresh_within_days: int | None
+    max_content_size_bytes: int | None
+    lifecycle_statuses: tuple[LifecycleStatus, ...]
+    trust_tiers: tuple[TrustTier, ...]
+    namespaces: tuple[str, ...] | None
+    promotion_channels: tuple[PromotionChannel, ...] | None
+    review_states: tuple[ReviewState, ...]
+    limit: int
+    hnsw_ef_search: int
+
+
+@dataclass(frozen=True, slots=True)
+class CoUsageBoostRequest:
+    """Candidate/context pair request for bounded co-usage boosts."""
+
+    context_skill_slugs: tuple[str, ...]
+    candidate_slugs: tuple[str, ...]
+    boost_cap: float
+
+
+@dataclass(frozen=True, slots=True)
+class SkillEmbeddingIndexRecord:
+    """One derived embedding ready to mark as indexed."""
+
+    skill_version_fk: int
+    embedding_model: str
+    embedding_dimensions: int
+    source_checksum_digest: str
+    embedding_vector: tuple[float, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CoUsageObservationImportRecord:
+    """One trusted resolver outcome used to rebuild co-usage aggregates."""
+
+    source: str
+    source_digest: str
+    observed_at: datetime
+    skill_slugs: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class StoredSkillSearchCandidate:
     """Persistence projection for one ranked search candidate."""
 
+    skill_version_fk: int
     slug: str
     version: str
     name: str
@@ -161,6 +211,7 @@ class StoredSkillSearchCandidate:
     exact_name_match: bool
     lexical_score: float
     tag_overlap_count: int
+    semantic_distance: float | None = None
 
 
 class SkillRegistryPersistenceError(RuntimeError):
@@ -220,6 +271,16 @@ class SkillCatalogRepository(Protocol):
         request: SearchCandidatesRequest,
     ) -> tuple[StoredSkillSearchCandidate, ...]:
         """Return ranked skill candidates for the provided discovery request."""
+
+    def search_semantic_candidates(
+        self,
+        *,
+        request: SearchSemanticCandidatesRequest,
+    ) -> tuple[StoredSkillSearchCandidate, ...]:
+        """Return semantically similar candidates within governance-safe filters."""
+
+    def get_co_usage_boosts(self, *, request: CoUsageBoostRequest) -> dict[str, float]:
+        """Return bounded co-usage boosts for visible candidate slugs."""
 
     def record_install(self, *, slug: str, version: str) -> None:
         """Record one successful skill install/download for an exact coordinate."""
@@ -305,6 +366,43 @@ class AuditPort(Protocol):
 
     def record_event(self, *, event_type: str, payload: dict[str, Any] | None = None) -> None:
         """Persist a domain audit event."""
+
+
+class EmbeddingProviderPort(Protocol):
+    """Embedding generation contract used by semantic discovery."""
+
+    def embed_query(
+        self,
+        *,
+        text: str,
+        model: str,
+        dimensions: int,
+        timeout_ms: int,
+    ) -> tuple[float, ...]:
+        """Return one query embedding for semantic candidate expansion."""
+
+
+class EmbeddingIndexPort(Protocol):
+    """Embedding indexing contract for derived semantic discovery rows."""
+
+    def index_skill_embedding(self, *, record: SkillEmbeddingIndexRecord) -> None:
+        """Persist one validated indexed skill embedding."""
+
+    def mark_skill_embedding_failed(
+        self,
+        *,
+        skill_version_fk: int,
+        embedding_model: str,
+        error: str,
+    ) -> None:
+        """Record indexing failure without affecting publish success."""
+
+
+class CoUsageObservationImportPort(Protocol):
+    """Import contract for trusted resolver lock/selection co-usage evidence."""
+
+    def import_observation_run(self, *, record: CoUsageObservationImportRecord) -> None:
+        """Import one selected-skill outcome for aggregate rebuilds."""
 
 
 class ServiceTokenLookupPort(Protocol):
