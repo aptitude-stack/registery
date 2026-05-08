@@ -7,7 +7,7 @@ services:
     region: virginia
     plan: starter
     buildCommand: uv sync --frozen --no-dev
-    preDeployCommand: uv run alembic upgrade head
+    preDeployCommand: uv run alembic upgrade head && uv run python scripts/check_alembic_at_head.py
     startCommand: uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /healthz
     autoDeployTrigger: off
