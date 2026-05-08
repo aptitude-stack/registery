@@ -54,6 +54,7 @@ htmlcov/
 # UV
 .uv/
 .uv-cache
+.gh-cache/
 
 .tmp_migration.db
 /.codex/
@@ -68,3 +69,4 @@ skills-lock.json
 /.superpowers/
 /.worktrees/
 /graphify-out/
+/.superpowers/
