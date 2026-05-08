@@ -87,7 +87,7 @@ Recommended settings:
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
 | Build command | `uv sync --frozen --no-dev --extra otel` |
-| Pre-deploy command | Disabled on the current Render plan; production migration is owned by GitHub Actions before the deploy hook fires |
+| Pre-deploy command | Target Blueprint state is disabled; production migration is owned by GitHub Actions before the deploy hook fires |
 | Start command | `uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
 
@@ -265,6 +265,13 @@ final local gate and then, only after it passes:
 This keeps schema mutation ahead of application promotion even while Render
 pre-deploy commands are unavailable on the current plan. `render.yaml` sets
 `autoDeployTrigger: off` so Render does not race the CI migration job.
+
+Live provider caveat verified on 2026-05-08: the Render service already has
+`autoDeployTrigger: off` and PR previews disabled, but the service JSON still
+reports a legacy `preDeployCommand` of `uv run alembic upgrade head`. The Render
+CLI did not clear that field when passed an empty `--pre-deploy-command`. Until
+the Dashboard or API clears it, treat that hook as a redundant safety net only;
+GitHub Actions remains the authoritative migration and promotion gate.
 
 Render documents deploy hooks as secret URLs that can be called from CI/CD
 systems such as GitHub Actions. Render also documents `ref` on the deploy hook
