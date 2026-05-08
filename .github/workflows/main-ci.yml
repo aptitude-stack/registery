@@ -54,3 +54,51 @@ jobs:
       - name: Tear down compose services
         if: always()
         run: make _ci-down
+
+  production-deploy:
+    name: Migrate Neon and Deploy Render
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - master-main-gate
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+    steps:
+      - name: Check required deployment secrets
+        run: |
+          : "${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL GitHub secret is required}"
+          : "${RENDER_DEPLOY_HOOK_URL:?RENDER_DEPLOY_HOOK_URL GitHub secret is required}"
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install production dependencies
+        run: uv sync --frozen --no-dev
+
+      - name: Migrate Neon to Alembic head
+        run: uv run alembic upgrade head
+
+      - name: Verify Neon is at Alembic head
+        run: uv run python scripts/check_alembic_at_head.py
+
+      - name: Trigger Render deploy for this commit
+        env:
+          REF: ${{ github.sha }}
+        run: |
+          separator='?'
+          case "$RENDER_DEPLOY_HOOK_URL" in
+            *\?*) separator='&' ;;
+          esac
+          curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}${separator}ref=${REF}"
