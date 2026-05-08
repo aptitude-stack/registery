@@ -50,7 +50,7 @@ Status verified from public endpoints on 2026-05-02.
 | Render primary URL | `https://aptitude-registry-api.onrender.com` |
 | Production API URL | `https://api.aptitude-registry.dev` |
 | Render region | `virginia`, matching the Neon `aws-us-east-1` project |
-| Render branch tracking | Service metadata tracks `master`; target Blueprint state is `checksPass` |
+| Render branch tracking | Service metadata tracks `master`; target Blueprint state is `autoDeployTrigger: off` |
 | Neon organization | `Aptitude` / `org-wild-pond-20247201`, managed directly in Neon Console |
 | Neon project | `aptitude-registry` / `bitter-night-16887852` |
 | Neon branch | `production` / `br-calm-bonus-ambx0ki5` |
@@ -230,29 +230,70 @@ Rollout sequence:
 When `OTEL_ENABLED=true` and `APP_ENV=prod`, the Settings validator refuses to
 boot without `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
+## CI/CD Branch Lifecycle
+
+CI/CD is split across four explicit GitHub Actions workflows so every branch
+event has one deployment responsibility:
+
+| Workflow | Trigger | Responsibility | Secrets |
+| --- | --- | --- | --- |
+| `.github/workflows/dev-pr-ci.yml` | Pull request to `dev` | Run `make _ci-quality` and `make _ci-test` only. | None beyond repository read access. |
+| `.github/workflows/dev-push-ci.yml` | Push to `dev` | Build the app image, run Docker Compose smoke, and publish Docker Hub tags `dev` and `sha-*`. | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. |
+| `.github/workflows/master-pr-ci.yml` | Pull request to `master` | Run the production-branch quality and test gate only. | None beyond repository read access. |
+| `.github/workflows/master-push-ci.yml` | Push to `master` | Run final build/smoke, migrate Neon, verify Alembic head, trigger Render for the pushed commit, then smoke production `/healthz` and `/readyz`. | `MIGRATION_DATABASE_URL`, `RENDER_DEPLOY_HOOK_URL`. |
+
+This keeps credentials out of PR workflows and keeps promotion behavior on push
+events only. Branch protection is not required by this document, but if it is
+enabled later the required check names should come from these four workflows.
+
 ## Migration Policy
 
 Production migration is owned by GitHub Actions, not the Render app startup
 command.
 
-On pushes to `master`, `.github/workflows/main-ci.yml` now runs the full main
-gate and then, only after it passes:
+On pushes to `master`, `.github/workflows/master-push-ci.yml` now runs the
+final local gate and then, only after it passes:
 
 1. Runs `uv run alembic upgrade head` against Neon.
 2. Runs `uv run python scripts/check_alembic_at_head.py` to verify the live
    database revision equals the repository Alembic head.
-3. Calls the Render deploy hook with the pushed commit SHA.
+3. Calls the Render deploy hook with the pushed commit SHA as the `ref` query
+   parameter.
+4. Waits for and verifies production `GET /healthz` and `GET /readyz` through
+   `make _ci-production-smoke`.
 
 This keeps schema mutation ahead of application promotion even while Render
 pre-deploy commands are unavailable on the current plan. `render.yaml` sets
 `autoDeployTrigger: off` so Render does not race the CI migration job.
 
+Render documents deploy hooks as secret URLs that can be called from CI/CD
+systems such as GitHub Actions. Render also documents `ref` on the deploy hook
+as the way to deploy a specific commit SHA:
+
+- [Render deploy hooks](https://render.com/docs/deploy-hooks)
+- [Render deploying a specific commit](https://render.com/docs/deploying-a-commit)
+
+Neon uses PgBouncer for pooled connection strings and recommends direct
+connections for schema migrations. Runtime traffic should keep using the pooled
+`DATABASE_URL`; migrations and Alembic-head checks must use the direct
+`MIGRATION_DATABASE_URL`:
+
+- [Neon connection pooling](https://neon.com/docs/connect/connection-pooling)
+
 Required GitHub Actions secrets:
 
 | Secret | Purpose |
 | --- | --- |
+| `DOCKERHUB_USERNAME` | Docker Hub username used only by the `dev` push Docker publish workflow. |
+| `DOCKERHUB_TOKEN` | Docker Hub access token used only by the `dev` push Docker publish workflow. |
 | `MIGRATION_DATABASE_URL` | Direct Neon connection string used only by Alembic and the head-verification script. It must not use a `-pooler` host. |
 | `RENDER_DEPLOY_HOOK_URL` | Secret Render deploy hook URL for `aptitude-registry-api`. |
+
+Optional GitHub Actions variable:
+
+| Variable | Purpose |
+| --- | --- |
+| `PRODUCTION_BASE_URL` | Overrides the production smoke base URL when invoking `make _ci-production-smoke`; the Makefile defaults to `https://api.aptitude-registry.dev`. |
 
 Runtime still uses the pooled Neon URL:
 

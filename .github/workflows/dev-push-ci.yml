@@ -1,4 +1,4 @@
-name: Dev Merge CI
+name: Dev Push CI
 
 on:
   push:
@@ -14,8 +14,8 @@ env:
   IMAGE_NAME: ${{ vars.DOCKER_IMAGE != '' && vars.DOCKER_IMAGE || 'y0ncha/aptitude-registry' }}
 
 jobs:
-  dev-merge-gate:
-    name: Dev Merge Gate
+  docker-build-smoke:
+    name: Docker Build and Smoke
     runs-on: ubuntu-latest
 
     env:
@@ -59,7 +59,7 @@ jobs:
   docker-publish:
     name: Docker Publish
     needs:
-      - dev-merge-gate
+      - docker-build-smoke
     runs-on: ubuntu-latest
 
     steps:

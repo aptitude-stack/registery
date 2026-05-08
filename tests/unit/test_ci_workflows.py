@@ -7,104 +7,129 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+WORKFLOWS_DIR = REPO_ROOT / ".github/workflows"
+
+
+def workflow(name: str) -> str:
+    return (WORKFLOWS_DIR / name).read_text()
 
 
 @pytest.mark.unit
-def test_dev_pr_ci_keeps_pr_gate_without_push_or_publish_jobs() -> None:
-    document = (REPO_ROOT / ".github/workflows/dev-pr-ci.yml").read_text()
+def test_ci_uses_four_explicit_branch_lifecycle_workflows() -> None:
+    assert {path.name for path in WORKFLOWS_DIR.glob("*.yml")} == {
+        "dev-pr-ci.yml",
+        "dev-push-ci.yml",
+        "master-pr-ci.yml",
+        "master-push-ci.yml",
+    }
+
+    assert not (WORKFLOWS_DIR / "dev-merge-ci.yml").exists()
+    assert not (WORKFLOWS_DIR / "main-ci.yml").exists()
+    assert not (WORKFLOWS_DIR / "release-ci.yml").exists()
+
+
+@pytest.mark.unit
+def test_dev_pr_ci_keeps_pr_gate_without_docker_publish_or_production_secrets() -> None:
+    document = workflow("dev-pr-ci.yml")
 
     assert "name: Dev PR CI" in document
     assert "pull_request:" in document
     assert "      - dev" in document
     assert "push:" not in document
-    assert "services:" not in document
-    assert "docker compose --ansi=never --progress=plain up -d db" not in document
     assert "name: Dev PR Gate" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-observability" not in document
-    assert "run: make _ci-image" in document
-    assert (
-        "TEST_DATABASE_URL: "
-        "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test" in document
-    )
-    assert "Run smoke gate" in document
-    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke" in document
-    assert "run: make _ci-down" in document
-    assert "test-integration-docker" not in document
-    assert "docker-smoke" not in document
-    assert "observability-down" not in document
-    assert "Dev Merge Gate" not in document
+    assert "run: make _ci-image" not in document
+    assert "make _ci-smoke" not in document
     assert "Docker Publish" not in document
-    assert "Log in to Docker Hub" not in document
     assert "docker/login-action@v3" not in document
     assert "docker/build-push-action@v6" not in document
+    assert "MIGRATION_DATABASE_URL" not in document
+    assert "RENDER_DEPLOY_HOOK_URL" not in document
+    assert "make _ci-production-smoke" not in document
     assert "branches:\n      - master" not in document
 
 
 @pytest.mark.unit
-def test_dev_merge_ci_keeps_post_merge_gate_and_publishes_dev_images() -> None:
-    document = (REPO_ROOT / ".github/workflows/dev-merge-ci.yml").read_text()
+def test_dev_push_ci_builds_smokes_and_publishes_dev_images() -> None:
+    document = workflow("dev-push-ci.yml")
 
-    assert "name: Dev Merge CI" in document
+    assert "name: Dev Push CI" in document
     assert "pull_request:" not in document
     assert "push:" in document
     assert "      - dev" in document
-    assert "services:" not in document
-    assert "docker compose --ansi=never --progress=plain up -d db" not in document
-    assert "name: Dev Merge Gate" in document
+    assert "name: Docker Build and Smoke" in document
     assert "name: Docker Publish" in document
-    assert "needs:\n      - dev-merge-gate" in document
+    assert "needs:\n      - docker-build-smoke" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-observability" not in document
     assert "run: make _ci-image" in document
-    assert (
-        "TEST_DATABASE_URL: "
-        "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test" in document
-    )
-    assert "Run smoke gate" in document
     assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke" in document
     assert "run: make _ci-down" in document
-    assert "test-integration-docker" not in document
-    assert "docker-smoke" not in document
-    assert "observability-down" not in document
     assert "Log in to Docker Hub" in document
     assert "docker/login-action@v3" in document
     assert "docker/build-push-action@v6" in document
     assert "type=raw,value=dev" in document
     assert "type=sha,prefix=sha-" in document
     assert "type=raw,value=latest" not in document
+    assert "MIGRATION_DATABASE_URL" not in document
+    assert "RENDER_DEPLOY_HOOK_URL" not in document
+    assert "make _ci-production-smoke" not in document
     assert "branches:\n      - master" not in document
 
 
 @pytest.mark.unit
-def test_main_ci_keeps_master_gate_without_owning_vercel_deployments() -> None:
-    document = (REPO_ROOT / ".github/workflows/main-ci.yml").read_text()
+def test_master_pr_ci_keeps_production_branch_gate_without_deployment() -> None:
+    document = workflow("master-pr-ci.yml")
 
+    assert "name: Master PR CI" in document
     assert "pull_request:" in document
-    assert "push:" in document
-    assert "branches:\n      - master" in document
-    assert "name: Master Main Gate" in document
-    assert "run: uv sync --extra dev --frozen" in document
+    assert "      - master" in document
+    assert "push:" not in document
+    assert "name: Master PR Gate" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-observability" not in document
+    assert "run: make _ci-image" not in document
+    assert "make _ci-smoke" not in document
+    assert "docker/login-action@v3" not in document
+    assert "docker/build-push-action@v6" not in document
+    assert "MIGRATION_DATABASE_URL" not in document
+    assert "RENDER_DEPLOY_HOOK_URL" not in document
+    assert "make _ci-production-smoke" not in document
+    assert "branches:\n      - dev" not in document
+
+
+@pytest.mark.unit
+def test_master_push_ci_migrates_deploys_and_smokes_production_after_final_gate() -> None:
+    document = workflow("master-push-ci.yml")
+
+    assert "name: Master Push CI" in document
+    assert "pull_request:" not in document
+    assert "push:" in document
+    assert "      - master" in document
+    assert "name: Final Build and Smoke" in document
+    assert "name: Migrate Neon and Deploy Render" in document
+    assert "needs:\n      - final-build-smoke" in document
+    assert "run: make _ci-quality" in document
+    assert "run: make _ci-test" in document
     assert "run: make _ci-image" in document
-    assert (
-        "TEST_DATABASE_URL: "
-        "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/aptitude_test" in document
-    )
     assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke" in document
     assert "run: make _ci-down" in document
-    assert "vercel pull" not in document
-    assert "vercel build" not in document
-    assert "vercel deploy" not in document
-    assert "VERCEL_TOKEN" not in document
-    assert "VERCEL_ORG_ID" not in document
-    assert "VERCEL_PROJECT_ID" not in document
-    assert "docker/build-push-action" not in document
-    assert "docker/login-action" not in document
+    assert "DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}" in document
+    assert "MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}" in document
+    assert "RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}" in document
+    assert "uv run alembic upgrade head" in document
+    assert "uv run python scripts/check_alembic_at_head.py" in document
+    assert "ref=${REF}" in document
+    assert "PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}" in document
+    assert (
+        'run: PRODUCTION_BASE_URL="${PRODUCTION_BASE_URL:-https://api.aptitude-registry.dev}" '
+        "make _ci-production-smoke" in document
+    )
+    assert "Docker Publish" not in document
+    assert "docker/login-action@v3" not in document
+    assert "docker/build-push-action@v6" not in document
+    assert "branches:\n      - dev" not in document
 
 
 @pytest.mark.unit
@@ -113,8 +138,3 @@ def test_vercel_serverless_deployment_artifacts_are_absent() -> None:
     assert not (REPO_ROOT / "server.py").exists()
     assert not (REPO_ROOT / "vercel.json").exists()
     assert not (REPO_ROOT / ".vercelignore").exists()
-
-
-@pytest.mark.unit
-def test_release_ci_is_retired_to_avoid_duplicate_docker_publishing() -> None:
-    assert not (REPO_ROOT / ".github/workflows/release-ci.yml").exists()
