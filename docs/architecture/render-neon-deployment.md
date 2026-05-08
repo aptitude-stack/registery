@@ -87,7 +87,7 @@ Recommended settings:
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
 | Build command | `uv sync --frozen --no-dev --extra otel` |
-| Pre-deploy command | `uv run alembic upgrade head` |
+| Pre-deploy command | Disabled on the current Render plan; production migration is owned by GitHub Actions before the deploy hook fires |
 | Start command | `uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
 
@@ -232,25 +232,45 @@ boot without `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
 ## Migration Policy
 
-Preferred production migration path:
+Production migration is owned by GitHub Actions, not the Render app startup
+command.
 
-- Render `Starter` or higher runs `uv run alembic upgrade head` as the
-  pre-deploy command.
+On pushes to `master`, `.github/workflows/main-ci.yml` now runs the full main
+gate and then, only after it passes:
+
+1. Runs `uv run alembic upgrade head` against Neon.
+2. Runs `uv run python scripts/check_alembic_at_head.py` to verify the live
+   database revision equals the repository Alembic head.
+3. Calls the Render deploy hook with the pushed commit SHA.
+
+This keeps schema mutation ahead of application promotion even while Render
+pre-deploy commands are unavailable on the current plan. `render.yaml` sets
+`autoDeployTrigger: off` so Render does not race the CI migration job.
+
+Required GitHub Actions secrets:
+
+| Secret | Purpose |
+| --- | --- |
+| `MIGRATION_DATABASE_URL` | Direct Neon connection string used only by Alembic and the head-verification script. It must not use a `-pooler` host. |
+| `RENDER_DEPLOY_HOOK_URL` | Secret Render deploy hook URL for `aptitude-registry-api`. |
+
+Runtime still uses the pooled Neon URL:
+
 - `DATABASE_URL` remains pooled for the running app.
 - `MIGRATION_DATABASE_URL` remains direct for Alembic.
 - `alembic/env.py` rejects a selected Neon `-pooler` host before running
   migrations, including semantic-search migrations that create `pgvector`
   objects.
+- If the service is later upgraded to a paid Render instance, the
+  `preDeployCommand` can stay as a redundant safety net because
+  `alembic upgrade head` is idempotent, but CI remains the deployment gate.
 
-Fallback path when the service is temporarily on Render Free:
+Emergency manual migration path:
 
 ```bash
 APP_SETTINGS_ENV_FILE=/path/to/prod.env UV_CACHE_DIR=.uv-cache uv run alembic upgrade head
-APP_SETTINGS_ENV_FILE=/path/to/prod.env UV_CACHE_DIR=.uv-cache uv run alembic current
+APP_SETTINGS_ENV_FILE=/path/to/prod.env UV_CACHE_DIR=.uv-cache uv run python scripts/check_alembic_at_head.py
 ```
-
-The live deployment has used this manual path before. At the standalone Neon
-cutover, Alembic reported `0003_skill_bundle_storage (head)`.
 
 ## Deployment History
 

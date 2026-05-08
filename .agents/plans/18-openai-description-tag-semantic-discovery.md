@@ -62,10 +62,20 @@ for exact and near-exact lookup, not embedding input.
   - OpenAI embeddings guide: `https://platform.openai.com/docs/guides/embeddings`
   - OpenAI `text-embedding-3-small` model page:
     `https://platform.openai.com/docs/models/text-embedding-3-small`
+  - PostgreSQL full text search introduction:
+    `https://www.postgresql.org/docs/current/textsearch-intro.html`
+  - pgvector-python:
+    `https://github.com/pgvector/pgvector-python`
+  - pgvector-python hybrid RRF example:
+    `https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/rrf.py`
+  - pgvector-python cross-encoder example:
+    `https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/cross_encoder.py`
   - Neon AI concepts / pgvector support:
     `https://neon.com/docs/ai/ai-concepts`
   - Neon supported extensions:
     `https://neon.com/docs/extensions/extensions-intro`
+  - Plan 18 discovery/search mechanism review:
+    `../../docs/drafts/discovery-search-mechanism-review.md`
 
 ## Scope
 - Add OpenAI embedding-provider settings:
@@ -111,6 +121,15 @@ for exact and near-exact lookup, not embedding input.
 - Treat the persisted embedding index key as the compatibility boundary. Any
   future source change, model change, provider change, or dimension change must
   use a new key or an explicit migration/backfill plan.
+- Treat full-text and vector search as two independent candidate generators.
+  They should produce rank lists that are fused by rank, not by comparing raw
+  `ts_rank_cd` scores to vector distances.
+- Prefer Reciprocal Rank Fusion for the first hybrid implementation:
+  `score = 1 / (k + lexical_rank) + 1 / (k + semantic_rank)`, with `k=60`
+  unless measured results justify another constant.
+- Keep cross-encoder reranking out of the registry request path. It is a
+  possible offline evaluation tool or resolver-side reranking strategy, not a
+  Plan 18 registry feature.
 
 ## Non-Goals
 - No new public semantic-search route.
@@ -173,12 +192,22 @@ Semantic search does not own:
 Fusion remains lexical-primary:
 1. exact slug match
 2. exact name match
-3. lexical-primary fused score
-4. bounded semantic recall signal
+3. RRF-style hybrid score over lexical and semantic rank lists
+4. bounded co-usage boost when caller context exists
 5. existing deterministic tie-breakers
 
 Raw vector distance must not be exposed publicly and must not be compared
 directly against lexical scores as a standalone global relevance score.
+
+The first implementation should mirror the pgvector-python RRF pattern at the
+architecture level:
+- lexical CTE: eligible rows ordered by `ts_rank_cd(...) DESC`
+- semantic CTE: eligible rows ordered by `embedding_vector <=> query_embedding`
+- candidate union: full outer join or equivalent Python merge by
+  `skill_version_fk`
+- score: reciprocal rank terms, not raw text/vector scores
+- final ordering: exact identity gates, fused score, existing deterministic
+  tie-breakers
 
 ### Failure Behavior
 - Missing provider configuration in `off` mode must not block app startup.
@@ -191,6 +220,10 @@ directly against lexical scores as a standalone global relevance score.
 
 ## OpenAI Provider Design
 - Use the official OpenAI Python SDK as a runtime dependency.
+- Do not add `pgvector-python` only because Plan 18 uses pgvector. The current
+  repository already uses raw SQL and text serialization for `halfvec`. Add
+  `pgvector-python` only if implementation switches to typed SQLAlchemy/Psycopg
+  vector binding or needs driver registration for safer vector parameters.
 - Read credentials from `OPENAI_API_KEY`.
 - Treat missing credentials as a startup/configuration problem only when
   semantic mode requires a provider. `SEMANTIC_DISCOVERY_MODE=off` must not
@@ -253,6 +286,11 @@ backfill path:
 - Neon currently documents pgvector support and supported extension version
   `0.8.0` for recent Postgres versions; verify this against Neon docs before
   implementation if the production project version changes.
+- Keep PostgreSQL full-text search as the lexical baseline. The lexical
+  document is the stored `tsvector`, not raw markdown or bundle content.
+- Keep `plainto_tsquery('simple', :query_text)` for user-provided discovery text
+  until a measured reason exists to adopt phrase search, web search syntax, or a
+  custom dictionary.
 - Keep `halfvec(1536)` and HNSW cosine indexing as the default path.
 - Keep the current partial HNSW shape:
   `WHERE embedding_vector IS NOT NULL AND index_status = 'indexed'`.
@@ -326,6 +364,9 @@ backfill path:
 ## Required Documentation Updates During Implementation
 - Update `docs/architecture/discovery-and-ranking.md` to define lexical search,
   structured tag filters, description/tag semantic search, and fusion.
+- Use `docs/drafts/discovery-search-mechanism-review.md` as the consolidation
+  input when promoting final implemented behavior into canonical architecture
+  docs.
 - Update runtime or contributor docs with `OPENAI_API_KEY`, semantic settings,
   local indexing command, Render Workflow operation, and rollout modes.
 - Update schema docs if implementation changes any table, index, or status
@@ -353,6 +394,9 @@ Required test coverage:
   tag filters before returning candidates
 - shadow mode calls semantic retrieval without changing returned lexical order
 - hybrid mode can add semantic recall candidates after lexical candidates
+- hybrid fusion uses rank positions and does not compare raw `ts_rank_cd` to raw
+  vector distance
+- cross-encoder reranking is not used in the registry request path
 - old Plan 17 slug/name-based semantic rows are ignored when the Plan 18 index
   key is active
 - Neon migration/index maintenance guidance rejects pooled migration URLs when
