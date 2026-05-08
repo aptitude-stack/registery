@@ -13,7 +13,7 @@ http:
 runtime:
   variables:
     - name: baseUrl
-      value: http://127.0.0.1:8000
+      value: https://api.aptitude-registry.dev
   scripts:
     - type: before-request
       code: |-

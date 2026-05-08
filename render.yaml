@@ -10,7 +10,7 @@ services:
     preDeployCommand: uv run alembic upgrade head
     startCommand: uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /healthz
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: off
     domains:
       - api.aptitude-registry.dev
     envVars:
