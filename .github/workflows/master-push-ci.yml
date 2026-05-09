@@ -89,7 +89,7 @@ jobs:
               -f ref="${GITHUB_SHA}" \
               -f environment=production \
               -f description="Render production deploy" \
-              -f auto_merge=false \
+              -F auto_merge=false \
               -f required_contexts[] \
               -F production_environment=true \
               --jq .id
