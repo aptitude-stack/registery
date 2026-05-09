@@ -240,7 +240,7 @@ event has one deployment responsibility:
 | `.github/workflows/dev-pr-ci.yml` | Pull request to `dev` | Run `make _ci-quality` and `make _ci-test` only. | None beyond repository read access. |
 | `.github/workflows/dev-push-ci.yml` | Push to `dev` | Build the app image, run Docker Compose smoke, and publish Docker Hub tags `dev` and `sha-*`. | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`. |
 | `.github/workflows/master-pr-ci.yml` | Pull request to `master` | Run the production-branch quality and test gate only. | None beyond repository read access. |
-| `.github/workflows/master-push-ci.yml` | Push to `master` | Run final build/smoke, migrate Neon, verify Alembic head, trigger Render for the pushed commit, then smoke production `/healthz` and `/readyz`. | `MIGRATION_DATABASE_URL`, `RENDER_DEPLOY_HOOK_URL`. |
+| `.github/workflows/master-push-ci.yml` | Push to `master` | Run the final quality/test gate, migrate Neon, verify Alembic head, create/update a GitHub `production` deployment, trigger Render for the pushed commit, then smoke production `/healthz` and `/readyz`. | `MIGRATION_DATABASE_URL`, `RENDER_DEPLOY_HOOK_URL`. |
 
 This keeps credentials out of PR workflows and keeps promotion behavior on push
 events only. Branch protection is not required by this document, but if it is
@@ -257,14 +257,21 @@ final local gate and then, only after it passes:
 1. Runs `uv run alembic upgrade head` against Neon.
 2. Runs `uv run python scripts/check_alembic_at_head.py` to verify the live
    database revision equals the repository Alembic head.
-3. Calls the Render deploy hook with the pushed commit SHA as the `ref` query
+3. Creates a GitHub Deployment for the pushed commit in the `production`
+   environment and marks it `in_progress`.
+4. Calls the Render deploy hook with the pushed commit SHA as the `ref` query
    parameter.
-4. Waits for and verifies production `GET /healthz` and `GET /readyz` through
+5. Waits for and verifies production `GET /healthz` and `GET /readyz` through
    `make _ci-production-smoke`.
+6. Marks the GitHub Deployment `success` after production smoke, or `failure`
+   if the Render trigger or production smoke fails.
 
 This keeps schema mutation ahead of application promotion even while Render
 pre-deploy commands are unavailable on the current plan. `render.yaml` sets
 `autoDeployTrigger: off` so Render does not race the CI migration job.
+The GitHub Deployment record is created after Alembic head verification, so
+failed schema promotion does not create a misleading production deployment
+attempt.
 
 Live provider caveat verified on 2026-05-08: the Render service already has
 `autoDeployTrigger: off` and PR previews disabled, but the service JSON still
