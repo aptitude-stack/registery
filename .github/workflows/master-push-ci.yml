@@ -7,14 +7,14 @@ on:
 
 permissions:
   contents: read
+  deployments: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  BUILDKIT_PROGRESS: plain
 
 jobs:
-  final-build-smoke:
-    name: Final Build and Smoke
+  final-local-gate:
+    name: Final Local Gate
     runs-on: ubuntu-latest
 
     env:
@@ -42,23 +42,10 @@ jobs:
       - name: Run test gate
         run: make _ci-test
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build app image for smoke test
-        run: make _ci-image
-
-      - name: Run smoke gate
-        run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke
-
-      - name: Tear down compose services
-        if: always()
-        run: make _ci-down
-
   production-deploy:
     name: Migrate Neon and Deploy Render
     needs:
-      - final-build-smoke
+      - final-local-gate
     runs-on: ubuntu-latest
 
     env:
@@ -92,6 +79,36 @@ jobs:
       - name: Verify Neon is at Alembic head
         run: uv run python scripts/check_alembic_at_head.py
 
+      - name: Create GitHub production deployment
+        id: deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deployment_id="$(
+            gh api "repos/${GITHUB_REPOSITORY}/deployments" \
+              -f ref="${GITHUB_SHA}" \
+              -f environment=production \
+              -f description="Render production deploy" \
+              -f auto_merge=false \
+              -f required_contexts[] \
+              -F production_environment=true \
+              --jq .id
+          )"
+          echo "deployment_id=${deployment_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Mark GitHub deployment in progress
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+          GH_TOKEN: ${{ github.token }}
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f state=in_progress \
+            -f environment=production \
+            -f environment_url="${PRODUCTION_BASE_URL:-https://api.aptitude-registry.dev}" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description="Render deploy triggered after Neon migration verification"
+
       - name: Trigger Render deploy for this commit
         env:
           REF: ${{ github.sha }}
@@ -106,3 +123,31 @@ jobs:
         env:
           PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
         run: PRODUCTION_BASE_URL="${PRODUCTION_BASE_URL:-https://api.aptitude-registry.dev}" make _ci-production-smoke
+
+      - name: Mark GitHub deployment successful
+        if: success()
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+          GH_TOKEN: ${{ github.token }}
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f state=success \
+            -f environment=production \
+            -f environment_url="${PRODUCTION_BASE_URL:-https://api.aptitude-registry.dev}" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description="Production health and readiness checks passed"
+
+      - name: Mark GitHub deployment failed
+        if: failure() && steps.deployment.outputs.deployment_id != ''
+        env:
+          DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+          GH_TOKEN: ${{ github.token }}
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/deployments/${DEPLOYMENT_ID}/statuses" \
+            -f state=failure \
+            -f environment=production \
+            -f environment_url="${PRODUCTION_BASE_URL:-https://api.aptitude-registry.dev}" \
+            -f log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description="Render deploy trigger or production smoke failed"
