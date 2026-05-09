@@ -107,25 +107,36 @@ def test_master_push_ci_migrates_deploys_and_smokes_production_after_final_gate(
     assert "pull_request:" not in document
     assert "push:" in document
     assert "      - master" in document
-    assert "name: Final Build and Smoke" in document
+    assert "deployments: write" in document
+    assert "name: Final Local Gate" in document
     assert "name: Migrate Neon and Deploy Render" in document
-    assert "needs:\n      - final-build-smoke" in document
+    assert "needs:\n      - final-local-gate" in document
     assert "run: make _ci-quality" in document
     assert "run: make _ci-test" in document
-    assert "run: make _ci-image" in document
-    assert "run: APP_IMAGE=y0ncha/aptitude-registry:latest make _ci-smoke" in document
-    assert "run: make _ci-down" in document
+    assert "docker/setup-buildx-action@v3" not in document
+    assert "run: make _ci-image" not in document
+    assert "make _ci-smoke" not in document
+    assert "run: make _ci-down" not in document
     assert "DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}" in document
     assert "MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}" in document
     assert "RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}" in document
     assert "uv run alembic upgrade head" in document
     assert "uv run python scripts/check_alembic_at_head.py" in document
+    assert "Create GitHub production deployment" in document
+    assert "repos/${GITHUB_REPOSITORY}/deployments" in document
+    assert "-f environment=production" in document
+    assert "-F production_environment=true" in document
+    assert "Mark GitHub deployment in progress" in document
     assert "ref=${REF}" in document
     assert "PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}" in document
     assert (
         'run: PRODUCTION_BASE_URL="${PRODUCTION_BASE_URL:-https://api.aptitude-registry.dev}" '
         "make _ci-production-smoke" in document
     )
+    assert "Mark GitHub deployment successful" in document
+    assert "-f state=success" in document
+    assert "Mark GitHub deployment failed" in document
+    assert "-f state=failure" in document
     assert "Docker Publish" not in document
     assert "docker/login-action@v3" not in document
     assert "docker/build-push-action@v6" not in document
