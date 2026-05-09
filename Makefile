@@ -29,17 +29,20 @@ TEST_DATABASE_URL ?= postgresql+psycopg://$(TEST_POSTGRES_USER):$(TEST_POSTGRES_
 TEST_DB_VOLUME ?= aptitude-test-postgres-data
 
 APP_BASE_URL ?= http://127.0.0.1:8000
+PRODUCTION_BASE_URL ?= https://api.aptitude-registry.dev
 WAIT_ATTEMPTS ?= 30
 WAIT_SLEEP_SECONDS ?= 1
+PRODUCTION_WAIT_ATTEMPTS ?= 120
+PRODUCTION_WAIT_SLEEP_SECONDS ?= 5
 
 .PHONY: \
 	help \
 	run-dev run-prod quality test format build \
-	_ci-quality _ci-test _ci-image _ci-smoke _ci-down \
+	_ci-quality _ci-test _ci-image _ci-smoke _ci-production-smoke _ci-down \
 	_format-check _lint _format _typecheck _test _import-check \
 	_test-db-up _test-db-wait _test-db-down \
-	_run-stack _stack-down _smoke-wait _smoke-verify \
-	_wait-app _verify-service-endpoints \
+	_run-stack _stack-down _smoke-wait _smoke-verify _production-smoke-wait _production-smoke-verify \
+	_wait-app _verify-service-endpoints _wait-production-app _verify-production-service-endpoints \
 	_image-load _image-builder-bootstrap _image-push
 
 define compose_with_env
@@ -152,6 +155,10 @@ _ci-smoke:
 	$(call smoke_wait_commands); \
 	$(call smoke_verify_commands)
 
+_ci-production-smoke:
+	$(MAKE) _production-smoke-wait
+	$(MAKE) _production-smoke-verify
+
 _ci-down:
 	$(call stack_down_commands,prod)
 
@@ -201,12 +208,22 @@ _smoke-wait: _wait-app
 
 _smoke-verify: _verify-service-endpoints
 
+_production-smoke-wait: _wait-production-app
+
+_production-smoke-verify: _verify-production-service-endpoints
+
 _wait-app:
 	@$(call wait_for_url,$(APP_BASE_URL)/healthz)
 
 _verify-service-endpoints:
 	curl --fail $(APP_BASE_URL)/healthz
 	curl --fail $(APP_BASE_URL)/readyz
+
+_wait-production-app:
+	@WAIT_ATTEMPTS=$(PRODUCTION_WAIT_ATTEMPTS) WAIT_SLEEP_SECONDS=$(PRODUCTION_WAIT_SLEEP_SECONDS) $(MAKE) _wait-app APP_BASE_URL=$(PRODUCTION_BASE_URL)
+
+_verify-production-service-endpoints:
+	$(MAKE) _verify-service-endpoints APP_BASE_URL=$(PRODUCTION_BASE_URL)
 
 _image-load:
 	docker buildx build --load -t $(DOCKER_IMAGE_REF) .

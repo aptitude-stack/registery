@@ -5,6 +5,8 @@ from __future__ import annotations
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
+PSYCOPG_DRIVERNAME = "postgresql+psycopg"
+
 
 def is_neon_pooler_url(database_url: str) -> bool:
     """Return whether the URL points at a Neon pooled endpoint."""
@@ -31,4 +33,8 @@ def select_migration_database_url(
     selected_url = configured_url or migration_database_url or database_url
     if is_neon_pooler_url(selected_url):
         raise ValueError("Alembic migrations must use a direct Neon host, not a pooler host.")
-    return selected_url
+
+    parsed_url = make_url(selected_url)
+    if parsed_url.drivername == "postgresql":
+        parsed_url = parsed_url.set(drivername=PSYCOPG_DRIVERNAME)
+    return parsed_url.render_as_string(hide_password=False)
