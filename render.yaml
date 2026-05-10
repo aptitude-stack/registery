@@ -30,9 +30,21 @@ services:
         value: "true"
       - key: ACTIVE_POLICY_PROFILE
         value: default
+      - key: SEMANTIC_DISCOVERY_MODE
+        value: "off"
+      - key: SEMANTIC_EMBEDDING_PROVIDER
+        value: openai
+      - key: SEMANTIC_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: SEMANTIC_EMBEDDING_INDEX_KEY
+        value: openai:text-embedding-3-small:description-tags-v1
+      - key: SEMANTIC_EMBEDDING_DIMENSIONS
+        value: "1536"
       - key: DATABASE_URL
         sync: false
       - key: MIGRATION_DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
         sync: false
       - key: AUTH_SERVICE_TOKENS_JSON
         sync: false

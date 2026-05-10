@@ -11,6 +11,7 @@ def test_runtime_dependencies_exclude_dev_only_tools_and_include_bundle_support(
 
     runtime_dependencies = pyproject["project"]["dependencies"]
     development_dependencies = pyproject["project"]["optional-dependencies"]["dev"]
+    workflow_dependencies = pyproject["project"]["optional-dependencies"]["workflow"]
 
     assert not any(dependency.startswith("pytest") for dependency in runtime_dependencies)
     assert not any(dependency.startswith("mypy") for dependency in runtime_dependencies)
@@ -19,6 +20,9 @@ def test_runtime_dependencies_exclude_dev_only_tools_and_include_bundle_support(
         dependency.startswith("fastapi-cloud-cli") for dependency in runtime_dependencies
     )
     assert any(dependency.startswith("zstandard") for dependency in runtime_dependencies)
+    assert any(dependency.startswith("openai") for dependency in runtime_dependencies)
+    assert not any(dependency.startswith("render-sdk") for dependency in runtime_dependencies)
+    assert any(dependency.startswith("render-sdk") for dependency in workflow_dependencies)
     assert any(dependency.startswith("pytest") for dependency in development_dependencies)
     assert any(dependency.startswith("mypy") for dependency in development_dependencies)
     assert any(dependency.startswith("ruff") for dependency in development_dependencies)

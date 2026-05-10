@@ -10,6 +10,7 @@ from app.core.governance import LifecycleStatus, PromotionChannel, ReviewState, 
 from app.core.ports import StoredSkillSearchCandidate
 from app.intelligence.discovery_signals import (
     build_embedding_source,
+    build_semantic_query_source,
     build_source_checksum_digest,
     fuse_discovery_candidates,
     validate_embedding_vector,
@@ -58,8 +59,46 @@ def test_embedding_source_is_metadata_only_and_checksum_is_stable() -> None:
         tags=("Lint", "python", "lint"),
     )
 
-    assert source == "python.lint python lint static checks for python codebases lint python"
+    assert source == "static checks for python codebases lint python"
     assert build_source_checksum_digest(source) == build_source_checksum_digest(source)
+
+
+@pytest.mark.unit
+def test_embedding_source_checksum_ignores_slug_and_name_changes() -> None:
+    first = build_embedding_source(
+        slug="Python.Lint",
+        name="Python Lint",
+        description="Static checks for Python codebases",
+        tags=("python", "lint"),
+    )
+    second = build_embedding_source(
+        slug="Python.Quality.Renamed",
+        name="Renamed Quality Skill",
+        description="Static checks for Python codebases",
+        tags=("python", "lint"),
+    )
+    changed_description = build_embedding_source(
+        slug="Python.Lint",
+        name="Python Lint",
+        description="Static analysis for Python services",
+        tags=("python", "lint"),
+    )
+
+    assert build_source_checksum_digest(first) == build_source_checksum_digest(second)
+    assert build_source_checksum_digest(first) != build_source_checksum_digest(changed_description)
+
+
+@pytest.mark.unit
+def test_semantic_query_source_uses_description_and_tags_only() -> None:
+    assert (
+        build_semantic_query_source(
+            description="  Static checks for Python services  ",
+            tags=("Quality", "python", "quality"),
+        )
+        == "static checks for python services python quality"
+    )
+    assert build_semantic_query_source(description=None, tags=()) is None
+    assert build_semantic_query_source(description="   ", tags=(" ",)) is None
 
 
 @pytest.mark.unit
@@ -74,23 +113,58 @@ def test_validate_embedding_vector_rejects_wrong_dimensions_and_non_finite_value
 
 
 @pytest.mark.unit
-def test_fusion_keeps_exact_and_lexical_primary_before_semantic_expansion() -> None:
+def test_fusion_keeps_exact_matches_before_hybrid_rank() -> None:
     exact = _candidate("python.lint", exact_slug_match=True, lexical_score=1.0)
-    strong_lexical = _candidate("python.format", lexical_score=0.8)
-    weak_lexical = _candidate("python.style", lexical_score=0.1)
-    semantic_only = _candidate("python.static-analysis")
+    lexical_only = _candidate("python.format", lexical_score=0.8)
+    hybrid_match = _candidate("python.style", lexical_score=0.1)
 
     fused = fuse_discovery_candidates(
-        lexical_candidates=(exact, strong_lexical, weak_lexical),
-        semantic_candidates=(semantic_only, weak_lexical),
+        lexical_candidates=(exact, lexical_only, hybrid_match),
+        semantic_candidates=(hybrid_match,),
         co_usage_boosts={},
         limit=20,
     )
 
     assert tuple(item.slug for item in fused) == (
         "python.lint",
-        "python.format",
         "python.style",
+        "python.format",
+    )
+
+
+@pytest.mark.unit
+def test_fusion_uses_semantic_rank_for_overlapping_candidates() -> None:
+    lexical_only = _candidate("python.format", lexical_score=0.8)
+    hybrid_match = _candidate("python.style", lexical_score=0.1)
+
+    fused = fuse_discovery_candidates(
+        lexical_candidates=(lexical_only, hybrid_match),
+        semantic_candidates=(hybrid_match,),
+        co_usage_boosts={},
+        limit=20,
+    )
+
+    assert tuple(item.slug for item in fused) == (
+        "python.style",
+        "python.format",
+    )
+
+
+@pytest.mark.unit
+def test_fusion_can_promote_strong_semantic_only_candidate_into_limited_results() -> None:
+    exact = _candidate("python.lint", exact_name_match=True, lexical_score=1.0)
+    weak_lexical = _candidate("python.format", lexical_score=0.1)
+    semantic_only = _candidate("python.static-analysis")
+
+    fused = fuse_discovery_candidates(
+        lexical_candidates=(exact, weak_lexical),
+        semantic_candidates=(semantic_only,),
+        co_usage_boosts={},
+        limit=2,
+    )
+
+    assert tuple(item.slug for item in fused) == (
+        "python.lint",
         "python.static-analysis",
     )
 

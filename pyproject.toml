@@ -17,6 +17,7 @@ dependencies = [
     "python-multipart==0.0.27",
     "zstandard>=0.24.0",
     "pygments>=2.20.0",
+    "openai>=2.36.0",
 ]
 
 [project.optional-dependencies]
@@ -40,6 +41,17 @@ otel = [
     "opentelemetry-instrumentation-sqlalchemy>=0.51b0",
     "opentelemetry-instrumentation-psycopg>=0.51b0",
     "opentelemetry-instrumentation-logging>=0.51b0",
+]
+workflow = [
+    "render-sdk>=0.6.1",
+]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "dev" },
+        { extra = "workflow" },
+    ],
 ]
 
 [tool.fastapi]

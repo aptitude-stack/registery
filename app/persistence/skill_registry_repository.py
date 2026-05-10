@@ -28,6 +28,8 @@ from app.core.ports import (
     SearchCandidatesRequest,
     SearchSemanticCandidatesRequest,
     SkillCatalogRepository,
+    SkillEmbeddingIndexRecord,
+    SkillEmbeddingWorkItem,
     SkillRegistryPersistenceError,
     StoredSkillSearchCandidate,
 )
@@ -49,6 +51,7 @@ from app.intelligence.discovery_signals import (
     build_embedding_source,
     build_source_checksum_digest,
     serialize_embedding_vector,
+    validate_embedding_vector,
 )
 from app.persistence.models.audit_event import AuditEvent
 from app.persistence.models.namespace import Namespace
@@ -83,11 +86,11 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         self,
         session_factory: sessionmaker[Session],
         *,
-        semantic_embedding_model: str = "metadata-1536-v1",
+        semantic_embedding_index_key: str = "openai:text-embedding-3-small:description-tags-v1",
         semantic_embedding_dimensions: int = 1536,
     ) -> None:
         self._session_factory = session_factory
-        self._semantic_embedding_model = semantic_embedding_model
+        self._semantic_embedding_index_key = semantic_embedding_index_key
         self._semantic_embedding_dimensions = semantic_embedding_dimensions
 
     def skill_exists(self, *, slug: str) -> bool:
@@ -410,6 +413,279 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 },
             ).mappings()
             return tuple(self._to_search_candidate(row) for row in rows)
+
+    def backfill_pending_skill_embeddings(
+        self,
+        *,
+        embedding_model: str,
+        embedding_dimensions: int,
+    ) -> int:
+        """Create missing Plan 18 pending embedding rows from search documents."""
+        inserted_count = 0
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    text(
+                        """
+                        SELECT skill_version_fk, slug, name, description, tags
+                        FROM skill_search_documents
+                        ORDER BY skill_version_fk
+                        """
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            for row in rows:
+                source_text = build_embedding_source(
+                    slug=str(row["slug"]),
+                    name=str(row["name"]),
+                    description=(
+                        str(row["description"]) if row["description"] is not None else None
+                    ),
+                    tags=tuple(ensure_string_list(row["tags"])),
+                )
+                source_checksum = build_source_checksum_digest(source_text)
+                existing = (
+                    session.execute(
+                        text(
+                            """
+                            SELECT source_checksum_digest, index_status
+                            FROM skill_search_embeddings
+                            WHERE skill_version_fk = :skill_version_fk
+                              AND embedding_model = :embedding_model
+                            """
+                        ),
+                        {
+                            "skill_version_fk": int(row["skill_version_fk"]),
+                            "embedding_model": embedding_model,
+                        },
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if existing is None:
+                    session.execute(
+                        text(
+                            """
+                            INSERT INTO skill_search_embeddings (
+                                skill_version_fk,
+                                embedding_model,
+                                embedding_dimensions,
+                                source_checksum_digest,
+                                index_status
+                            )
+                            VALUES (
+                                :skill_version_fk,
+                                :embedding_model,
+                                :embedding_dimensions,
+                                :source_checksum_digest,
+                                'pending'
+                            )
+                            """
+                        ),
+                        {
+                            "skill_version_fk": int(row["skill_version_fk"]),
+                            "embedding_model": embedding_model,
+                            "embedding_dimensions": embedding_dimensions,
+                            "source_checksum_digest": source_checksum,
+                        },
+                    )
+                    inserted_count += 1
+                    continue
+                if str(existing["source_checksum_digest"]) != source_checksum:
+                    session.execute(
+                        text(
+                            """
+                            UPDATE skill_search_embeddings
+                            SET embedding_dimensions = :embedding_dimensions,
+                                source_checksum_digest = :source_checksum_digest,
+                                embedding_vector = NULL,
+                                index_status = 'stale',
+                                indexed_at = NULL,
+                                last_error = NULL,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE skill_version_fk = :skill_version_fk
+                              AND embedding_model = :embedding_model
+                            """
+                        ),
+                        {
+                            "skill_version_fk": int(row["skill_version_fk"]),
+                            "embedding_model": embedding_model,
+                            "embedding_dimensions": embedding_dimensions,
+                            "source_checksum_digest": source_checksum,
+                        },
+                    )
+            session.commit()
+        return inserted_count
+
+    def claim_skill_embedding_work(
+        self,
+        *,
+        embedding_model: str,
+        limit: int,
+        reclaim_after_seconds: int,
+    ) -> tuple[SkillEmbeddingWorkItem, ...]:
+        """Claim pending, stale, or abandoned embedding rows without provider locks."""
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    text(
+                        """
+                        WITH candidate_rows AS (
+                            SELECT
+                                emb.skill_version_fk,
+                                emb.embedding_model,
+                                emb.embedding_dimensions,
+                                emb.source_checksum_digest,
+                                doc.slug,
+                                doc.name,
+                                doc.description,
+                                doc.tags
+                            FROM skill_search_embeddings AS emb
+                            JOIN skill_search_documents AS doc
+                                ON doc.skill_version_fk = emb.skill_version_fk
+                            WHERE emb.embedding_model = :embedding_model
+                              AND (
+                                emb.index_status IN ('pending', 'stale')
+                                OR (
+                                    emb.index_status = 'processing'
+                                    AND emb.updated_at <= (
+                                        CURRENT_TIMESTAMP
+                                        - (:reclaim_after_seconds * INTERVAL '1 second')
+                                    )
+                                )
+                              )
+                            ORDER BY emb.updated_at ASC, emb.skill_version_fk ASC
+                            FOR UPDATE OF emb SKIP LOCKED
+                            LIMIT :limit
+                        ),
+                        updated AS (
+                            UPDATE skill_search_embeddings AS emb
+                            SET index_status = 'processing',
+                                last_error = NULL,
+                                updated_at = CURRENT_TIMESTAMP
+                            FROM candidate_rows AS candidate
+                            WHERE emb.skill_version_fk = candidate.skill_version_fk
+                              AND emb.embedding_model = candidate.embedding_model
+                            RETURNING
+                                emb.skill_version_fk,
+                                emb.embedding_model,
+                                emb.embedding_dimensions,
+                                emb.source_checksum_digest,
+                                candidate.slug,
+                                candidate.name,
+                                candidate.description,
+                                candidate.tags
+                        )
+                        SELECT *
+                        FROM updated
+                        ORDER BY skill_version_fk
+                        """
+                    ),
+                    {
+                        "embedding_model": embedding_model,
+                        "limit": limit,
+                        "reclaim_after_seconds": reclaim_after_seconds,
+                    },
+                )
+                .mappings()
+                .all()
+            )
+            session.commit()
+
+        work_items: list[SkillEmbeddingWorkItem] = []
+        for row in rows:
+            source_text = build_embedding_source(
+                slug=str(row["slug"]),
+                name=str(row["name"]),
+                description=str(row["description"]) if row["description"] is not None else None,
+                tags=tuple(ensure_string_list(row["tags"])),
+            )
+            source_checksum = build_source_checksum_digest(source_text)
+            if source_checksum != str(row["source_checksum_digest"]):
+                self._mark_skill_embedding_stale(
+                    skill_version_fk=int(row["skill_version_fk"]),
+                    embedding_model=str(row["embedding_model"]),
+                    embedding_dimensions=int(row["embedding_dimensions"]),
+                    source_checksum_digest=source_checksum,
+                )
+                continue
+            work_items.append(
+                SkillEmbeddingWorkItem(
+                    skill_version_fk=int(row["skill_version_fk"]),
+                    embedding_model=str(row["embedding_model"]),
+                    embedding_dimensions=int(row["embedding_dimensions"]),
+                    source_checksum_digest=source_checksum,
+                    source_text=source_text,
+                )
+            )
+        return tuple(work_items)
+
+    def index_skill_embedding(self, *, record: SkillEmbeddingIndexRecord) -> None:
+        """Persist one validated vector and mark the derived row indexed."""
+        embedding_vector = serialize_embedding_vector(
+            validate_embedding_vector(
+                record.embedding_vector,
+                dimensions=record.embedding_dimensions,
+            )
+        )
+        vector_type = f"halfvec({record.embedding_dimensions})"
+        with self._session_factory() as session:
+            session.execute(
+                text(
+                    f"""
+                    UPDATE skill_search_embeddings
+                    SET embedding_dimensions = :embedding_dimensions,
+                        source_checksum_digest = :source_checksum_digest,
+                        embedding_vector = CAST(:embedding_vector AS {vector_type}),
+                        index_status = 'indexed',
+                        indexed_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP,
+                        last_error = NULL
+                    WHERE skill_version_fk = :skill_version_fk
+                      AND embedding_model = :embedding_model
+                    """
+                ),
+                {
+                    "skill_version_fk": record.skill_version_fk,
+                    "embedding_model": record.embedding_model,
+                    "embedding_dimensions": record.embedding_dimensions,
+                    "source_checksum_digest": record.source_checksum_digest,
+                    "embedding_vector": embedding_vector,
+                },
+            )
+            session.commit()
+
+    def mark_skill_embedding_failed(
+        self,
+        *,
+        skill_version_fk: int,
+        embedding_model: str,
+        error: str,
+    ) -> None:
+        """Record an indexing failure without touching authoritative catalog state."""
+        with self._session_factory() as session:
+            session.execute(
+                text(
+                    """
+                    UPDATE skill_search_embeddings
+                    SET embedding_vector = NULL,
+                        index_status = 'failed',
+                        indexed_at = NULL,
+                        updated_at = CURRENT_TIMESTAMP,
+                        last_error = :last_error
+                    WHERE skill_version_fk = :skill_version_fk
+                      AND embedding_model = :embedding_model
+                    """
+                ),
+                {
+                    "skill_version_fk": skill_version_fk,
+                    "embedding_model": embedding_model,
+                    "last_error": error[:500],
+                },
+            )
+            session.commit()
 
     def get_co_usage_boosts(self, *, request: CoUsageBoostRequest) -> dict[str, float]:
         if not request.context_skill_slugs or not request.candidate_slugs:
@@ -894,11 +1170,44 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             ),
             {
                 "skill_version_fk": skill_version_id,
-                "embedding_model": self._semantic_embedding_model,
+                "embedding_model": self._semantic_embedding_index_key,
                 "embedding_dimensions": self._semantic_embedding_dimensions,
                 "source_checksum_digest": build_source_checksum_digest(source),
             },
         )
+
+    def _mark_skill_embedding_stale(
+        self,
+        *,
+        skill_version_fk: int,
+        embedding_model: str,
+        embedding_dimensions: int,
+        source_checksum_digest: str,
+    ) -> None:
+        with self._session_factory() as session:
+            session.execute(
+                text(
+                    """
+                    UPDATE skill_search_embeddings
+                    SET embedding_dimensions = :embedding_dimensions,
+                        source_checksum_digest = :source_checksum_digest,
+                        embedding_vector = NULL,
+                        index_status = 'stale',
+                        indexed_at = NULL,
+                        updated_at = CURRENT_TIMESTAMP,
+                        last_error = NULL
+                    WHERE skill_version_fk = :skill_version_fk
+                      AND embedding_model = :embedding_model
+                    """
+                ),
+                {
+                    "skill_version_fk": skill_version_fk,
+                    "embedding_model": embedding_model,
+                    "embedding_dimensions": embedding_dimensions,
+                    "source_checksum_digest": source_checksum_digest,
+                },
+            )
+            session.commit()
 
     @staticmethod
     def _to_search_candidate(row: RowMapping) -> StoredSkillSearchCandidate:

@@ -7,7 +7,7 @@
 
 This document describes the canonical PostgreSQL baseline for the registry data model.
 
-It reflects the current runtime shape created by [`alembic/versions/0001_initial_schema.py`](../../alembic/versions/0001_initial_schema.py) and evolved through [`alembic/versions/0004_enterprise_governance.py`](../../alembic/versions/0004_enterprise_governance.py):
+It reflects the current runtime shape created by [`alembic/versions/0001_initial_schema.py`](../../alembic/versions/0001_initial_schema.py) and evolved through [`alembic/versions/0006_embedding_processing_status.py`](../../alembic/versions/0006_embedding_processing_status.py):
 
 - PostgreSQL is the only authoritative store.
 - versions are immutable.
@@ -283,9 +283,9 @@ Derived semantic-search read model for lexical-primary discovery expansion.
 | `skill_version_fk` | `bigint` | PK and FK to `skill_versions.id`. |
 | `embedding_model` | `text` | PK component for model-specific rebuilds. |
 | `embedding_dimensions` | `integer` | Fixed at `1536` for the first semantic index. |
-| `source_checksum_digest` | `text` | Detects stale metadata-only embedding sources. |
+| `source_checksum_digest` | `text` | Detects stale description/tag embedding sources. |
 | `embedding_vector` | `halfvec(1536)` | Optional pgvector embedding, indexed only when ready. |
-| `index_status` | `text` | `pending`, `indexed`, `failed`, or `stale`. |
+| `index_status` | `text` | `pending`, `processing`, `indexed`, `failed`, or `stale`. |
 | `indexed_at` | `timestamptz` | Last successful embedding write time. |
 | `created_at` / `updated_at` | `timestamptz` | Derived-row timestamps. |
 | `last_error` | `text` | Last indexing failure, if any. |
@@ -294,6 +294,8 @@ Rule:
 
 - semantic rows are derived and rebuildable; discovery must still succeed when
   they are missing, stale, or failed
+- `processing` is a worker-claim state only; indexers must not hold database
+  row locks while calling the embedding provider
 
 Index:
 
@@ -372,6 +374,15 @@ Enterprise governance is captured by [`alembic/versions/0004_enterprise_governan
 4. add `artifact_origin`, `review_state`, `promotion_channel`, and `policy_pack_fk` to `skill_versions`
 5. project namespace/workflow fields into `skill_search_documents`
 6. add B-tree indexes for equality filters used by visibility checks
+
+Semantic discovery signals are captured by
+[`alembic/versions/0005_semantic_discovery_signals.py`](../../alembic/versions/0005_semantic_discovery_signals.py)
+and [`alembic/versions/0006_embedding_processing_status.py`](../../alembic/versions/0006_embedding_processing_status.py):
+
+1. enable the `vector` extension
+2. create `skill_search_embeddings` with `halfvec(1536)` and HNSW cosine index
+3. create co-usage observation and aggregate tables
+4. allow `processing` as the embedding indexer claim state
 
 ## Non-Goals
 

@@ -178,6 +178,17 @@ class SkillEmbeddingIndexRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillEmbeddingWorkItem:
+    """One claimed semantic embedding row ready for provider indexing."""
+
+    skill_version_fk: int
+    embedding_model: str
+    embedding_dimensions: int
+    source_checksum_digest: str
+    source_text: str
+
+
+@dataclass(frozen=True, slots=True)
 class CoUsageObservationImportRecord:
     """One trusted resolver outcome used to rebuild co-usage aggregates."""
 
@@ -278,6 +289,23 @@ class SkillCatalogRepository(Protocol):
         request: SearchSemanticCandidatesRequest,
     ) -> tuple[StoredSkillSearchCandidate, ...]:
         """Return semantically similar candidates within governance-safe filters."""
+
+    def backfill_pending_skill_embeddings(
+        self,
+        *,
+        embedding_model: str,
+        embedding_dimensions: int,
+    ) -> int:
+        """Create missing pending semantic embedding rows for indexed skill documents."""
+
+    def claim_skill_embedding_work(
+        self,
+        *,
+        embedding_model: str,
+        limit: int,
+        reclaim_after_seconds: int,
+    ) -> tuple[SkillEmbeddingWorkItem, ...]:
+        """Claim pending, stale, or abandoned semantic embedding rows for indexing."""
 
     def get_co_usage_boosts(self, *, request: CoUsageBoostRequest) -> dict[str, float]:
         """Return bounded co-usage boosts for visible candidate slugs."""
@@ -384,6 +412,23 @@ class EmbeddingProviderPort(Protocol):
 
 class EmbeddingIndexPort(Protocol):
     """Embedding indexing contract for derived semantic discovery rows."""
+
+    def backfill_pending_skill_embeddings(
+        self,
+        *,
+        embedding_model: str,
+        embedding_dimensions: int,
+    ) -> int:
+        """Create missing pending semantic embedding rows for indexed skill documents."""
+
+    def claim_skill_embedding_work(
+        self,
+        *,
+        embedding_model: str,
+        limit: int,
+        reclaim_after_seconds: int,
+    ) -> tuple[SkillEmbeddingWorkItem, ...]:
+        """Claim pending, stale, or abandoned semantic embedding rows for indexing."""
 
     def index_skill_embedding(self, *, record: SkillEmbeddingIndexRecord) -> None:
         """Persist one validated indexed skill embedding."""

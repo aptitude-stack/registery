@@ -203,9 +203,11 @@ Visibility is enforced consistently for discovery, version listing, exact metada
 
 Discovery remains lexical-primary. Optional semantic expansion and co-usage
 signals are internal ranking inputs inside `POST /discovery`; they do not add
-routes or response fields. The request may include `context_skills` to identify
-already selected/installed skill slugs for bounded co-usage boosts, but those
-values are not dependency declarations.
+routes or response fields. Semantic expansion embeds description and tags only;
+the required discovery `name` remains a lexical identity/search input. The
+request may include `context_skills` to identify already selected/installed
+skill slugs for bounded co-usage boosts, but those values are not dependency
+declarations.
 
 Trust evidence is append-only. Evidence response payloads expose evidence type, subject, digest, URI, and creation time, but not the raw evidence payload.
 

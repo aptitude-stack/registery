@@ -37,6 +37,10 @@ MIGRATION_DATABASE_URL_ENV_VAR = "MIGRATION_DATABASE_URL"
 OTEL_OTLP_ENDPOINT_ENV_VAR = "OTEL_EXPORTER_OTLP_ENDPOINT"
 AppEnv = Literal["dev", "prod"]
 SemanticDiscoveryMode = Literal["off", "shadow", "hybrid"]
+SemanticEmbeddingProvider = Literal["openai"]
+DEFAULT_SEMANTIC_EMBEDDING_PROVIDER: SemanticEmbeddingProvider = "openai"
+DEFAULT_SEMANTIC_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY = "openai:text-embedding-3-small:description-tags-v1"
 
 
 def _default_publish_rules() -> dict[TrustTier, PublishRuleSettings]:
@@ -205,14 +209,23 @@ class Settings(BaseSettings):
         default="off",
         alias="SEMANTIC_DISCOVERY_MODE",
     )
+    semantic_embedding_provider: SemanticEmbeddingProvider = Field(
+        default=DEFAULT_SEMANTIC_EMBEDDING_PROVIDER,
+        alias="SEMANTIC_EMBEDDING_PROVIDER",
+    )
     semantic_embedding_model: str = Field(
-        default="metadata-1536-v1",
+        default=DEFAULT_SEMANTIC_EMBEDDING_MODEL,
         alias="SEMANTIC_EMBEDDING_MODEL",
+    )
+    semantic_embedding_index_key: str = Field(
+        default=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+        alias="SEMANTIC_EMBEDDING_INDEX_KEY",
     )
     semantic_embedding_dimensions: int = Field(
         default=1536,
         alias="SEMANTIC_EMBEDDING_DIMENSIONS",
     )
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     semantic_candidate_limit: int = Field(
         default=20,
         ge=1,
@@ -279,6 +292,19 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AUTH_SERVICE_TOKENS_JSON contains duplicate token ids: {duplicates}."
             )
+        expected_index_key = (
+            f"{self.semantic_embedding_provider}:"
+            f"{self.semantic_embedding_model}:description-tags-v1"
+        )
+        if self.semantic_embedding_index_key != expected_index_key:
+            raise ValueError(
+                "SEMANTIC_EMBEDDING_INDEX_KEY must match the configured semantic "
+                "embedding provider, model, and description-tags-v1 source contract."
+            )
+        if self.semantic_discovery_mode != "off" and not self.openai_api_key:
+            raise ValueError(
+                "OPENAI_API_KEY must be set when SEMANTIC_DISCOVERY_MODE is shadow or hybrid."
+            )
         return self
 
     @field_validator("allowed_hosts")
@@ -286,6 +312,22 @@ class Settings(BaseSettings):
     def normalize_allowed_hosts(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(host.strip() for host in value if host.strip())
         return tuple(dict.fromkeys(normalized))
+
+    @field_validator("semantic_embedding_model", "semantic_embedding_index_key")
+    @classmethod
+    def normalize_semantic_embedding_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Semantic embedding settings must not be blank.")
+        return normalized
+
+    @field_validator("openai_api_key")
+    @classmethod
+    def normalize_openai_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
     @property
     def effective_policy_profiles(self) -> dict[str, PolicyProfileSettings]:
