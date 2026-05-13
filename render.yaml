@@ -40,6 +40,12 @@ services:
         value: openai:text-embedding-3-small:description-tags-v1
       - key: SEMANTIC_EMBEDDING_DIMENSIONS
         value: "1536"
+      - key: SEMANTIC_CANDIDATE_LIMIT
+        value: "20"
+      - key: SEMANTIC_QUERY_TIMEOUT_MS
+        value: "150"
+      - key: SEMANTIC_HNSW_EF_SEARCH
+        value: "100"
       - key: DATABASE_URL
         sync: false
       - key: MIGRATION_DATABASE_URL

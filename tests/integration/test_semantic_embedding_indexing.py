@@ -9,12 +9,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
 from app.core.ports import SkillEmbeddingIndexRecord
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+    DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+    DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
+)
 from app.main import create_app
 from app.persistence.db import get_session_factory
 from app.persistence.skill_registry_repository import SQLAlchemySkillCatalogRepository
 from tests.integration.test_skill_registry_endpoints import _publish, _request
-
-PLAN18_INDEX_KEY = "openai:text-embedding-3-small:description-tags-v1"
 
 
 @pytest.mark.integration
@@ -23,7 +26,7 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    monkeypatch.setenv("SEMANTIC_EMBEDDING_INDEX_KEY", PLAN18_INDEX_KEY)
+    monkeypatch.setenv("SEMANTIC_EMBEDDING_INDEX_KEY", DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY)
     slug = f"python.semantic.indexing.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
@@ -39,17 +42,17 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
         )
         repository = SQLAlchemySkillCatalogRepository(
             get_session_factory(),
-            semantic_embedding_index_key=PLAN18_INDEX_KEY,
+            semantic_embedding_index_key=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
         )
 
         inserted = repository.backfill_pending_skill_embeddings(
-            embedding_model=PLAN18_INDEX_KEY,
-            embedding_dimensions=1536,
+            embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+            embedding_dimensions=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
         )
         work_items = repository.claim_skill_embedding_work(
-            embedding_model=PLAN18_INDEX_KEY,
+            embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
             limit=1,
-            reclaim_after_seconds=3600,
+            reclaim_after_seconds=DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
         )
 
         assert inserted == 0
@@ -57,15 +60,17 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
         work_item = work_items[0]
         assert work_item.source_text == "static checks for python services python quality"
         assert "python.semantic.indexing" not in work_item.source_text
-        assert work_item.embedding_model == PLAN18_INDEX_KEY
+        assert work_item.embedding_model == DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
 
         repository.index_skill_embedding(
             record=SkillEmbeddingIndexRecord(
                 skill_version_fk=work_item.skill_version_fk,
-                embedding_model=PLAN18_INDEX_KEY,
-                embedding_dimensions=1536,
+                embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+                embedding_dimensions=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
                 source_checksum_digest=work_item.source_checksum_digest,
-                embedding_vector=tuple(0.01 for _ in range(1536)),
+                embedding_vector=tuple(
+                    0.01 for _ in range(DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS)
+                ),
             )
         )
 
@@ -99,7 +104,7 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
 
     assert rows == [
         {
-            "embedding_model": PLAN18_INDEX_KEY,
+            "embedding_model": DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
             "index_status": "indexed",
             "has_vector": True,
         }
@@ -112,7 +117,7 @@ def test_embedding_indexer_reclaims_stale_processing_rows_and_records_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    monkeypatch.setenv("SEMANTIC_EMBEDDING_INDEX_KEY", PLAN18_INDEX_KEY)
+    monkeypatch.setenv("SEMANTIC_EMBEDDING_INDEX_KEY", DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY)
     slug = f"python.semantic.failure.{uuid4().hex}"
 
     with TestClient(create_app()) as client:
@@ -128,19 +133,19 @@ def test_embedding_indexer_reclaims_stale_processing_rows_and_records_failures(
         )
         repository = SQLAlchemySkillCatalogRepository(
             get_session_factory(),
-            semantic_embedding_index_key=PLAN18_INDEX_KEY,
+            semantic_embedding_index_key=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
         )
         first_claim = repository.claim_skill_embedding_work(
-            embedding_model=PLAN18_INDEX_KEY,
+            embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
             limit=1,
-            reclaim_after_seconds=3600,
+            reclaim_after_seconds=DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
         )
         assert len(first_claim) == 1
         assert (
             repository.claim_skill_embedding_work(
-                embedding_model=PLAN18_INDEX_KEY,
+                embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
                 limit=1,
-                reclaim_after_seconds=3600,
+                reclaim_after_seconds=DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
             )
             == ()
         )
@@ -159,21 +164,21 @@ def test_embedding_indexer_reclaims_stale_processing_rows_and_records_failures(
                     ),
                     {
                         "skill_version_fk": first_claim[0].skill_version_fk,
-                        "embedding_model": PLAN18_INDEX_KEY,
+                        "embedding_model": DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
                     },
                 )
         finally:
             engine.dispose()
 
         second_claim = repository.claim_skill_embedding_work(
-            embedding_model=PLAN18_INDEX_KEY,
+            embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
             limit=1,
-            reclaim_after_seconds=3600,
+            reclaim_after_seconds=DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
         )
         assert len(second_claim) == 1
         repository.mark_skill_embedding_failed(
             skill_version_fk=second_claim[0].skill_version_fk,
-            embedding_model=PLAN18_INDEX_KEY,
+            embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
             error="provider timeout while indexing embedding row",
         )
 
@@ -192,7 +197,7 @@ def test_embedding_indexer_reclaims_stale_processing_rows_and_records_failures(
                     ),
                     {
                         "skill_version_fk": first_claim[0].skill_version_fk,
-                        "embedding_model": PLAN18_INDEX_KEY,
+                        "embedding_model": DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
                     },
                 )
                 .mappings()

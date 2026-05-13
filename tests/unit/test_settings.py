@@ -9,6 +9,15 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.governance import build_default_policy_profile
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+    DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+    DEFAULT_SEMANTIC_EMBEDDING_MODEL,
+    DEFAULT_SEMANTIC_EMBEDDING_PROVIDER,
+    DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
+    DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
+)
 from app.core.settings import Settings, get_settings
 from tests.conftest import DEFAULT_ALLOWED_HOSTS, DEFAULT_AUTH_SERVICE_TOKENS
 
@@ -44,14 +53,13 @@ def test_settings_load_valid_environment(
         == default_policy.discovery_default_statuses
     )
     assert settings.semantic_discovery_mode == "off"
-    assert settings.semantic_embedding_provider == "openai"
-    assert settings.semantic_embedding_model == "text-embedding-3-small"
-    assert (
-        settings.semantic_embedding_index_key == "openai:text-embedding-3-small:description-tags-v1"
-    )
-    assert settings.semantic_embedding_dimensions == 1536
-    assert settings.semantic_candidate_limit == 20
-    assert settings.semantic_query_timeout_ms == 150
+    assert settings.semantic_embedding_provider == DEFAULT_SEMANTIC_EMBEDDING_PROVIDER
+    assert settings.semantic_embedding_model == DEFAULT_SEMANTIC_EMBEDDING_MODEL
+    assert settings.semantic_embedding_index_key == DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
+    assert settings.semantic_embedding_dimensions == DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS
+    assert settings.semantic_candidate_limit == DEFAULT_SEMANTIC_CANDIDATE_LIMIT
+    assert settings.semantic_query_timeout_ms == DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS
+    assert settings.semantic_hnsw_ef_search == DEFAULT_SEMANTIC_HNSW_EF_SEARCH
     assert settings.co_usage_ranking_enabled is False
     assert settings.co_usage_boost_cap == 0.05
 

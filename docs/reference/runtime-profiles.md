@@ -102,7 +102,9 @@ Tests and CI are execution environments, not runtime profiles.
 - `SEMANTIC_EMBEDDING_MODEL`: provider model sent to OpenAI, currently `text-embedding-3-small`
 - `SEMANTIC_EMBEDDING_INDEX_KEY`: persisted embedding compatibility key, currently `openai:text-embedding-3-small:description-tags-v1`
 - `SEMANTIC_EMBEDDING_DIMENSIONS`: fixed at `1536` for the current `halfvec(1536)` read model
-- `SEMANTIC_QUERY_TIMEOUT_MS`, `SEMANTIC_CANDIDATE_LIMIT`, `SEMANTIC_HNSW_EF_SEARCH`: request-path semantic timeout, result, and pgvector recall controls
+- `SEMANTIC_CANDIDATE_LIMIT`: semantic candidate cap, default `20`
+- `SEMANTIC_QUERY_TIMEOUT_MS`: provider query timeout, default `150`
+- `SEMANTIC_HNSW_EF_SEARCH`: pgvector HNSW recall control, default `100`
 - `APP_SETTINGS_ENV_FILE`: optional alternate dotenv file path for app-process startup; otherwise the app loads `.env`
 
 Service-token settings use this JSON shape:
@@ -160,6 +162,7 @@ fallbacks:
 uv run python scripts/index_semantic_embeddings.py --batch-size 25 --max-batches 1 --reclaim-after-seconds 3600
 ```
 
+The checked-in indexing defaults are `--batch-size 25 --max-batches 1 --reclaim-after-seconds 3600`.
 The indexer creates missing pending rows for the active
 `SEMANTIC_EMBEDDING_INDEX_KEY`, claims rows as `processing`, calls OpenAI, and
 then marks rows `indexed` or `failed`. Provider failures do not affect publish,

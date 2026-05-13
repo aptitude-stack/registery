@@ -33,6 +33,10 @@ from app.core.ports import (
     SkillRegistryPersistenceError,
     StoredSkillSearchCandidate,
 )
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+    DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+)
 from app.core.skills.models import (
     NamespaceRecord,
     OrganizationRecord,
@@ -86,8 +90,8 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         self,
         session_factory: sessionmaker[Session],
         *,
-        semantic_embedding_index_key: str = "openai:text-embedding-3-small:description-tags-v1",
-        semantic_embedding_dimensions: int = 1536,
+        semantic_embedding_index_key: str = DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+        semantic_embedding_dimensions: int = DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
     ) -> None:
         self._session_factory = session_factory
         self._semantic_embedding_index_key = semantic_embedding_index_key

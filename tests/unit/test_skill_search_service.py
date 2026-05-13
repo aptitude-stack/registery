@@ -14,6 +14,7 @@ from app.core.ports import (
     SearchSemanticCandidatesRequest,
     StoredSkillSearchCandidate,
 )
+from app.core.semantic_defaults import DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
 from app.core.skills.discovery import SkillDiscoveryRequest, SkillDiscoveryService
 from app.core.skills.search import SkillSearchQuery, SkillSearchService
 
@@ -137,7 +138,7 @@ def _discovery_service(
         governance_policy=GovernancePolicy(profile=build_default_policy_profile()),
         semantic_discovery_mode=semantic_mode,
         embedding_provider=embedding_provider,
-        semantic_embedding_index_key="openai:text-embedding-3-small:description-tags-v1",
+        semantic_embedding_index_key=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
     )
 
 
@@ -213,9 +214,7 @@ def test_discovery_semantic_query_uses_description_and_tags_not_required_name() 
 
     assert results == ("python.lint",)
     assert provider.calls == ["static checks for python services python quality"]
-    assert repository.semantic_requests[0].embedding_model == (
-        "openai:text-embedding-3-small:description-tags-v1"
-    )
+    assert repository.semantic_requests[0].embedding_model == DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
 
 
 @pytest.mark.unit

@@ -86,10 +86,20 @@ def build_indexer(*, settings: Settings) -> SemanticEmbeddingIndexer:
 
 
 def _parse_args() -> argparse.Namespace:
+    from app.core.semantic_defaults import (
+        DEFAULT_SEMANTIC_INDEX_BATCH_SIZE,
+        DEFAULT_SEMANTIC_INDEX_MAX_BATCHES,
+        DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
+    )
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--batch-size", type=int, default=25)
-    parser.add_argument("--max-batches", type=int, default=1)
-    parser.add_argument("--reclaim-after-seconds", type=int, default=3600)
+    parser.add_argument("--batch-size", type=int, default=DEFAULT_SEMANTIC_INDEX_BATCH_SIZE)
+    parser.add_argument("--max-batches", type=int, default=DEFAULT_SEMANTIC_INDEX_MAX_BATCHES)
+    parser.add_argument(
+        "--reclaim-after-seconds",
+        type=int,
+        default=DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
+    )
     return parser.parse_args()
 
 

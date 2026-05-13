@@ -24,11 +24,15 @@ from app.core.ports import (
     SkillCatalogRepository,
     StoredSkillSearchCandidate,
 )
-from app.core.settings import (
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
     DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
     DEFAULT_SEMANTIC_EMBEDDING_MODEL,
-    SemanticDiscoveryMode,
+    DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
+    DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
 )
+from app.core.settings import SemanticDiscoveryMode
 from app.intelligence.discovery_signals import (
     fuse_discovery_candidates,
     validate_embedding_vector,
@@ -90,10 +94,10 @@ class SkillSearchService:
         embedding_provider: EmbeddingProviderPort | None = None,
         semantic_embedding_model: str = DEFAULT_SEMANTIC_EMBEDDING_MODEL,
         semantic_embedding_index_key: str = DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
-        semantic_embedding_dimensions: int = 1536,
-        semantic_candidate_limit: int = 20,
-        semantic_query_timeout_ms: int = 150,
-        semantic_hnsw_ef_search: int = 100,
+        semantic_embedding_dimensions: int = DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+        semantic_candidate_limit: int = DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+        semantic_query_timeout_ms: int = DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
+        semantic_hnsw_ef_search: int = DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
         co_usage_ranking_enabled: bool = False,
         co_usage_boost_cap: float = 0.05,
         co_usage_context_limit: int = 10,

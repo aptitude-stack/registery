@@ -23,6 +23,18 @@ from app.core.governance import (
     build_default_policy_profile,
 )
 from app.core.ports import ServiceTokenRecord
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+    DEFAULT_SEMANTIC_DISCOVERY_MODE,
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+    DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+    DEFAULT_SEMANTIC_EMBEDDING_MODEL,
+    DEFAULT_SEMANTIC_EMBEDDING_PROVIDER,
+    DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION,
+    DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
+    DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
+    SemanticEmbeddingProvider,
+)
 
 
 class PublishRuleSettings(BaseModel):
@@ -37,10 +49,6 @@ MIGRATION_DATABASE_URL_ENV_VAR = "MIGRATION_DATABASE_URL"
 OTEL_OTLP_ENDPOINT_ENV_VAR = "OTEL_EXPORTER_OTLP_ENDPOINT"
 AppEnv = Literal["dev", "prod"]
 SemanticDiscoveryMode = Literal["off", "shadow", "hybrid"]
-SemanticEmbeddingProvider = Literal["openai"]
-DEFAULT_SEMANTIC_EMBEDDING_PROVIDER: SemanticEmbeddingProvider = "openai"
-DEFAULT_SEMANTIC_EMBEDDING_MODEL = "text-embedding-3-small"
-DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY = "openai:text-embedding-3-small:description-tags-v1"
 
 
 def _default_publish_rules() -> dict[TrustTier, PublishRuleSettings]:
@@ -206,7 +214,7 @@ class Settings(BaseSettings):
     active_policy_profile: str = Field(default="default", alias="ACTIVE_POLICY_PROFILE")
     otel_enabled: bool = Field(default=False, alias="OTEL_ENABLED")
     semantic_discovery_mode: SemanticDiscoveryMode = Field(
-        default="off",
+        default=DEFAULT_SEMANTIC_DISCOVERY_MODE,
         alias="SEMANTIC_DISCOVERY_MODE",
     )
     semantic_embedding_provider: SemanticEmbeddingProvider = Field(
@@ -222,24 +230,24 @@ class Settings(BaseSettings):
         alias="SEMANTIC_EMBEDDING_INDEX_KEY",
     )
     semantic_embedding_dimensions: int = Field(
-        default=1536,
+        default=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
         alias="SEMANTIC_EMBEDDING_DIMENSIONS",
     )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     semantic_candidate_limit: int = Field(
-        default=20,
+        default=DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
         ge=1,
         le=100,
         alias="SEMANTIC_CANDIDATE_LIMIT",
     )
     semantic_query_timeout_ms: int = Field(
-        default=150,
+        default=DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
         ge=1,
         le=5_000,
         alias="SEMANTIC_QUERY_TIMEOUT_MS",
     )
     semantic_hnsw_ef_search: int = Field(
-        default=100,
+        default=DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
         ge=1,
         le=1_000,
         alias="SEMANTIC_HNSW_EF_SEARCH",
@@ -294,12 +302,14 @@ class Settings(BaseSettings):
             )
         expected_index_key = (
             f"{self.semantic_embedding_provider}:"
-            f"{self.semantic_embedding_model}:description-tags-v1"
+            f"{self.semantic_embedding_model}:"
+            f"{DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION}"
         )
         if self.semantic_embedding_index_key != expected_index_key:
             raise ValueError(
                 "SEMANTIC_EMBEDDING_INDEX_KEY must match the configured semantic "
-                "embedding provider, model, and description-tags-v1 source contract."
+                "embedding provider, model, and "
+                f"{DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION} source contract."
             )
         if self.semantic_discovery_mode != "off" and not self.openai_api_key:
             raise ValueError(

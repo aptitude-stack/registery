@@ -11,14 +11,20 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_INDEX_BATCH_SIZE,
+    DEFAULT_SEMANTIC_INDEX_MAX_BATCHES,
+    DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
+)
+
 app = Workflows(default_timeout=7200, default_plan="starter")
 
 
 @app.task(name="index_semantic_embeddings", timeout_seconds=7200, plan="starter")
 def index_semantic_embeddings(
-    batch_size: int = 25,
-    max_batches: int = 1,
-    reclaim_after_seconds: int = 3600,
+    batch_size: int = DEFAULT_SEMANTIC_INDEX_BATCH_SIZE,
+    max_batches: int = DEFAULT_SEMANTIC_INDEX_MAX_BATCHES,
+    reclaim_after_seconds: int = DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
 ) -> dict[str, int]:
     """Index pending/stale semantic embedding rows in bounded batches."""
     from app.core.settings import get_settings, reset_settings_cache
