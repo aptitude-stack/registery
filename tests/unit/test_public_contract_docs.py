@@ -68,3 +68,12 @@ def test_api_contract_docs_describe_tar_zst_upload_and_fetch() -> None:
     assert "Example metrics probe" not in development_setup
     assert "OTEL_ENABLED=true" in development_setup
     assert "../reference/observability-grafana-cloud.md" in development_setup
+
+
+@pytest.mark.unit
+def test_historical_changelogs_are_marked_as_historical_contract_records() -> None:
+    historical = Path("docs/reference/historical-docs.md").read_text(encoding="utf-8")
+
+    assert "docs/changelog/11-operability-and-release-readiness-changelog.md" in historical
+    assert "describes the former `/metrics` route" in historical
+    assert "docs/reference/api-contract.md" in historical
