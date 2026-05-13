@@ -269,5 +269,3 @@ def _query_audit_events(database_url: str) -> list[dict[str, Any]]:
 
 def _bundle(markdown: str) -> bytes:
     return build_skill_bundle(markdown)
-
-

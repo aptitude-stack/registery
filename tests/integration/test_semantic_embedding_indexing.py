@@ -68,9 +68,7 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
                 embedding_model=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
                 embedding_dimensions=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
                 source_checksum_digest=work_item.source_checksum_digest,
-                embedding_vector=tuple(
-                    0.01 for _ in range(DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS)
-                ),
+                embedding_vector=tuple(0.01 for _ in range(DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS)),
             )
         )
 

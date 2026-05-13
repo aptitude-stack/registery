@@ -11,7 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from app.core.semantic_defaults import (
+from app.core.semantic_defaults import (  # noqa: E402
     DEFAULT_SEMANTIC_INDEX_BATCH_SIZE,
     DEFAULT_SEMANTIC_INDEX_MAX_BATCHES,
     DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,

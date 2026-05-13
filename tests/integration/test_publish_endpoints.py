@@ -396,5 +396,3 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
     assert publish_existing.status_code == 201
     assert publish_missing.status_code == 404
     assert publish_missing.json()["error"]["code"] == "SKILL_NOT_FOUND"
-
-

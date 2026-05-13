@@ -38,9 +38,7 @@ def test_api_contract_docs_describe_tar_zst_upload_and_fetch() -> None:
     storage_strategy = Path("docs/reference/storage-strategy.md").read_text(encoding="utf-8")
     schema_reference = Path("docs/reference/schema.md").read_text(encoding="utf-8")
     runtime_profiles = Path("docs/reference/runtime-profiles.md").read_text(encoding="utf-8")
-    development_setup = Path("docs/contributors/development-setup.md").read_text(
-        encoding="utf-8"
-    )
+    development_setup = Path("docs/contributors/development-setup.md").read_text(encoding="utf-8")
 
     assert "multipart/form-data" in api_contract
     assert "application/zstd" in api_contract

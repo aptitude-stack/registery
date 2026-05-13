@@ -75,5 +75,3 @@ def test_exact_fetch_returns_not_found_for_missing_coordinates(
     assert metadata.json()["error"]["code"] == "SKILL_VERSION_NOT_FOUND"
     assert content.status_code == 404
     assert content.json()["error"]["code"] == "SKILL_VERSION_NOT_FOUND"
-
-

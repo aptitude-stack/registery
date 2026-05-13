@@ -6,12 +6,13 @@ import argparse
 import json
 import os
 
+from render_sdk import Render
+
 from app.core.semantic_defaults import (
     DEFAULT_SEMANTIC_INDEX_BATCH_SIZE,
     DEFAULT_SEMANTIC_INDEX_MAX_BATCHES,
     DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
 )
-from render_sdk import Render
 
 DEFAULT_TASK_SLUG = "aptitude-registry-semantic-indexing/index_semantic_embeddings"
 

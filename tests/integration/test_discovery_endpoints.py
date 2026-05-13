@@ -68,4 +68,3 @@ def test_discovery_queries_search_documents_without_touching_skill_contents(
     assert response.json()["candidates"] == [slug]
     assert any("skill_search_documents" in statement for statement in executed_selects)
     assert all("skill_contents" not in statement for statement in executed_selects)
-
