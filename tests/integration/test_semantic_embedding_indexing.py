@@ -17,7 +17,7 @@ from app.core.semantic_defaults import (
 from app.main import create_app
 from app.persistence.db import get_session_factory
 from app.persistence.skill_registry_repository import SQLAlchemySkillCatalogRepository
-from tests.integration.test_skill_registry_endpoints import _publish, _request
+from tests.integration.skill_endpoint_helpers import _publish, _request
 
 
 @pytest.mark.integration
