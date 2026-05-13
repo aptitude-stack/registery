@@ -292,6 +292,15 @@ can apply a capped "commonly used together" boost. Co-usage is derived from
 resolver lock/selection outcomes, not clicks, page views, or discovery requests,
 and it never becomes dependency truth.
 
+## Co-Usage Ranking Status
+
+Co-usage ranking is schema-backed but disabled by default through
+`CO_USAGE_RANKING_ENABLED=false`. The registry may read `skill_co_usage_pairs`
+only when a trusted producer has populated resolver observation aggregates.
+Until `CoUsageObservationImportPort.import_observation_run` has a production
+implementation, `context_skills` remains accepted request context but must not
+imply a populated co-usage signal.
+
 ### `ts_rank_cd`
 
 The full-text score uses PostgreSQL `ts_rank_cd`, which is the cover-density

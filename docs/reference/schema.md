@@ -312,6 +312,10 @@ Rules:
 - boosts require caller context and are capped inside discovery ranking
 - aggregates are rebuildable
 
+The co-usage tables are derived, dormant infrastructure until trusted resolver
+observation import is implemented. They are not dependency truth and do not
+change `GET /resolution/{slug}/{version}`.
+
 ### `trust_evidence`
 
 Append-only evidence attached to one immutable version.

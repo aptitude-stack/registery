@@ -444,7 +444,7 @@ class EmbeddingIndexPort(Protocol):
 
 
 class CoUsageObservationImportPort(Protocol):
-    """Import contract for trusted resolver lock/selection co-usage evidence."""
+    """Dormant import contract for future trusted resolver co-usage evidence."""
 
     def import_observation_run(self, *, record: CoUsageObservationImportRecord) -> None:
         """Import one selected-skill outcome for aggregate rebuilds."""

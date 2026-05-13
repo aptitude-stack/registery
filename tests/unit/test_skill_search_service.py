@@ -336,3 +336,19 @@ def test_co_usage_boosts_require_context_skills() -> None:
 
     assert tuple(item.slug for item in results) == ("python.pytest", "python.docs")
     assert repository.co_usage_requests[0].context_skill_slugs == ("python.lint",)
+
+
+@pytest.mark.unit
+def test_co_usage_boosts_are_not_requested_when_ranking_disabled_even_with_context() -> None:
+    repository = _Repository(
+        lexical=(_candidate("python.docs", lexical_score=0.3), _candidate("python.pytest")),
+        boosts={"python.pytest": 0.05},
+    )
+
+    results = _service(repository, co_usage_enabled=False).search(
+        caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
+        query=_query(context_skills=("python.lint",)),
+    )
+
+    assert tuple(item.slug for item in results) == ("python.docs", "python.pytest")
+    assert repository.co_usage_requests == []
