@@ -19,6 +19,12 @@ def test_runtime_dependencies_exclude_dev_only_tools_and_include_bundle_support(
     assert not any(
         dependency.startswith("fastapi-cloud-cli") for dependency in runtime_dependencies
     )
+    assert not any(
+        dependency.startswith("fastapi-cloud-cli") for dependency in development_dependencies
+    )
+    assert any(dependency.startswith("fastapi==") for dependency in runtime_dependencies)
+    assert any(dependency.startswith("uvicorn[standard]") for dependency in runtime_dependencies)
+    assert any(dependency.startswith("python-multipart") for dependency in runtime_dependencies)
     assert any(dependency.startswith("zstandard") for dependency in runtime_dependencies)
     assert any(dependency.startswith("openai") for dependency in runtime_dependencies)
     assert not any(dependency.startswith("render-sdk") for dependency in runtime_dependencies)
