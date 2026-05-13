@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from app.core.dependencies import (
+from app.interface.api.dependencies import (
     AdminCallerDep,
     PublishCallerDep,
     SkillRegistryServiceDep,

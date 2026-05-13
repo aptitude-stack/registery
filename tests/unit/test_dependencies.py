@@ -8,7 +8,7 @@ from typing import cast
 import pytest
 
 from app.core.auth import AuthService
-from app.core.dependencies import (
+from app.interface.api.dependencies import (
     get_auth_service,
     get_readiness_service,
     get_skill_fetch_service,

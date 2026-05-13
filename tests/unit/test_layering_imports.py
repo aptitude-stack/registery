@@ -11,6 +11,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN_IMPORT_RULES = (
     (REPO_ROOT / "app" / "interface", "app.persistence"),
     (REPO_ROOT / "app" / "core", "app.persistence"),
+    (REPO_ROOT / "app" / "core", "fastapi"),
+    (REPO_ROOT / "app" / "core", "starlette"),
+    (REPO_ROOT / "app" / "core", "app.interface"),
 )
 
 
@@ -33,7 +36,7 @@ def _iter_imports(path: Path) -> list[tuple[int, str]]:
 
 
 @pytest.mark.unit
-def test_layering_forbids_interface_and_core_from_importing_persistence() -> None:
+def test_layering_forbids_core_framework_and_adapter_imports() -> None:
     violations: list[str] = []
 
     for package_root, forbidden_prefix in FORBIDDEN_IMPORT_RULES:

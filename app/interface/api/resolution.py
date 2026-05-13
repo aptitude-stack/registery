@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Request, status
 from fastapi.responses import JSONResponse
 
-from app.core.dependencies import ReadCallerDep, SkillResolutionServiceDep
+from app.interface.api.dependencies import ReadCallerDep, SkillResolutionServiceDep
 from app.core.skills.models import SkillVersionNotFoundError
 from app.interface.api.errors import error_response
 from app.interface.api.response_docs import (

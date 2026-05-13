@@ -14,6 +14,8 @@ adapter layer between FastAPI and core services.
 ## Key Files
 
 - `health.py`: liveness/readiness endpoints (`/healthz`, `/readyz`).
+- `dependencies.py`: FastAPI dependency providers and typed aliases that adapt
+  request handlers to the process-scoped service container.
 - `discovery.py`: body-based candidate lookup route at `/discovery`.
 - `resolution.py`: exact first-degree dependency read route at
   `/resolution/{slug}/{version}`.
