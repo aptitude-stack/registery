@@ -22,8 +22,8 @@ http:
             "version": "{{sanity_version_1}}",
             "metadata": {
               "name": "Postman Primary Skill",
-              "description": "Primary sanity skill for collection coverage",
-              "tags": ["postman", "sanity", "primary"],
+              "description": "Static quality checks for Python services",
+              "tags": ["python", "quality", "static-analysis"],
               "inputs_schema": {
                 "type": "object"
               },

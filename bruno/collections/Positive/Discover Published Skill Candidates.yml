@@ -18,8 +18,9 @@ http:
     data: |-
       {
         "name": "Postman Primary Skill",
-        "description": "Primary sanity skill for collection coverage",
-        "tags": ["postman", "sanity", "primary"]
+        "description": "Static checks for Python services",
+        "tags": ["python", "quality", "static-analysis"],
+        "context_skills": ["{{sanity_dependency_slug}}"]
       }
 
 runtime:
@@ -72,7 +73,7 @@ runtime:
           expect(res.getStatus()).to.equal(200);
         });
 
-        test('Discovery returns the published primary slug candidate', function () {
+        test('Discovery returns the published primary slug candidate without changing the response shape', function () {
           expect(json.candidates).to.be.an('array').and.not.empty;
           expect(json.candidates[0]).to.eql(bru.getVar('sanity_primary_slug'));
         });

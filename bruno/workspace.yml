@@ -17,15 +17,21 @@ docs: |-
   # aptitude-server
   
   `aptitude-server` is the authoritative registry backend in the Aptitude ecosystem.
-  It persists immutable skill metadata, digest-addressed markdown content, lifecycle
-  state, provenance snapshots, and audit data in PostgreSQL.
+  It persists immutable skill metadata, `.tar.zst` bundle artifacts, lifecycle
+  state, provenance snapshots, derived discovery indexes, and audit data in PostgreSQL.
   
   The server owns data-local work: publication, discovery candidate generation,
   direct authored dependency reads, exact metadata/content fetches, governance,
-  audit, and operational telemetry. Resolver/client components own decision-local
-  work such as reranking, dependency solving, and execution planning.
+  audit, semantic recall expansion, and operational telemetry. Resolver/client
+  components own decision-local work such as reranking, dependency solving, and
+  execution planning.
+  
+  Discovery stays on `POST /discovery` with a slug-only response. Lexical search
+  remains primary; when semantic discovery is enabled, the registry embeds
+  description and tags only. The required `name` field remains lexical identity
+  input, not embedding text.
   
   Canonical references:
-  - API contract: `docs/project/api-contract.md`
+  - API contract: `docs/reference/api-contract.md`
   - Documentation hub: `docs/README.md`
   - OpenAPI spec: `specs/aptitude-openapi.json`
