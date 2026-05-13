@@ -177,3 +177,7 @@ Rollout order:
    acceptable.
 4. Roll back by setting `SEMANTIC_DISCOVERY_MODE=off`; no database rollback is
    required.
+
+In production, `render.yaml` owns the Cron trigger for the semantic indexing
+Workflow task. The Workflow service itself remains configured in the Render
+Dashboard while Render Blueprints lack workflow service support.

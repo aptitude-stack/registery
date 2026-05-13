@@ -190,14 +190,23 @@ APP_SETTINGS_ENV_FILE=/path/to/prod.env uv run python scripts/index_semantic_emb
 
 Production indexing target:
 
-- Create a Render Workflow service from this repository.
-- Build command: `uv sync --frozen --no-dev --extra workflow`.
-- Start command: `uv run python workflows/semantic_embeddings.py`.
-- Configure `DATABASE_URL`, `OPENAI_API_KEY`, and the semantic settings above.
-- Add a Render Cron job that runs `uv run --extra workflow python scripts/trigger_semantic_embedding_workflow.py`.
+Production indexing is repository-owned where Render Blueprint support permits
+it. The desired target is a bounded Render Workflow task,
+`aptitude-registry-semantic-indexing/index_semantic_embeddings`, triggered by a
+Cron job that runs `scripts/trigger_semantic_embedding_workflow.py`.
 
-Render Workflows are beta and do not provide built-in scheduling; the Cron job
-is the scheduler and the local CLI remains the stable fallback.
+Current Render limits matter: Workflows are beta, do not provide built-in
+scheduling, and are not yet supported as a Blueprint service type. Keep the
+Workflow service configured manually in Render with build command
+`uv sync --frozen --no-dev --extra workflow` and start command
+`uv run python workflows/semantic_embeddings.py`. The checked-in `render.yaml`
+owns the Cron trigger and preserves the
+`semantic-indexing-managed-outside-blueprint` marker as intentional drift
+documentation, not a missing service definition.
+
+Configure `DATABASE_URL`, `OPENAI_API_KEY`, `RENDER_API_KEY`, and the semantic
+settings above for the indexing path. The local CLI remains the stable
+fallback.
 
 Enable the query-statistics extension once on the production database for
 observability:

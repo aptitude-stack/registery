@@ -149,3 +149,14 @@ def test_vercel_serverless_deployment_artifacts_are_absent() -> None:
     assert not (REPO_ROOT / "server.py").exists()
     assert not (REPO_ROOT / "vercel.json").exists()
     assert not (REPO_ROOT / ".vercelignore").exists()
+
+
+@pytest.mark.unit
+def test_render_blueprint_declares_semantic_indexing_or_explicit_fallback() -> None:
+    blueprint = (REPO_ROOT / "render.yaml").read_text(encoding="utf-8")
+
+    assert "aptitude-registry-api" in blueprint
+    assert (
+        "aptitude-registry-semantic-indexing" in blueprint
+        or "semantic-indexing-managed-outside-blueprint" in blueprint
+    )

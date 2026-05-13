@@ -56,3 +56,28 @@ services:
         sync: false
       - key: ALLOWED_HOSTS_JSON
         sync: false
+
+  # semantic-indexing-managed-outside-blueprint: Render Workflow services are
+  # still created in the Render Dashboard until Blueprints support the workflow
+  # service type. This Blueprint-owned Cron triggers the dashboard-managed
+  # workflow task on a bounded schedule.
+  - type: cron
+    name: aptitude-registry-semantic-indexing-cron
+    runtime: python
+    repo: https://github.com/aptitude-stack/registery
+    branch: master
+    region: virginia
+    schedule: "*/30 * * * *"
+    buildCommand: uv sync --frozen --no-dev --extra workflow
+    startCommand: uv run --extra workflow python scripts/trigger_semantic_embedding_workflow.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: RENDER_SEMANTIC_INDEX_WORKFLOW_TASK
+        value: aptitude-registry-semantic-indexing/index_semantic_embeddings
+      - key: RENDER_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
