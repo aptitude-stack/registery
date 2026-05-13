@@ -15,6 +15,7 @@ from app.core.ports import (
     StoredSkillSearchCandidate,
 )
 from app.core.semantic_defaults import DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
+from app.core.skills import search as search_module
 from app.core.skills.discovery import SkillDiscoveryRequest, SkillDiscoveryService
 from app.core.skills.search import SkillSearchQuery, SkillSearchService
 
@@ -278,29 +279,30 @@ def test_hybrid_mode_degrades_to_lexical_when_semantic_sql_fails() -> None:
 
 @pytest.mark.unit
 def test_hybrid_mode_records_semantic_failure_signal_when_semantic_sql_fails(
-    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(
         lexical=(_candidate("python.lint"),),
         semantic_should_fail=True,
     )
+    log_extras: list[dict[str, object]] = []
 
-    with caplog.at_level("WARNING", logger="app.core.skills.search"):
-        results = _service(
-            repository,
-            semantic_mode="hybrid",
-            embedding_provider=provider,
-        ).search(
-            caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
-            query=_query(),
-        )
+    def record_warning(message: str, *, extra: dict[str, object]) -> None:
+        log_extras.append(extra)
+
+    monkeypatch.setattr(search_module.logger, "warning", record_warning)
+    results = _service(
+        repository,
+        semantic_mode="hybrid",
+        embedding_provider=provider,
+    ).search(
+        caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
+        query=_query(),
+    )
 
     assert tuple(item.slug for item in results) == ("python.lint",)
-    assert any(
-        record.__dict__.get("event_type") == "semantic.discovery.failed"
-        for record in caplog.records
-    )
+    assert log_extras[0]["event_type"] == "semantic.discovery.failed"
 
 
 @pytest.mark.unit

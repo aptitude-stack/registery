@@ -22,7 +22,7 @@ from app.core.ports import (
     EmbeddingProviderPort,
     SearchCandidatesRequest,
     SearchSemanticCandidatesRequest,
-    SkillCatalogRepository,
+    SkillDiscoverySearchPort,
     StoredSkillSearchCandidate,
 )
 from app.core.semantic_defaults import (
@@ -91,7 +91,7 @@ class SkillSearchService:
     def __init__(
         self,
         *,
-        repository: SkillCatalogRepository,
+        repository: SkillDiscoverySearchPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
         semantic_discovery_mode: SemanticDiscoveryMode = "off",

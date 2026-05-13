@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.core.audit_events import build_version_list_audit_event
 from app.core.governance import CallerIdentity, GovernancePolicy
-from app.core.ports import AuditPort, SkillCatalogRepository
+from app.core.ports import AuditPort, SkillFetchPort
 
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import (
@@ -24,7 +24,7 @@ class SkillFetchService:
     def __init__(
         self,
         *,
-        repository: SkillCatalogRepository,
+        repository: SkillFetchPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
     ) -> None:

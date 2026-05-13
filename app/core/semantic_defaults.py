@@ -6,7 +6,7 @@ from typing import Literal
 
 SemanticEmbeddingProvider = Literal["openai"]
 
-DEFAULT_SEMANTIC_DISCOVERY_MODE = "off"
+DEFAULT_SEMANTIC_DISCOVERY_MODE: Literal["off"] = "off"
 DEFAULT_SEMANTIC_EMBEDDING_PROVIDER: SemanticEmbeddingProvider = "openai"
 DEFAULT_SEMANTIC_EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION = "description-tags-v1"

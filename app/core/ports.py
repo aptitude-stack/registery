@@ -237,8 +237,8 @@ class DuplicateSkillSlugPersistenceError(SkillRegistryPersistenceError):
     """Raised when the stable skill slug already exists."""
 
 
-class SkillCatalogRepository(Protocol):
-    """Unified persistence contract for the skill catalog."""
+class SkillPublishPort(Protocol):
+    """Persistence capability for immutable publish operations."""
 
     def skill_exists(self, *, slug: str) -> bool:
         """Return whether a skill identity already exists."""
@@ -254,6 +254,10 @@ class SkillCatalogRepository(Protocol):
     ) -> SkillVersionDetail:
         """Create one immutable normalized version."""
 
+
+class SkillExactReadPort(Protocol):
+    """Persistence capability for exact immutable metadata and content reads."""
+
     def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
         """Return one immutable version detail for exact read or lifecycle paths."""
 
@@ -268,6 +272,17 @@ class SkillCatalogRepository(Protocol):
     def list_versions(self, *, slug: str) -> tuple[SkillVersionListEntry, ...]:
         """Return version-list rows for one skill identity."""
 
+
+class SkillFetchPort(SkillExactReadPort, Protocol):
+    """Persistence capability for exact fetch plus install telemetry."""
+
+    def record_install(self, *, slug: str, version: str) -> None:
+        """Record one successful skill install/download for an exact coordinate."""
+
+
+class SkillResolutionPort(Protocol):
+    """Persistence capability for exact authored dependency reads."""
+
     def get_relationship_source(
         self,
         *,
@@ -275,6 +290,10 @@ class SkillCatalogRepository(Protocol):
         version: str,
     ) -> SkillRelationshipSource | None:
         """Return exact authored relationships for one immutable coordinate."""
+
+
+class SkillDiscoverySearchPort(Protocol):
+    """Persistence capability for discovery candidate retrieval."""
 
     def search_candidates(
         self,
@@ -310,8 +329,9 @@ class SkillCatalogRepository(Protocol):
     def get_co_usage_boosts(self, *, request: CoUsageBoostRequest) -> dict[str, float]:
         """Return bounded co-usage boosts for visible candidate slugs."""
 
-    def record_install(self, *, slug: str, version: str) -> None:
-        """Record one successful skill install/download for an exact coordinate."""
+
+class SkillGovernanceAdminPort(Protocol):
+    """Persistence capability for mutable governance administration."""
 
     def update_version_status(
         self,
@@ -387,6 +407,25 @@ class SkillCatalogRepository(Protocol):
         audit_events: tuple[AuditEventRecord, ...] = (),
     ) -> TrustEvidenceRecord | None:
         """Append one trust evidence row to a version."""
+
+
+class SkillRegistryPort(
+    SkillPublishPort,
+    SkillExactReadPort,
+    SkillGovernanceAdminPort,
+    Protocol,
+):
+    """Persistence capability set used by the registry write/admin service."""
+
+
+class SkillCatalogRepository(
+    SkillRegistryPort,
+    SkillFetchPort,
+    SkillDiscoverySearchPort,
+    SkillResolutionPort,
+    Protocol,
+):
+    """Compatibility composition for the SQLAlchemy catalog adapter."""
 
 
 class AuditPort(Protocol):
