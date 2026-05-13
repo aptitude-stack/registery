@@ -115,10 +115,11 @@ def _service(
     semantic_mode: str = "off",
     embedding_provider: _EmbeddingProvider | None = None,
     co_usage_enabled: bool = False,
+    audit_recorder: _AuditRecorder | None = None,
 ) -> SkillSearchService:
     return SkillSearchService(
         repository=repository,
-        audit_recorder=_AuditRecorder(),
+        audit_recorder=audit_recorder or _AuditRecorder(),
         governance_policy=GovernancePolicy(profile=build_default_policy_profile()),
         semantic_discovery_mode=semantic_mode,
         embedding_provider=embedding_provider,
@@ -273,6 +274,33 @@ def test_hybrid_mode_degrades_to_lexical_when_semantic_sql_fails() -> None:
     assert provider.calls == ["python lint"]
     assert len(repository.semantic_requests) == 1
     assert tuple(item.slug for item in results) == ("python.lint",)
+
+
+@pytest.mark.unit
+def test_hybrid_mode_records_semantic_failure_signal_when_semantic_sql_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    provider = _EmbeddingProvider()
+    repository = _Repository(
+        lexical=(_candidate("python.lint"),),
+        semantic_should_fail=True,
+    )
+
+    with caplog.at_level("WARNING", logger="app.core.skills.search"):
+        results = _service(
+            repository,
+            semantic_mode="hybrid",
+            embedding_provider=provider,
+        ).search(
+            caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
+            query=_query(),
+        )
+
+    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert any(
+        record.__dict__.get("event_type") == "semantic.discovery.failed"
+        for record in caplog.records
+    )
 
 
 @pytest.mark.unit

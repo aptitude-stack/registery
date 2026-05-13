@@ -83,21 +83,38 @@ def test_metrics_module_exposes_expected_aptitude_instruments() -> None:
             status_code=201,
             duration_seconds=0.123,
         )
+        metrics_module.observe_semantic_discovery_failure(
+            mode="hybrid",
+            stage="repository",
+            exception_type="RuntimeError",
+        )
         metrics_module.set_database_readiness(is_ready=True)
 
         data = reader.get_metrics_data()
         emitted: set[str] = set()
+        semantic_attributes: list[dict[str, object]] = []
         if data is not None:
             for resource_metrics in data.resource_metrics:
                 for scope_metrics in resource_metrics.scope_metrics:
                     for metric in scope_metrics.metrics:
                         emitted.add(metric.name)
+                        if metric.name == "aptitude_semantic_discovery_failures_total":
+                            semantic_attributes.extend(
+                                dict(data_point.attributes)
+                                for data_point in metric.data.data_points
+                            )
 
         assert "aptitude_http_requests_total" in emitted
         assert "aptitude_http_request_duration_seconds" in emitted
         assert "aptitude_registry_operation_total" in emitted
         assert "aptitude_registry_operation_duration_seconds" in emitted
         assert "aptitude_readiness_status" in emitted
+        assert "aptitude_semantic_discovery_failures_total" in emitted
+        assert {
+            "mode": "hybrid",
+            "stage": "repository",
+            "exception_type": "RuntimeError",
+        } in semantic_attributes
     finally:
         provider.shutdown()
         reset_otel_globals()

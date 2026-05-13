@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -42,6 +43,9 @@ from app.intelligence.search_ranking import (
     build_search_explanation,
     normalize_search_request,
 )
+from app.observability.metrics import observe_semantic_discovery_failure
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,6 +281,11 @@ class SkillSearchService:
                 ),
                 dimensions=self._semantic_embedding_dimensions,
             )
+        except Exception as exc:
+            self._record_semantic_failure(stage="provider", exc=exc)
+            return ()
+
+        try:
             return self._repository.search_semantic_candidates(
                 request=SearchSemanticCandidatesRequest(
                     query_embedding=query_embedding,
@@ -294,8 +303,25 @@ class SkillSearchService:
                     hnsw_ef_search=self._semantic_hnsw_ef_search,
                 )
             )
-        except Exception:
+        except Exception as exc:
+            self._record_semantic_failure(stage="repository", exc=exc)
             return ()
+
+    def _record_semantic_failure(self, *, stage: str, exc: Exception) -> None:
+        observe_semantic_discovery_failure(
+            mode=self._semantic_discovery_mode,
+            stage=stage,
+            exception_type=type(exc).__name__,
+        )
+        logger.warning(
+            "semantic discovery degraded to lexical fallback",
+            extra={
+                "event_type": "semantic.discovery.failed",
+                "semantic_mode": self._semantic_discovery_mode,
+                "semantic_stage": stage,
+                "exception_type": type(exc).__name__,
+            },
+        )
 
     def _combine_candidates(
         self,
