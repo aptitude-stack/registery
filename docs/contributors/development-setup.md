@@ -56,7 +56,7 @@ Local URLs:
 
 - API: `http://127.0.0.1:8000`
 - Swagger docs: `http://127.0.0.1:8000/docs`
-- Metrics: `http://127.0.0.1:8000/metrics` with an admin bearer token
+- Metrics: shipped through OpenTelemetry when `OTEL_ENABLED=true`; no local `/metrics` HTTP route exists.
 
 Integration tests still use the dedicated PostgreSQL container on `127.0.0.1:5433`, but that lifecycle is intentionally behind the public `make test` entrypoint.
 
@@ -146,13 +146,15 @@ For protected routes, use one of the dev-only fixture bearer tokens from `AUTH_S
 Authorization: Bearer reader-token.dev-reader-secret
 ```
 
-Example metrics probe:
+For telemetry validation, enable OTLP export and use the Grafana Cloud reference instead of probing a local `/metrics` route:
 
 ```bash
-curl \
-  -H 'Authorization: Bearer admin-token.dev-admin-secret' \
-  http://127.0.0.1:8000/metrics
+OTEL_ENABLED=true \
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp \
+uv run fastapi dev
 ```
+
+See [`../reference/observability-grafana-cloud.md`](../reference/observability-grafana-cloud.md) for the full setup.
 
 Clients may also send an `X-Request-ID` header. The API echoes it on every response so logs, metrics, and audit rows can be correlated.
 
