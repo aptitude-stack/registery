@@ -32,8 +32,8 @@ from app.core.ports import (
     MetadataRecordInput,
     RelationshipEdgeType,
     RelationshipSelectorRecordInput,
-    SkillRegistryPort,
     SkillRegistryPersistenceError,
+    SkillRegistryPort,
 )
 
 from .models import (

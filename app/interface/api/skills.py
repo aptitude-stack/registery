@@ -7,17 +7,17 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from app.interface.api.dependencies import (
-    AdminCallerDep,
-    PublishCallerDep,
-    SkillRegistryServiceDep,
-)
 from app.core.skills.registry import (
     DuplicateSkillVersionError,
     SkillAlreadyExistsError,
     SkillNotFoundError,
     SkillRegistryError,
     SkillVersionNotFoundError,
+)
+from app.interface.api.dependencies import (
+    AdminCallerDep,
+    PublishCallerDep,
+    SkillRegistryServiceDep,
 )
 from app.interface.api.errors import error_response
 from app.interface.api.response_docs import ApiResponses, invalid_request_response
