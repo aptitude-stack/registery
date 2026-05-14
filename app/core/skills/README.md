@@ -18,6 +18,8 @@ changing the top-level server layering.
   `depends_on` selectors.
 - `search.py`: advisory search query/result models and implementation reused by
   discovery.
+- `embedding_indexing.py`: semantic embedding backfill/claim/index
+  orchestration over derived search rows.
 - `models.py`: skill-domain commands, result models, and domain errors.
 - `bundle_archive.py`: deterministic `.tar.zst` bundle build/inspection helpers
   shared by validation, fixtures, and tests.

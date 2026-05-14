@@ -7,8 +7,8 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Request, status
 from fastapi.responses import JSONResponse
 
-from app.core.dependencies import AdminCallerDep, ReviewCallerDep, SkillRegistryServiceDep
 from app.core.skills.models import SkillNotFoundError, SkillRegistryError, SkillVersionNotFoundError
+from app.interface.api.dependencies import AdminCallerDep, ReviewCallerDep, SkillRegistryServiceDep
 from app.interface.api.errors import error_response
 from app.interface.dto.enterprise import (
     NamespaceCreateRequest,

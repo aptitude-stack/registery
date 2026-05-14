@@ -18,9 +18,10 @@ migrations.
   (`skill_relationship_selectors`).
 - `skill_search_document.py`: denormalized advisory search documents (`skill_search_documents`)
   for compact candidate retrieval.
-- Semantic embeddings and co-usage aggregates are currently migration-backed
-  derived tables queried through raw SQL because pgvector `halfvec` operations
-  are kept isolated to the semantic retrieval path.
+- Semantic embeddings and co-usage aggregates are migration-backed derived
+  tables queried through raw SQL because pgvector `halfvec` operations and
+  worker claim states are kept isolated to the semantic retrieval/indexing
+  paths.
 - `audit_event.py`: audit event table (`audit_events`).
 - `__init__.py`: package exports.
 

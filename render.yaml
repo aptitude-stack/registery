@@ -30,11 +30,54 @@ services:
         value: "true"
       - key: ACTIVE_POLICY_PROFILE
         value: default
+      - key: SEMANTIC_DISCOVERY_MODE
+        value: "off"
+      - key: SEMANTIC_EMBEDDING_PROVIDER
+        value: openai
+      - key: SEMANTIC_EMBEDDING_MODEL
+        value: text-embedding-3-small
+      - key: SEMANTIC_EMBEDDING_INDEX_KEY
+        value: openai:text-embedding-3-small:description-tags-v1
+      - key: SEMANTIC_EMBEDDING_DIMENSIONS
+        value: "1536"
+      - key: SEMANTIC_CANDIDATE_LIMIT
+        value: "20"
+      - key: SEMANTIC_QUERY_TIMEOUT_MS
+        value: "150"
+      - key: SEMANTIC_HNSW_EF_SEARCH
+        value: "100"
       - key: DATABASE_URL
         sync: false
       - key: MIGRATION_DATABASE_URL
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
       - key: AUTH_SERVICE_TOKENS_JSON
         sync: false
       - key: ALLOWED_HOSTS_JSON
+        sync: false
+
+  # semantic-indexing-managed-outside-blueprint: Render Workflow services are
+  # still created in the Render Dashboard until Blueprints support the workflow
+  # service type. This Blueprint-owned Cron triggers the dashboard-managed
+  # workflow task on a bounded schedule.
+  - type: cron
+    name: aptitude-registry-semantic-indexing-cron
+    runtime: python
+    repo: https://github.com/aptitude-stack/registery
+    branch: master
+    region: virginia
+    schedule: "*/30 * * * *"
+    buildCommand: uv sync --frozen --no-dev --extra workflow
+    startCommand: uv run --extra workflow python scripts/trigger_semantic_embedding_workflow.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: RENDER_SEMANTIC_INDEX_WORKFLOW_TASK
+        value: aptitude-registry-semantic-indexing/index_semantic_embeddings
+      - key: RENDER_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
         sync: false

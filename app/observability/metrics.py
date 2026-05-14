@@ -47,6 +47,10 @@ REGISTRY_OPERATION_DURATION_SECONDS = _meter.create_histogram(
     description="Registry operation duration in seconds by surface.",
     explicit_bucket_boundaries_advisory=list(OPERATION_DURATION_BUCKETS),
 )
+SEMANTIC_DISCOVERY_FAILURES = _meter.create_counter(
+    name="aptitude_semantic_discovery_failures_total",
+    description="Semantic discovery fallback events by mode, stage, and exception type.",
+)
 
 _READINESS_STATE: dict[str, int] = {"database": 0}
 
@@ -116,6 +120,23 @@ def observe_http_request(
 def set_database_readiness(*, is_ready: bool) -> None:
     """Track whether the primary database dependency is reachable."""
     _READINESS_STATE["database"] = 1 if is_ready else 0
+
+
+def observe_semantic_discovery_failure(
+    *,
+    mode: str,
+    stage: str,
+    exception_type: str,
+) -> None:
+    """Record one semantic discovery failure that degraded to lexical fallback."""
+    SEMANTIC_DISCOVERY_FAILURES.add(
+        1,
+        attributes={
+            "mode": mode,
+            "stage": stage,
+            "exception_type": exception_type,
+        },
+    )
 
 
 def _status_class(status_code: int) -> str:

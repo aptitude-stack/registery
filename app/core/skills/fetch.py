@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.core.audit_events import build_version_list_audit_event
 from app.core.governance import CallerIdentity, GovernancePolicy
-from app.core.ports import AuditPort, SkillCatalogRepository
+from app.core.ports import AuditPort, SkillFetchPort
 
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import (
@@ -24,7 +24,7 @@ class SkillFetchService:
     def __init__(
         self,
         *,
-        repository: SkillCatalogRepository,
+        repository: SkillFetchPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
     ) -> None:
@@ -149,3 +149,27 @@ class SkillFetchService:
             payload=audit_event.payload,
         )
         return SkillVersionList(slug=slug, versions=versions)
+
+    def list_top_installed(
+        self,
+        *,
+        caller: CallerIdentity,
+        limit: int,
+    ) -> tuple[SkillVersionDetail, ...]:
+        """Return top installed current-default versions visible to the caller."""
+        candidates = self._repository.list_top_installed_versions(limit=max(limit * 4, limit))
+        visible: list[SkillVersionDetail] = []
+        for stored in candidates:
+            if self._governance_policy.is_visible_in_list(
+                caller=caller,
+                lifecycle_status=stored.lifecycle_status,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                trust_tier=stored.trust_tier,
+                policy_pack=stored.policy_pack,
+            ):
+                visible.append(stored)
+            if len(visible) >= limit:
+                break
+        return tuple(visible)

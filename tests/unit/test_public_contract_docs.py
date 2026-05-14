@@ -38,6 +38,7 @@ def test_api_contract_docs_describe_tar_zst_upload_and_fetch() -> None:
     storage_strategy = Path("docs/reference/storage-strategy.md").read_text(encoding="utf-8")
     schema_reference = Path("docs/reference/schema.md").read_text(encoding="utf-8")
     runtime_profiles = Path("docs/reference/runtime-profiles.md").read_text(encoding="utf-8")
+    development_setup = Path("docs/contributors/development-setup.md").read_text(encoding="utf-8")
 
     assert "multipart/form-data" in api_contract
     assert "application/zstd" in api_contract
@@ -60,3 +61,17 @@ def test_api_contract_docs_describe_tar_zst_upload_and_fetch() -> None:
     assert "stored bundle size" in schema_reference
     assert "AUTH_SERVICE_TOKENS_JSON" in runtime_profiles
     assert "ALLOWED_HOSTS_JSON" in runtime_profiles
+    assert "legacy `/metrics` Prometheus exposition endpoint has been removed" in api_contract
+    assert "http://127.0.0.1:8000/metrics" not in development_setup
+    assert "Example metrics probe" not in development_setup
+    assert "OTEL_ENABLED=true" in development_setup
+    assert "../reference/observability-grafana-cloud.md" in development_setup
+
+
+@pytest.mark.unit
+def test_historical_changelogs_are_marked_as_historical_contract_records() -> None:
+    historical = Path("docs/reference/historical-docs.md").read_text(encoding="utf-8")
+
+    assert "docs/changelog/11-operability-and-release-readiness-changelog.md" in historical
+    assert "describes the former `/metrics` route" in historical
+    assert "docs/reference/api-contract.md" in historical

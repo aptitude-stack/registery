@@ -1,5 +1,7 @@
 # Milestone 05 Changelog - Metadata Search, Ranking, and Normalized Storage
 
+> Historical note: this changelog records the milestone state at the time it shipped. For the current live HTTP route surface, use [`../reference/api-contract.md`](../reference/api-contract.md).
+
 This changelog documents implementation of [.agents/plans/05-metadata-search-ranking.md](../../.agents/plans/05-metadata-search-ranking.md).
 
 The branch delivered more than indexed search. It also completed the PostgreSQL normalization work described by the milestone, moved exact content fetch onto database-backed markdown storage, and split read surfaces so discovery stays body-free. Supporting design references live in [docs/schema.md](../../docs/schema.md) and [docs/storage-strategy.md](../../docs/storage-strategy.md).

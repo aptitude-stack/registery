@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, status
 
-from app.core.dependencies import ReadCallerDep, SkillDiscoveryServiceDep
 from app.core.skills.discovery import SkillDiscoveryRequest as CoreSkillDiscoveryRequest
+from app.interface.api.dependencies import ReadCallerDep, SkillDiscoveryServiceDep
 from app.interface.api.response_docs import ApiResponses, invalid_request_response
 from app.interface.dto.examples import (
     DISCOVERY_REQUEST_EXAMPLE,

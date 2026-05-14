@@ -32,8 +32,8 @@ from app.core.ports import (
     MetadataRecordInput,
     RelationshipEdgeType,
     RelationshipSelectorRecordInput,
-    SkillCatalogRepository,
     SkillRegistryPersistenceError,
+    SkillRegistryPort,
 )
 
 from .models import (
@@ -91,7 +91,7 @@ class SkillRegistryService:
     def __init__(
         self,
         *,
-        repository: SkillCatalogRepository,
+        repository: SkillRegistryPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
     ) -> None:

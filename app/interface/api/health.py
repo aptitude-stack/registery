@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response
 
-from app.core.dependencies import ReadinessServiceDep, SettingsDep
+from app.interface.api.dependencies import ReadinessServiceDep, SettingsDep
 from app.interface.dto.health import HealthzResponse, ReadinessCheck, ReadyzResponse
 from app.observability.metrics import set_database_readiness
 

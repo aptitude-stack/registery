@@ -51,6 +51,10 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         embedding_columns = {
             column["name"] for column in inspector.get_columns("skill_search_embeddings")
         }
+        embedding_checks = {
+            constraint["name"]: constraint["sqltext"]
+            for constraint in inspector.get_check_constraints("skill_search_embeddings")
+        }
         co_usage_columns = {
             column["name"] for column in inspector.get_columns("skill_co_usage_pairs")
         }
@@ -102,6 +106,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
             "indexed_at",
             "last_error",
         } <= embedding_columns
+        assert "processing" in embedding_checks["ck_skill_search_embeddings_index_status"]
         assert {
             "anchor_skill_fk",
             "related_skill_fk",
