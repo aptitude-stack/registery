@@ -106,7 +106,7 @@ flowchart LR
 | --- | --- | --- |
 | Current | Python + FastAPI + Swagger UI | Registry API boundary for publish, discovery, public resolution, exact fetch, and governance contracts. |
 | Current | Pydantic v2 | Request and response validation for registry contracts. |
-| Current | Uvicorn via FastAPI CLI in development | ASGI serving in local development. |
+| Current | Uvicorn | ASGI serving in local development and deployment. |
 | Current | PostgreSQL | Canonical storage for versions, metadata, bundle artifact payloads, lifecycle state, digest mappings, and audit records. |
 | Current | SQLAlchemy 2.0 + Alembic + `psycopg` | Data access, schema migrations, and PostgreSQL driver stack. |
 | Current | PostgreSQL full-text and metadata indexes | Low-latency search over descriptions, tags, and structured fields. |
