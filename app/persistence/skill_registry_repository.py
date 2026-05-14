@@ -272,6 +272,47 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             rows = session.execute(statement).scalars().all()
             return tuple(to_skill_version_list_entry(item) for item in rows)
 
+    def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
+        with self._session_factory() as session:
+            statement = (
+                select(SkillVersion)
+                .join(Skill, Skill.id == SkillVersion.skill_fk)
+                .options(
+                    joinedload(SkillVersion.skill),
+                    joinedload(SkillVersion.skill).joinedload(Skill.namespace),
+                    joinedload(SkillVersion.content),
+                    joinedload(SkillVersion.metadata_row),
+                    joinedload(SkillVersion.policy_pack),
+                    selectinload(SkillVersion.provenance),
+                )
+                .where(SkillVersion.lifecycle_status.in_(("published", "deprecated")))
+                .order_by(
+                    Skill.install_count.desc(),
+                    SkillVersion.published_at.desc(),
+                    Skill.slug.asc(),
+                )
+            )
+            rows = session.execute(statement).scalars().all()
+
+        by_slug: dict[str, list[SkillVersion]] = {}
+        for row in rows:
+            by_slug.setdefault(row.skill.slug, []).append(row)
+
+        current_defaults = [
+            current
+            for versions in by_slug.values()
+            if (current := select_current_default_version(versions)) is not None
+        ]
+        ordered = sorted(
+            current_defaults,
+            key=lambda item: (
+                -item.skill.install_count,
+                -item.published_at.timestamp(),
+                item.skill.slug,
+            ),
+        )
+        return tuple(to_skill_version_detail(item) for item in ordered[:limit])
+
     def get_relationship_source(
         self,
         *,

@@ -61,3 +61,9 @@ class SkillVersionListResponse(BaseModel):
 
     slug: str
     versions: list[SkillVersionSummaryResponse]
+
+
+class TopSkillsResponse(BaseModel):
+    """Top installed visible skill versions."""
+
+    skills: list[SkillVersionMetadataResponse]

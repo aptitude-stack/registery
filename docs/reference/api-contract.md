@@ -19,6 +19,7 @@ Protected routes:
 
 - `POST /skills/{slug}`
 - `POST /discovery`
+- `GET /catalog/top-skills`
 - `GET /skills/{slug}`
 - `GET /resolution/{slug}/{version}`
 - `GET /skills/{slug}/{version}`
@@ -92,6 +93,37 @@ Publish and exact metadata fetch return the same structured response shape:
 ```
 
 `provenance` remains advisory publish-time metadata and stays queryable outside the bundle.
+
+## Top Installed Catalog
+
+`GET /catalog/top-skills?limit=12` returns visible current-default versions ordered by aggregate install count.
+
+```json
+{
+  "skills": [
+    {
+      "slug": "python.lint",
+      "version": "1.2.3",
+      "install_count": 42,
+      "metadata": {
+        "name": "Python Lint",
+        "description": "Linting skill",
+        "tags": ["python", "lint"]
+      },
+      "lifecycle_status": "published",
+      "trust_tier": "internal",
+      "published_at": "2026-03-10T08:30:00Z"
+    }
+  ]
+}
+```
+
+Rules:
+
+- `limit` must be between `1` and `24`.
+- Ordering is `install_count DESC`, then `published_at DESC`, then `slug ASC`.
+- Visibility follows the same governance filters as version listing.
+- Archived, private, or otherwise non-visible versions are not returned.
 
 Checksum semantics:
 
@@ -172,6 +204,7 @@ Error envelope:
 | `GET` | `/readyz` | none | `200` or `503` | Dependency readiness probe |
 | `POST` | `/skills/{slug}` | `publish` | `201` | Publish one immutable `slug@version` via `multipart/form-data` |
 | `POST` | `/discovery` | `read` | `200` | Returns ordered candidate `slug` values only |
+| `GET` | `/catalog/top-skills` | `read` | `200` | Returns visible current-default versions ordered by install count |
 | `GET` | `/skills/{slug}` | `read` | `200` | Returns visible immutable versions for one skill identity |
 | `GET` | `/resolution/{slug}/{version}` | `read` | `200` | Returns direct authored `depends_on` only |
 | `GET` | `/skills/{slug}/{version}` | `read` | `200` | Returns immutable metadata for one exact coordinate |

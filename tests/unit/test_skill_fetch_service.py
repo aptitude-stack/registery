@@ -46,10 +46,12 @@ class FakeCatalogRepository:
         version: SkillVersionDetail | None = None,
         content: SkillContentRecord | None = None,
         versions: tuple[SkillVersionListEntry, ...] = (),
+        top_versions: tuple[SkillVersionDetail, ...] = (),
     ) -> None:
         self._version = version
         self._content = content
         self._versions = versions
+        self._top_versions = top_versions
         self.install_calls: list[tuple[str, str]] = []
 
     def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
@@ -75,6 +77,9 @@ class FakeCatalogRepository:
         if any(item.slug != slug for item in self._versions):
             return ()
         return self._versions
+
+    def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
+        return self._top_versions[:limit]
 
     def record_install(self, *, slug: str, version: str) -> None:
         self.install_calls.append((slug, version))
@@ -113,6 +118,33 @@ def _stored_version(*, lifecycle_status: str = "published") -> SkillVersionDetai
         trust_tier="internal",
         provenance=None,
         published_at=datetime(2026, 3, 13, 9, 0, tzinfo=UTC),
+    )
+
+
+def _top_version(
+    slug: str,
+    *,
+    install_count: int,
+    lifecycle_status: str = "published",
+    published_at: datetime | None = None,
+) -> SkillVersionDetail:
+    base = _stored_version(lifecycle_status=lifecycle_status)
+    return SkillVersionDetail(
+        slug=slug,
+        version=base.version,
+        install_count=install_count,
+        version_checksum=base.version_checksum,
+        content=base.content,
+        metadata=base.metadata,
+        lifecycle_status=base.lifecycle_status,
+        trust_tier=base.trust_tier,
+        provenance=base.provenance,
+        published_at=published_at or base.published_at,
+        namespace=base.namespace,
+        artifact_origin=base.artifact_origin,
+        review_state=base.review_state,
+        promotion_channel=base.promotion_channel,
+        policy_pack=base.policy_pack,
     )
 
 
@@ -321,3 +353,22 @@ def test_list_versions_uses_version_as_final_tie_break_for_current_default() -> 
     assert [item.version for item in result.versions] == ["1.0.0", "2.0.0"]
     assert result.versions[0].is_current_default is True
     assert result.versions[1].is_current_default is False
+
+
+@pytest.mark.unit
+def test_list_top_installed_returns_visible_versions_with_limit() -> None:
+    service = SkillFetchService(
+        repository=FakeCatalogRepository(
+            top_versions=(
+                _top_version("python.first", install_count=10),
+                _top_version("python.hidden", install_count=9, lifecycle_status="archived"),
+                _top_version("python.second", install_count=8),
+            )
+        ),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+    )
+
+    result = service.list_top_installed(caller=_caller("read"), limit=2)
+
+    assert [item.slug for item in result] == ["python.first", "python.second"]

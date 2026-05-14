@@ -149,3 +149,27 @@ class SkillFetchService:
             payload=audit_event.payload,
         )
         return SkillVersionList(slug=slug, versions=versions)
+
+    def list_top_installed(
+        self,
+        *,
+        caller: CallerIdentity,
+        limit: int,
+    ) -> tuple[SkillVersionDetail, ...]:
+        """Return top installed current-default versions visible to the caller."""
+        candidates = self._repository.list_top_installed_versions(limit=max(limit * 4, limit))
+        visible: list[SkillVersionDetail] = []
+        for stored in candidates:
+            if self._governance_policy.is_visible_in_list(
+                caller=caller,
+                lifecycle_status=stored.lifecycle_status,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                trust_tier=stored.trust_tier,
+                policy_pack=stored.policy_pack,
+            ):
+                visible.append(stored)
+            if len(visible) >= limit:
+                break
+        return tuple(visible)

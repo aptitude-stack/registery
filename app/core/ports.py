@@ -272,6 +272,9 @@ class SkillExactReadPort(Protocol):
     def list_versions(self, *, slug: str) -> tuple[SkillVersionListEntry, ...]:
         """Return version-list rows for one skill identity."""
 
+    def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
+        """Return current-default version details ordered by aggregate installs."""
+
 
 class SkillFetchPort(SkillExactReadPort, Protocol):
     """Persistence capability for exact fetch plus install telemetry."""
