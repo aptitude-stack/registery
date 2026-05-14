@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.governance import CallerIdentity, GovernancePolicy
-from app.core.ports import AuditPort, SkillCatalogRepository
+from app.core.ports import AuditPort, SkillResolutionPort
 
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import SkillRelationshipSelector, SkillVersionNotFoundError
@@ -26,7 +26,7 @@ class SkillResolutionService:
     def __init__(
         self,
         *,
-        repository: SkillCatalogRepository,
+        repository: SkillResolutionPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
     ) -> None:

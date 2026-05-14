@@ -1,7 +1,6 @@
-"""Reusable FastAPI dependencies for core services and settings.
+"""FastAPI dependency adapters for API route handlers.
 
-This module centralizes dependency wiring for request handlers so interface code
-can declare typed dependencies with minimal boilerplate.
+This module lives in the interface layer so core services stay framework-free.
 """
 
 from __future__ import annotations

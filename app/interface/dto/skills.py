@@ -5,6 +5,7 @@ from app.interface.dto.skills_fetch import (
     SkillVersionListResponse,
     SkillVersionMetadataResponse,
     SkillVersionSummaryResponse,
+    TopSkillsResponse,
 )
 from app.interface.dto.skills_lifecycle import (
     SkillVersionStatusResponse,
@@ -52,5 +53,6 @@ __all__ = [
     "SkillVersionStatusResponse",
     "SkillVersionStatusUpdateRequest",
     "SkillVersionSummaryResponse",
+    "TopSkillsResponse",
     "TrustContextResponse",
 ]

@@ -23,6 +23,18 @@ from app.core.governance import (
     build_default_policy_profile,
 )
 from app.core.ports import ServiceTokenRecord
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+    DEFAULT_SEMANTIC_DISCOVERY_MODE,
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+    DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+    DEFAULT_SEMANTIC_EMBEDDING_MODEL,
+    DEFAULT_SEMANTIC_EMBEDDING_PROVIDER,
+    DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION,
+    DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
+    DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
+    SemanticEmbeddingProvider,
+)
 
 
 class PublishRuleSettings(BaseModel):
@@ -202,31 +214,40 @@ class Settings(BaseSettings):
     active_policy_profile: str = Field(default="default", alias="ACTIVE_POLICY_PROFILE")
     otel_enabled: bool = Field(default=False, alias="OTEL_ENABLED")
     semantic_discovery_mode: SemanticDiscoveryMode = Field(
-        default="off",
+        default=DEFAULT_SEMANTIC_DISCOVERY_MODE,
         alias="SEMANTIC_DISCOVERY_MODE",
     )
+    semantic_embedding_provider: SemanticEmbeddingProvider = Field(
+        default=DEFAULT_SEMANTIC_EMBEDDING_PROVIDER,
+        alias="SEMANTIC_EMBEDDING_PROVIDER",
+    )
     semantic_embedding_model: str = Field(
-        default="metadata-1536-v1",
+        default=DEFAULT_SEMANTIC_EMBEDDING_MODEL,
         alias="SEMANTIC_EMBEDDING_MODEL",
     )
+    semantic_embedding_index_key: str = Field(
+        default=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+        alias="SEMANTIC_EMBEDDING_INDEX_KEY",
+    )
     semantic_embedding_dimensions: int = Field(
-        default=1536,
+        default=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
         alias="SEMANTIC_EMBEDDING_DIMENSIONS",
     )
+    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     semantic_candidate_limit: int = Field(
-        default=20,
+        default=DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
         ge=1,
         le=100,
         alias="SEMANTIC_CANDIDATE_LIMIT",
     )
     semantic_query_timeout_ms: int = Field(
-        default=150,
+        default=DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
         ge=1,
         le=5_000,
         alias="SEMANTIC_QUERY_TIMEOUT_MS",
     )
     semantic_hnsw_ef_search: int = Field(
-        default=100,
+        default=DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
         ge=1,
         le=1_000,
         alias="SEMANTIC_HNSW_EF_SEARCH",
@@ -279,6 +300,21 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"AUTH_SERVICE_TOKENS_JSON contains duplicate token ids: {duplicates}."
             )
+        expected_index_key = (
+            f"{self.semantic_embedding_provider}:"
+            f"{self.semantic_embedding_model}:"
+            f"{DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION}"
+        )
+        if self.semantic_embedding_index_key != expected_index_key:
+            raise ValueError(
+                "SEMANTIC_EMBEDDING_INDEX_KEY must match the configured semantic "
+                "embedding provider, model, and "
+                f"{DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION} source contract."
+            )
+        if self.semantic_discovery_mode != "off" and not self.openai_api_key:
+            raise ValueError(
+                "OPENAI_API_KEY must be set when SEMANTIC_DISCOVERY_MODE is shadow or hybrid."
+            )
         return self
 
     @field_validator("allowed_hosts")
@@ -286,6 +322,22 @@ class Settings(BaseSettings):
     def normalize_allowed_hosts(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         normalized = tuple(host.strip() for host in value if host.strip())
         return tuple(dict.fromkeys(normalized))
+
+    @field_validator("semantic_embedding_model", "semantic_embedding_index_key")
+    @classmethod
+    def normalize_semantic_embedding_text(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Semantic embedding settings must not be blank.")
+        return normalized
+
+    @field_validator("openai_api_key")
+    @classmethod
+    def normalize_openai_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
     @property
     def effective_policy_profiles(self) -> dict[str, PolicyProfileSettings]:

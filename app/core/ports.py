@@ -178,6 +178,17 @@ class SkillEmbeddingIndexRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class SkillEmbeddingWorkItem:
+    """One claimed semantic embedding row ready for provider indexing."""
+
+    skill_version_fk: int
+    embedding_model: str
+    embedding_dimensions: int
+    source_checksum_digest: str
+    source_text: str
+
+
+@dataclass(frozen=True, slots=True)
 class CoUsageObservationImportRecord:
     """One trusted resolver outcome used to rebuild co-usage aggregates."""
 
@@ -226,8 +237,8 @@ class DuplicateSkillSlugPersistenceError(SkillRegistryPersistenceError):
     """Raised when the stable skill slug already exists."""
 
 
-class SkillCatalogRepository(Protocol):
-    """Unified persistence contract for the skill catalog."""
+class SkillPublishPort(Protocol):
+    """Persistence capability for immutable publish operations."""
 
     def skill_exists(self, *, slug: str) -> bool:
         """Return whether a skill identity already exists."""
@@ -243,6 +254,10 @@ class SkillCatalogRepository(Protocol):
     ) -> SkillVersionDetail:
         """Create one immutable normalized version."""
 
+
+class SkillExactReadPort(Protocol):
+    """Persistence capability for exact immutable metadata and content reads."""
+
     def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
         """Return one immutable version detail for exact read or lifecycle paths."""
 
@@ -257,6 +272,20 @@ class SkillCatalogRepository(Protocol):
     def list_versions(self, *, slug: str) -> tuple[SkillVersionListEntry, ...]:
         """Return version-list rows for one skill identity."""
 
+    def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
+        """Return current-default version details ordered by aggregate installs."""
+
+
+class SkillFetchPort(SkillExactReadPort, Protocol):
+    """Persistence capability for exact fetch plus install telemetry."""
+
+    def record_install(self, *, slug: str, version: str) -> None:
+        """Record one successful skill install/download for an exact coordinate."""
+
+
+class SkillResolutionPort(Protocol):
+    """Persistence capability for exact authored dependency reads."""
+
     def get_relationship_source(
         self,
         *,
@@ -264,6 +293,10 @@ class SkillCatalogRepository(Protocol):
         version: str,
     ) -> SkillRelationshipSource | None:
         """Return exact authored relationships for one immutable coordinate."""
+
+
+class SkillDiscoverySearchPort(Protocol):
+    """Persistence capability for discovery candidate retrieval."""
 
     def search_candidates(
         self,
@@ -279,11 +312,29 @@ class SkillCatalogRepository(Protocol):
     ) -> tuple[StoredSkillSearchCandidate, ...]:
         """Return semantically similar candidates within governance-safe filters."""
 
+    def backfill_pending_skill_embeddings(
+        self,
+        *,
+        embedding_model: str,
+        embedding_dimensions: int,
+    ) -> int:
+        """Create missing pending semantic embedding rows for indexed skill documents."""
+
+    def claim_skill_embedding_work(
+        self,
+        *,
+        embedding_model: str,
+        limit: int,
+        reclaim_after_seconds: int,
+    ) -> tuple[SkillEmbeddingWorkItem, ...]:
+        """Claim pending, stale, or abandoned semantic embedding rows for indexing."""
+
     def get_co_usage_boosts(self, *, request: CoUsageBoostRequest) -> dict[str, float]:
         """Return bounded co-usage boosts for visible candidate slugs."""
 
-    def record_install(self, *, slug: str, version: str) -> None:
-        """Record one successful skill install/download for an exact coordinate."""
+
+class SkillGovernanceAdminPort(Protocol):
+    """Persistence capability for mutable governance administration."""
 
     def update_version_status(
         self,
@@ -361,6 +412,25 @@ class SkillCatalogRepository(Protocol):
         """Append one trust evidence row to a version."""
 
 
+class SkillRegistryPort(
+    SkillPublishPort,
+    SkillExactReadPort,
+    SkillGovernanceAdminPort,
+    Protocol,
+):
+    """Persistence capability set used by the registry write/admin service."""
+
+
+class SkillCatalogRepository(
+    SkillRegistryPort,
+    SkillFetchPort,
+    SkillDiscoverySearchPort,
+    SkillResolutionPort,
+    Protocol,
+):
+    """Compatibility composition for the SQLAlchemy catalog adapter."""
+
+
 class AuditPort(Protocol):
     """Audit recording contract used by core services."""
 
@@ -385,6 +455,23 @@ class EmbeddingProviderPort(Protocol):
 class EmbeddingIndexPort(Protocol):
     """Embedding indexing contract for derived semantic discovery rows."""
 
+    def backfill_pending_skill_embeddings(
+        self,
+        *,
+        embedding_model: str,
+        embedding_dimensions: int,
+    ) -> int:
+        """Create missing pending semantic embedding rows for indexed skill documents."""
+
+    def claim_skill_embedding_work(
+        self,
+        *,
+        embedding_model: str,
+        limit: int,
+        reclaim_after_seconds: int,
+    ) -> tuple[SkillEmbeddingWorkItem, ...]:
+        """Claim pending, stale, or abandoned semantic embedding rows for indexing."""
+
     def index_skill_embedding(self, *, record: SkillEmbeddingIndexRecord) -> None:
         """Persist one validated indexed skill embedding."""
 
@@ -399,7 +486,7 @@ class EmbeddingIndexPort(Protocol):
 
 
 class CoUsageObservationImportPort(Protocol):
-    """Import contract for trusted resolver lock/selection co-usage evidence."""
+    """Dormant import contract for future trusted resolver co-usage evidence."""
 
     def import_observation_run(self, *, record: CoUsageObservationImportRecord) -> None:
         """Import one selected-skill outcome for aggregate rebuilds."""

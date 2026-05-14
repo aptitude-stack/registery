@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -21,8 +22,16 @@ from app.core.ports import (
     EmbeddingProviderPort,
     SearchCandidatesRequest,
     SearchSemanticCandidatesRequest,
-    SkillCatalogRepository,
+    SkillDiscoverySearchPort,
     StoredSkillSearchCandidate,
+)
+from app.core.semantic_defaults import (
+    DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+    DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+    DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+    DEFAULT_SEMANTIC_EMBEDDING_MODEL,
+    DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
+    DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
 )
 from app.core.settings import SemanticDiscoveryMode
 from app.intelligence.discovery_signals import (
@@ -34,6 +43,9 @@ from app.intelligence.search_ranking import (
     build_search_explanation,
     normalize_search_request,
 )
+from app.observability.metrics import observe_semantic_discovery_failure
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +61,8 @@ class SkillSearchQuery:
     status: tuple[LifecycleStatus, ...] = ()
     trust_tier: tuple[TrustTier, ...] = ()
     context_skills: tuple[str, ...] = ()
+    semantic_text: str | None = None
+    semantic_text_is_explicit: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,16 +91,17 @@ class SkillSearchService:
     def __init__(
         self,
         *,
-        repository: SkillCatalogRepository,
+        repository: SkillDiscoverySearchPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
         semantic_discovery_mode: SemanticDiscoveryMode = "off",
         embedding_provider: EmbeddingProviderPort | None = None,
-        semantic_embedding_model: str = "metadata-1536-v1",
-        semantic_embedding_dimensions: int = 1536,
-        semantic_candidate_limit: int = 20,
-        semantic_query_timeout_ms: int = 150,
-        semantic_hnsw_ef_search: int = 100,
+        semantic_embedding_model: str = DEFAULT_SEMANTIC_EMBEDDING_MODEL,
+        semantic_embedding_index_key: str = DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+        semantic_embedding_dimensions: int = DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+        semantic_candidate_limit: int = DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+        semantic_query_timeout_ms: int = DEFAULT_SEMANTIC_QUERY_TIMEOUT_MS,
+        semantic_hnsw_ef_search: int = DEFAULT_SEMANTIC_HNSW_EF_SEARCH,
         co_usage_ranking_enabled: bool = False,
         co_usage_boost_cap: float = 0.05,
         co_usage_context_limit: int = 10,
@@ -97,6 +112,7 @@ class SkillSearchService:
         self._semantic_discovery_mode = semantic_discovery_mode
         self._embedding_provider = embedding_provider
         self._semantic_embedding_model = semantic_embedding_model
+        self._semantic_embedding_index_key = semantic_embedding_index_key
         self._semantic_embedding_dimensions = semantic_embedding_dimensions
         self._semantic_candidate_limit = semantic_candidate_limit
         self._semantic_query_timeout_ms = semantic_query_timeout_ms
@@ -145,8 +161,20 @@ class SkillSearchService:
                 limit=normalized_request.limit,
             )
         )
+        semantic_query_text = (
+            query.semantic_text
+            if query.semantic_text_is_explicit
+            else (query.semantic_text or query.q)
+        )
         semantic_results = self._semantic_candidates(
-            query_text=normalized_request.query_text,
+            query_text=normalize_search_request(
+                q=semantic_query_text,
+                tags=(),
+                language=None,
+                fresh_within_days=None,
+                max_footprint_bytes=None,
+                limit=normalized_request.limit,
+            ).query_text,
             normalized_request_limit=normalized_request.limit,
             required_tags=normalized_request.effective_tags,
             fresh_within_days=normalized_request.fresh_within_days,
@@ -253,24 +281,46 @@ class SkillSearchService:
                 ),
                 dimensions=self._semantic_embedding_dimensions,
             )
-        except Exception:
+        except Exception as exc:
+            self._record_semantic_failure(stage="provider", exc=exc)
             return ()
-        return self._repository.search_semantic_candidates(
-            request=SearchSemanticCandidatesRequest(
-                query_embedding=query_embedding,
-                embedding_model=self._semantic_embedding_model,
-                embedding_dimensions=self._semantic_embedding_dimensions,
-                required_tags=required_tags,
-                fresh_within_days=fresh_within_days,
-                max_content_size_bytes=max_content_size_bytes,
-                lifecycle_statuses=lifecycle_statuses,
-                trust_tiers=trust_tiers,
-                namespaces=namespaces,
-                promotion_channels=promotion_channels,
-                review_states=review_states,
-                limit=min(self._semantic_candidate_limit, normalized_request_limit),
-                hnsw_ef_search=self._semantic_hnsw_ef_search,
+
+        try:
+            return self._repository.search_semantic_candidates(
+                request=SearchSemanticCandidatesRequest(
+                    query_embedding=query_embedding,
+                    embedding_model=self._semantic_embedding_index_key,
+                    embedding_dimensions=self._semantic_embedding_dimensions,
+                    required_tags=required_tags,
+                    fresh_within_days=fresh_within_days,
+                    max_content_size_bytes=max_content_size_bytes,
+                    lifecycle_statuses=lifecycle_statuses,
+                    trust_tiers=trust_tiers,
+                    namespaces=namespaces,
+                    promotion_channels=promotion_channels,
+                    review_states=review_states,
+                    limit=min(self._semantic_candidate_limit, normalized_request_limit),
+                    hnsw_ef_search=self._semantic_hnsw_ef_search,
+                )
             )
+        except Exception as exc:
+            self._record_semantic_failure(stage="repository", exc=exc)
+            return ()
+
+    def _record_semantic_failure(self, *, stage: str, exc: Exception) -> None:
+        observe_semantic_discovery_failure(
+            mode=self._semantic_discovery_mode,
+            stage=stage,
+            exception_type=type(exc).__name__,
+        )
+        logger.warning(
+            "semantic discovery degraded to lexical fallback",
+            extra={
+                "event_type": "semantic.discovery.failed",
+                "semantic_mode": self._semantic_discovery_mode,
+                "semantic_stage": stage,
+                "exception_type": type(exc).__name__,
+            },
         )
 
     def _combine_candidates(

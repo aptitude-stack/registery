@@ -12,6 +12,7 @@ from app.core.skills.discovery import SkillDiscoveryService
 from app.core.skills.fetch import SkillFetchService
 from app.core.skills.registry import SkillRegistryService
 from app.core.skills.resolution import SkillResolutionService
+from app.integrations.openai_embeddings import OpenAIEmbeddingProvider
 from app.observability.readiness import ReadinessService
 from app.observability.telemetry import instrument_database_engine
 from app.persistence.db import (
@@ -47,7 +48,7 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
     session_factory = get_session_factory()
     catalog_repository = SQLAlchemySkillCatalogRepository(
         session_factory=session_factory,
-        semantic_embedding_model=settings.semantic_embedding_model,
+        semantic_embedding_index_key=settings.semantic_embedding_index_key,
         semantic_embedding_dimensions=settings.semantic_embedding_dimensions,
     )
     audit_recorder = SQLAlchemyAuditRecorder(session_factory=session_factory)
@@ -69,7 +70,9 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
             audit_recorder=audit_recorder,
             governance_policy=governance_policy,
             semantic_discovery_mode=settings.semantic_discovery_mode,
+            embedding_provider=_build_embedding_provider(settings=settings),
             semantic_embedding_model=settings.semantic_embedding_model,
+            semantic_embedding_index_key=settings.semantic_embedding_index_key,
             semantic_embedding_dimensions=settings.semantic_embedding_dimensions,
             semantic_candidate_limit=settings.semantic_candidate_limit,
             semantic_query_timeout_ms=settings.semantic_query_timeout_ms,
@@ -89,3 +92,11 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
             governance_policy=governance_policy,
         ),
     )
+
+
+def _build_embedding_provider(*, settings: Settings) -> OpenAIEmbeddingProvider | None:
+    if settings.semantic_discovery_mode == "off":
+        return None
+    if settings.semantic_embedding_provider == "openai" and settings.openai_api_key is not None:
+        return OpenAIEmbeddingProvider(api_key=settings.openai_api_key)
+    return None

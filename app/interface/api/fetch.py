@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Request, Response, status
+from fastapi import APIRouter, Path, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from app.core.dependencies import ReadCallerDep, SkillFetchServiceDep
 from app.core.skills.models import SkillNotFoundError, SkillVersionNotFoundError
+from app.interface.api.dependencies import ReadCallerDep, SkillFetchServiceDep
 from app.interface.api.errors import error_response
 from app.interface.api.response_docs import (
     ApiResponses,
@@ -21,7 +21,11 @@ from app.interface.dto.examples import (
     SKILL_VERSION_LIST_RESPONSE_EXAMPLE,
     SKILL_VERSION_METADATA_RESPONSE_EXAMPLE,
 )
-from app.interface.dto.skills_fetch import SkillVersionListResponse, SkillVersionMetadataResponse
+from app.interface.dto.skills_fetch import (
+    SkillVersionListResponse,
+    SkillVersionMetadataResponse,
+    TopSkillsResponse,
+)
 from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
 
 router = APIRouter(tags=["fetch"])
@@ -69,6 +73,35 @@ LIST_RESPONSES: ApiResponses = {
     **SKILL_NOT_FOUND_RESPONSE,
     **PATH_VALIDATION_ERROR_RESPONSE,
 }
+
+TOP_SKILLS_RESPONSES: ApiResponses = {
+    status.HTTP_200_OK: {
+        "description": "Top installed visible skill versions returned successfully.",
+    },
+    **invalid_request_response(description="The query parameters are invalid."),
+}
+
+
+@router.get(
+    "/catalog/top-skills",
+    operation_id="listTopInstalledSkills",
+    summary="List top installed skills",
+    description="Return current-default visible skill versions ordered by aggregate install count.",
+    response_model=TopSkillsResponse,
+    response_model_exclude_unset=True,
+    responses=TOP_SKILLS_RESPONSES,
+)
+def list_top_installed_skills(
+    fetch_service: SkillFetchServiceDep,
+    caller: ReadCallerDep,
+    limit: Annotated[
+        int,
+        Query(ge=1, le=24, description="Maximum number of top installed skills to return."),
+    ] = 12,
+) -> TopSkillsResponse:
+    """Return top installed visible current-default skill versions."""
+    details = fetch_service.list_top_installed(caller=caller, limit=limit)
+    return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
 
 
 @router.get(

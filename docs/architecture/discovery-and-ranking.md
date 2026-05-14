@@ -17,17 +17,19 @@ Important boundary:
 ```mermaid
 flowchart TD
     A["Discovery request: {name, description, tags, context_skills?}"] --> B["DTO validation and normalization"]
-    B --> C["Build query text from name + description"]
-    C --> D["Normalize query and tags"]
-    D --> E["Resolve governance filters"]
-    E --> F["Lexical search over skill_search_documents"]
-    E --> G["Optional semantic expansion over skill_search_embeddings"]
-    F --> H["Lexical-primary fusion"]
-    G --> H
-    H --> I["Optional bounded co-usage boost"]
-    I --> J["Keep best version for each slug"]
-    J --> K["Globally order surviving slugs"]
-    K --> L["Return ordered candidates: [slug, ...]"]
+    B --> C["Build lexical text from name + description"]
+    B --> D["Build semantic text from description + tags"]
+    C --> E["Normalize query and tags"]
+    D --> E
+    E --> F["Resolve governance filters"]
+    F --> G["Lexical search over skill_search_documents"]
+    F --> H["Optional semantic expansion over skill_search_embeddings"]
+    G --> I["Conservative RRF fusion"]
+    H --> I
+    I --> J["Optional bounded co-usage boost"]
+    J --> K["Keep best version for each slug"]
+    K --> L["Globally order surviving slugs"]
+    L --> M["Return ordered candidates: [slug, ...]"]
 ```
 
 ## Request Shape
@@ -48,12 +50,20 @@ The request is normalized before search:
 - `context_skills` are normalized, deduplicated, and never treated as authored
   dependencies
 
-The discovery service then builds one search string by concatenating:
+The discovery service builds one lexical search string by concatenating:
 
 - `name`
 - `description`, if present
 
 That combined text becomes the free-text query. Tags remain structured filters.
+
+When semantic discovery is enabled, the semantic query text is built from:
+
+- `description`, if present
+- normalized `tags`
+
+The required `name` is not semantic input. If a request contains only `name`
+and no description or tags, semantic expansion is skipped.
 
 ## Search Data Model
 
@@ -82,9 +92,9 @@ This keeps discovery fast and body-free.
 
 Semantic expansion, when enabled, reads a second derived table:
 `skill_search_embeddings`. Those rows are keyed by immutable skill version and
-embedding model, store metadata-only `halfvec(1536)` vectors, and are allowed to
-be `pending`, `indexed`, `failed`, or `stale`. Semantic rows are rebuildable and
-never authoritative catalog data.
+embedding index key, store description/tag-only `halfvec(1536)` vectors, and
+are allowed to be `pending`, `processing`, `indexed`, `failed`, or `stale`.
+Semantic rows are rebuildable and never authoritative catalog data.
 
 ## What Goes Into `search_vector`
 
@@ -103,6 +113,27 @@ Conceptually, the stored searchable document is:
 ```text
 normalize(slug) + " " + normalize(name) + " " + normalize(description) + " " + normalize(tags...)
 ```
+
+## What Goes Into Semantic Embeddings
+
+The semantic source deliberately excludes slug, name, README/body text, bundled
+files, and raw artifact contents.
+
+Indexed skill semantic source:
+
+```text
+normalize(description) + " " + normalize(tags...)
+```
+
+Query semantic source:
+
+```text
+normalize(request.description) + " " + normalize(request.tags...)
+```
+
+Slug and name remain lexical identity signals for exact, near-exact, and
+substring lookup. Tags have two roles: hard containment filters when requested,
+and semantic source text when embeddings are generated.
 
 ## Query Normalization
 
@@ -233,19 +264,42 @@ lexical candidates in this order:
 8. lexical slug ordering for stable ties
 9. higher internal version row id as the last tie-break
 
-If `SEMANTIC_DISCOVERY_MODE=hybrid`, semantic search may add a small bounded set
-of eligible candidates after lexical retrieval. Fusion is conservative:
+If `SEMANTIC_DISCOVERY_MODE=shadow`, semantic retrieval runs but the public
+ordering remains lexical-only. If `SEMANTIC_DISCOVERY_MODE=hybrid`, semantic
+search may add a small bounded set of eligible candidates and contribute to
+ranking through conservative reciprocal rank fusion over lexical and semantic
+rank positions. Fusion is conservative:
 
 - exact slug/name matches always win
-- lexical candidates keep primary ordering
-- semantic candidates fill recall gaps
+- overlapping lexical and semantic candidates receive both rank signals
+- semantic-only candidates can enter the limited result set when fused rank
+  earns it
 - raw vector distance is not compared directly to lexical score
-- provider failure or timeout falls back to lexical-only results
+- provider, timeout, or semantic SQL failure falls back to lexical-only results
+
+The current semantic index key is:
+
+```text
+openai:text-embedding-3-small:description-tags-v1
+```
+
+OpenAI receives the provider model name `text-embedding-3-small`; PostgreSQL
+rows use the full index key so old slug/name-based semantic rows cannot mix
+with the description/tag source contract.
 
 If `CO_USAGE_RANKING_ENABLED=true` and `context_skills` are supplied, co-usage
 can apply a capped "commonly used together" boost. Co-usage is derived from
 resolver lock/selection outcomes, not clicks, page views, or discovery requests,
 and it never becomes dependency truth.
+
+## Co-Usage Ranking Status
+
+Co-usage ranking is schema-backed but disabled by default through
+`CO_USAGE_RANKING_ENABLED=false`. The registry may read `skill_co_usage_pairs`
+only when a trusted producer has populated resolver observation aggregates.
+Until `CoUsageObservationImportPort.import_observation_run` has a production
+implementation, `context_skills` remains accepted request context but must not
+imply a populated co-usage signal.
 
 ### `ts_rank_cd`
 
@@ -282,8 +336,8 @@ This step is critical. It means:
 
 ## Final Response Construction
 
-After per-slug collapse, the surviving rows are globally sorted again with the
-same ranking order and truncated to the discovery limit.
+After per-slug collapse, lexical and semantic rows are fused, globally sorted,
+and truncated to the discovery limit.
 
 The API then returns:
 

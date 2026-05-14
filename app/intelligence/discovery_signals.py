@@ -28,15 +28,24 @@ def build_embedding_source(
     description: str | None,
     tags: tuple[str, ...],
 ) -> str:
-    """Return the metadata-only text source used for semantic indexing."""
-    parts = [
-        normalize_search_text(slug) or "",
-        normalize_search_text(name) or "",
-    ]
+    """Return the description/tag text source used for semantic indexing."""
+    del slug, name
+    source = build_semantic_query_source(description=description, tags=tags)
+    return source or ""
+
+
+def build_semantic_query_source(
+    *,
+    description: str | None,
+    tags: tuple[str, ...],
+) -> str | None:
+    """Return normalized description/tag text used for semantic query embeddings."""
+    parts: list[str] = []
     if description is not None:
         parts.append(normalize_search_text(description) or "")
     parts.extend(normalize_tag_list(tags))
-    return " ".join(part for part in parts if part)
+    source = " ".join(part for part in parts if part)
+    return source or None
 
 
 def build_source_checksum_digest(source: str) -> str:
@@ -70,7 +79,7 @@ def fuse_discovery_candidates(
     limit: int,
     co_usage_boost_cap: float = DEFAULT_CO_USAGE_BOOST_CAP,
 ) -> tuple[StoredSkillSearchCandidate, ...]:
-    """Return lexical-primary candidates with semantic expansion and bounded boosts."""
+    """Return candidates fused across lexical, semantic, and bounded boost signals."""
     ranked: dict[str, _RankedCandidate] = {}
     for index, candidate in enumerate(lexical_candidates, start=1):
         ranked[candidate.slug] = _RankedCandidate(
@@ -115,13 +124,10 @@ def _sort_key(item: _RankedCandidate) -> tuple[object, ...]:
     candidate = item.candidate
     lexical_component = 0.0
     if item.lexical_rank is not None:
-        lexical_component = (1.0 / (item.lexical_rank + 5)) + min(
-            max(candidate.lexical_score, 0.0),
-            1.0,
-        ) * 0.01
+        lexical_component = 1.0 / (item.lexical_rank + 60)
     semantic_component = 0.0
     if item.semantic_rank is not None:
-        semantic_component = 0.01 / (item.semantic_rank + 5)
+        semantic_component = 1.0 / (item.semantic_rank + 60)
     fused_score = lexical_component + semantic_component + item.co_usage_boost
 
     return (

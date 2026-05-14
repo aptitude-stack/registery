@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.governance import CallerIdentity
+from app.intelligence.discovery_signals import build_semantic_query_source
 
 from .search import SkillSearchQuery, SkillSearchService
 
@@ -39,6 +40,11 @@ class SkillDiscoveryService(SkillSearchService):
                 max_footprint_bytes=None,
                 limit=20,
                 context_skills=request.context_skills,
+                semantic_text=build_semantic_query_source(
+                    description=request.description,
+                    tags=request.tags,
+                ),
+                semantic_text_is_explicit=True,
             ),
         )
         return tuple(item.slug for item in results)

@@ -119,7 +119,10 @@ explicit:
 
 ```text
 SEMANTIC_DISCOVERY_MODE=shadow
-SEMANTIC_EMBEDDING_MODEL=metadata-1536-v1
+OPENAI_API_KEY=<encrypted OpenAI API key>
+SEMANTIC_EMBEDDING_PROVIDER=openai
+SEMANTIC_EMBEDDING_MODEL=text-embedding-3-small
+SEMANTIC_EMBEDDING_INDEX_KEY=openai:text-embedding-3-small:description-tags-v1
 SEMANTIC_EMBEDDING_DIMENSIONS=1536
 SEMANTIC_CANDIDATE_LIMIT=20
 SEMANTIC_QUERY_TIMEOUT_MS=150
@@ -159,7 +162,9 @@ migrations.
 Semantic discovery uses Neon Postgres through `pgvector`, not a separate vector
 database. Migration `0005_semantic_discovery_signals` enables the `vector`
 extension and creates the `skill_search_embeddings` read model with a
-`halfvec(1536)` column plus an HNSW cosine index. This means:
+`halfvec(1536)` column plus an HNSW cosine index. Migration
+`0006_embedding_processing_status` adds `processing` as the worker claim state.
+This means:
 
 - the production database role used for migrations must be able to run
   `CREATE EXTENSION IF NOT EXISTS vector`;
@@ -170,6 +175,38 @@ extension and creates the `skill_search_embeddings` read model with a
 - HNSW tuning should start from the checked-in defaults and be changed through
   `SEMANTIC_HNSW_EF_SEARCH` only after measuring recall and latency on the
   production branch or a Neon branch.
+
+Semantic index rows use the persisted index key
+`openai:text-embedding-3-small:description-tags-v1`. OpenAI receives only the
+provider model name `text-embedding-3-small`; the full index key is stored in
+Postgres so older slug/name-based embeddings cannot mix with the current
+description/tag-only source contract.
+
+Manual/local indexing fallback:
+
+```bash
+APP_SETTINGS_ENV_FILE=/path/to/prod.env uv run python scripts/index_semantic_embeddings.py --batch-size 25 --max-batches 1 --reclaim-after-seconds 3600
+```
+
+Production indexing target:
+
+Production indexing is repository-owned where Render Blueprint support permits
+it. The desired target is a bounded Render Workflow task,
+`aptitude-registry-semantic-indexing/index_semantic_embeddings`, triggered by a
+Cron job that runs `scripts/trigger_semantic_embedding_workflow.py`.
+
+Current Render limits matter: Workflows are beta, do not provide built-in
+scheduling, and are not yet supported as a Blueprint service type. Keep the
+Workflow service configured manually in Render with build command
+`uv sync --frozen --no-dev --extra workflow` and start command
+`uv run python workflows/semantic_embeddings.py`. The checked-in `render.yaml`
+owns the Cron trigger and preserves the
+`semantic-indexing-managed-outside-blueprint` marker as intentional drift
+documentation, not a missing service definition.
+
+Configure `DATABASE_URL`, `OPENAI_API_KEY`, `RENDER_API_KEY`, and the semantic
+settings above for the indexing path. The local CLI remains the stable
+fallback.
 
 Enable the query-statistics extension once on the production database for
 observability:

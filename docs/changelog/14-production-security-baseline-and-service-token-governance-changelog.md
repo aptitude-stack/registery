@@ -1,5 +1,7 @@
 # Milestone 14 Changelog - Production Security Baseline And Service Token Governance
 
+> Historical note: this changelog records the milestone state at the time it shipped. For the current live HTTP route surface, use [`../reference/api-contract.md`](../reference/api-contract.md).
+
 This changelog documents implementation of [.agents/plans/14-minimal-auth-boundary-and-token-governance.md](../../.agents/plans/14-minimal-auth-boundary-and-token-governance.md).
 
 The milestone hardens the registry’s HTTP boundary without widening the route surface. Auth is now a dedicated core concern built around governed service tokens, `prod` posture is explicit at app startup, and local observability keeps working with dev-only fixture credentials instead of the old raw bearer-token map.

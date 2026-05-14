@@ -25,6 +25,7 @@ def test_public_route_surface_exposes_exact_get_fetch_routes() -> None:
 
     assert ("/skills/{slug}", "POST") in routes
     assert ("/skills/{slug}", "GET") in routes
+    assert ("/catalog/top-skills", "GET") in routes
     assert ("/discovery", "POST") in routes
     assert ("/resolution/{slug}/{version}", "GET") in routes
     assert ("/skills/{slug}/{version}", "GET") in routes
@@ -82,6 +83,7 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     ]
 
     assert "/discovery" in paths
+    assert "/catalog/top-skills" in paths
     assert "/resolution/{slug}/{version}" in paths
     assert "/skills/{slug}" in paths
     assert "/skills/{slug}/{version}" in paths
@@ -94,6 +96,7 @@ def test_openapi_contract_matches_exact_get_fetch_routes() -> None:
     assert "/admin/skills/{slug}/{version}/trust-evidence" in paths
     assert "post" in paths["/skills/{slug}"]
     assert "get" in paths["/skills/{slug}"]
+    assert "get" in paths["/catalog/top-skills"]
     assert "post" in paths["/discovery"]
     assert "get" in paths["/resolution/{slug}/{version}"]
     assert "get" in paths["/skills/{slug}/{version}"]

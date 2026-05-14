@@ -1,5 +1,7 @@
 # Milestone 11 Changelog - Operability and Release Readiness
 
+> Historical note: this changelog records the milestone state at the time it shipped. For the current live HTTP route surface, use [`../reference/api-contract.md`](../reference/api-contract.md).
+
 > **Superseded.** The local `grafana/otel-lgtm` stack, the `ops/monitoring/`
 > assets, the optional file log sink, and the `GET /metrics` endpoint
 > documented below have been removed. Telemetry now flows directly from the
