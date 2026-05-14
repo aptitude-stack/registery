@@ -34,7 +34,7 @@ Deployable backend entrypoint:
 | Concern | Current value |
 | --- | --- |
 | FastAPI import string | `app.main:app` |
-| FastAPI CLI entrypoint | `[tool.fastapi] entrypoint = "app.main:app"` in [`pyproject.toml`](../../pyproject.toml) |
+| ASGI server command | `uv run uvicorn app.main:app` |
 | Runtime settings | [`app/core/settings.py`](../../app/core/settings.py) |
 | Migration command | `uv run alembic upgrade head` |
 | Liveness endpoint | `GET /healthz` |
@@ -82,13 +82,13 @@ Recommended settings:
 | --- | --- |
 | Service name | `aptitude-registry-api` |
 | Runtime | `Python 3` |
-| Instance type | `Starter` for production so Render runs the pre-deploy migration hook |
+| Instance type | `Starter` for production runtime capacity; deployment safety is owned by GitHub Actions, not Render pre-deploy |
 | Branch | `master` |
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
 | Build command | `uv sync --frozen --no-dev --extra otel` |
 | Pre-deploy command | Target Blueprint state is disabled; production migration is owned by GitHub Actions before the deploy hook fires |
-| Start command | `uv run fastapi run --entrypoint app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
+| Start command | `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
 
 The `--extra otel` flag installs the OpenTelemetry SDK, OTLP/HTTP exporters,
