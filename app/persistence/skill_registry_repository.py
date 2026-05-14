@@ -283,7 +283,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     joinedload(SkillVersion.content),
                     joinedload(SkillVersion.metadata_row),
                     joinedload(SkillVersion.policy_pack),
-                    selectinload(SkillVersion.provenance),
                 )
                 .where(SkillVersion.lifecycle_status.in_(("published", "deprecated")))
                 .order_by(

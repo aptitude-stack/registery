@@ -27,6 +27,14 @@ def _set_rank_fixture(
     version: str | None = None,
 ) -> None:
     engine = create_engine(database_url)
+    version_filter = "" if version is None else "AND skill_versions.version = :version"
+    parameters = {
+        "slug": slug,
+        "install_count": install_count,
+        "published_at": published_at,
+    }
+    if version is not None:
+        parameters["version"] = version
     try:
         with engine.begin() as connection:
             connection.execute(
@@ -35,20 +43,20 @@ def _set_rank_fixture(
             )
             connection.execute(
                 text(
-                    """
+                    f"""
                     UPDATE skill_versions
                     SET published_at = :published_at
                     FROM skills
                     WHERE skills.id = skill_versions.skill_fk
                       AND skills.slug = :slug
-                      AND (:version IS NULL OR skill_versions.version = :version)
+                      {version_filter}
                     """
                 ),
-                {"slug": slug, "published_at": published_at, "version": version},
+                parameters,
             )
             connection.execute(
                 text(
-                    """
+                    f"""
                     UPDATE skill_search_documents
                     SET usage_count = :install_count,
                         published_at = :published_at
@@ -56,15 +64,10 @@ def _set_rank_fixture(
                     JOIN skills ON skills.id = skill_versions.skill_fk
                     WHERE skill_versions.id = skill_search_documents.skill_version_fk
                       AND skills.slug = :slug
-                      AND (:version IS NULL OR skill_versions.version = :version)
+                      {version_filter}
                     """
                 ),
-                {
-                    "slug": slug,
-                    "install_count": install_count,
-                    "published_at": published_at,
-                    "version": version,
-                },
+                parameters,
             )
     finally:
         engine.dispose()
