@@ -87,20 +87,20 @@ uv sync --extra dev
 - Use `APP_ENV=dev` for local debugging with docs enabled.
 - Use `APP_ENV=prod` for production-like startup with docs and host validation enabled.
 
-4. Start the FastAPI CLI with the correct subcommand.
+4. Start the ASGI server with the correct runtime posture.
 
 ```bash
-APP_ENV=dev uv run fastapi dev
-APP_ENV=prod uv run fastapi run
+APP_ENV=dev uv run uvicorn app.main:app --reload
+APP_ENV=prod uv run uvicorn app.main:app
 ```
 
-The repo already defines the CLI entrypoint in `pyproject.toml`, so you do not need to pass
-`app/main.py` unless you are debugging import resolution.
+Use the `app.main:app` import string so the same application factory path is exercised
+locally and in deployment.
 
 5. If you need a different dotenv file than `.env`, set it explicitly.
 
 ```bash
-APP_ENV=prod APP_SETTINGS_ENV_FILE=.env.local-prod uv run fastapi run
+APP_ENV=prod APP_SETTINGS_ENV_FILE=.env.local-prod uv run uvicorn app.main:app
 ```
 
 6. Verify the app surface that matches the chosen profile.
@@ -151,7 +151,7 @@ For telemetry validation, enable OTLP export and use the Grafana Cloud reference
 ```bash
 OTEL_ENABLED=true \
 OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-<region>.grafana.net/otlp \
-uv run fastapi dev
+uv run uvicorn app.main:app --reload
 ```
 
 See [`../reference/observability-grafana-cloud.md`](../reference/observability-grafana-cloud.md) for the full setup.
@@ -174,22 +174,24 @@ Fix:
 This is usually a warning, not the root failure. It means `uv` ignored the already-active
 virtualenv and targeted the registry project environment instead.
 
-### Problem: `Missing command.` after `uv run fastapi`
+### Problem: `To use the fastapi command, please install "fastapi[standard]"`
 
-Cause: `fastapi` is a CLI with required subcommands.
+Cause: the project installs FastAPI as the web framework and `uvicorn[standard]` as the
+runtime server. It does not install the optional FastAPI CLI package.
 
 Fix:
 
-1. Use `fastapi dev` for local reload mode.
-2. Use `fastapi run` for production-style mode.
+1. Use `uvicorn app.main:app --reload` for local reload mode.
+2. Use `uvicorn app.main:app` for production-style mode.
 3. Set `APP_ENV` to the runtime profile you actually want.
 
 ```bash
-APP_ENV=dev uv run fastapi dev
-APP_ENV=prod uv run fastapi run
+APP_ENV=dev uv run uvicorn app.main:app --reload
+APP_ENV=prod uv run uvicorn app.main:app
 ```
 
-Do not stop at `uv run fastapi`. That command only invokes the CLI help surface.
+Do not switch production to the FastAPI CLI just to satisfy this error; that adds an
+unused optional CLI dependency around an already installed ASGI server.
 
 ### Problem: `uv` fails to initialize its cache
 
@@ -199,14 +201,14 @@ Fix:
 
 ```bash
 UV_CACHE_DIR=.uv-cache uv sync --extra dev
-UV_CACHE_DIR=.uv-cache APP_ENV=dev uv run fastapi dev
+UV_CACHE_DIR=.uv-cache APP_ENV=dev uv run uvicorn app.main:app --reload
 ```
 
 This keeps the cache inside the repo and avoids permission errors on the global cache path.
 
 ### Problem: the app starts but exits on settings validation
 
-Cause: the FastAPI CLI is fine, but required app settings are missing or inconsistent for the
+Cause: the ASGI server started, but required app settings are missing or inconsistent for the
 selected runtime profile.
 
 Common examples:

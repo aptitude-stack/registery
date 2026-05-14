@@ -19,30 +19,30 @@ Runtime posture changes that do apply today:
 
 There is no `test`, `container`, or `staging` runtime profile in the app.
 
-## FastAPI CLI vs `APP_ENV`
+## ASGI Server vs `APP_ENV`
 
-The FastAPI CLI mode and the app runtime profile are separate controls.
+The ASGI server mode and the app runtime profile are separate controls.
 
-- `fastapi dev`: local server mode with reload, bound to `127.0.0.1` by default
-- `fastapi run`: production-style server mode without reload
+- `uvicorn app.main:app --reload`: local server mode with reload, bound to `127.0.0.1` by default
+- `uvicorn app.main:app`: production-style server mode without reload
 - `APP_ENV=dev|prod`: application runtime posture used by the registry settings layer
 
-Do not assume `fastapi dev` automatically means `APP_ENV=dev`, or that `fastapi run`
+Do not assume the server reload flag automatically means `APP_ENV=dev`, or that no reload
 automatically means `APP_ENV=prod`. Set `APP_ENV` explicitly when you care about the
 app posture.
 
 Recommended app-process commands:
 
 ```bash
-APP_ENV=dev uv run fastapi dev
-APP_ENV=prod uv run fastapi run
+APP_ENV=dev uv run uvicorn app.main:app --reload
+APP_ENV=prod uv run uvicorn app.main:app
 ```
 
 If the app process should read a dotenv file other than `.env`, point
 `APP_SETTINGS_ENV_FILE` at it:
 
 ```bash
-APP_ENV=prod APP_SETTINGS_ENV_FILE=.env.local-prod uv run fastapi run
+APP_ENV=prod APP_SETTINGS_ENV_FILE=.env.local-prod uv run uvicorn app.main:app
 ```
 
 Plan 14 keeps the route-protection model aligned across both profiles. `dev` does not
