@@ -104,6 +104,7 @@ APP_NAME=aptitude-registry
 LOG_LEVEL=INFO
 LOG_FORMAT=auto
 DATABASE_URL=postgresql+psycopg://<neon-role>:<password>@<neon-pooler-host>/<database>?sslmode=require&channel_binding=require
+DATABASE_CONNECT_TIMEOUT_SECONDS=5
 MIGRATION_DATABASE_URL=postgresql+psycopg://<neon-role>:<password>@<direct-neon-host>/<database>?sslmode=require&channel_binding=require
 AUTH_SERVICE_TOKENS_JSON=[{"token_id":"reader-token","secret_digest":"<sha256>","scopes":["read"],"active":true},{"token_id":"publisher-token","secret_digest":"<sha256>","scopes":["read","publish"],"active":true},{"token_id":"admin-token","secret_digest":"<sha256>","scopes":["read","publish","admin"],"active":true}]
 ALLOWED_HOSTS_JSON=["api.aptitude-registry.dev","aptitude-registry-api.onrender.com"]
@@ -113,6 +114,32 @@ ACTIVE_POLICY_PROFILE=default
 For production runtime, `DATABASE_URL` should use the Neon pooled host
 (`-pooler`). `MIGRATION_DATABASE_URL` must use the direct Neon host because
 Alembic should not run through PgBouncer.
+
+`DATABASE_CONNECT_TIMEOUT_SECONDS=5` is the runtime connection timeout passed
+to psycopg through SQLAlchemy. Keep it bounded on Render so `/readyz` returns a
+`503` database check instead of waiting on a slow or unreachable Neon socket.
+
+## Website Integration
+
+The Vercel website should be configured with server-only environment variables:
+
+```text
+REGISTRY_BASE_URL=https://api.aptitude-registry.dev
+REGISTRY_READ_TOKEN=<read token>
+```
+
+Website-facing registry endpoints:
+
+| Website use | Registry endpoint | Response |
+| --- | --- | --- |
+| Homepage catalog feed | `GET /catalog/top-skills?limit=12` | `{"skills": [...]}` metadata cards |
+| Search catalog feed | `POST /catalog/search?limit=20` | `{"skills": [...]}` metadata cards in discovery order |
+
+The homepage degrades to an empty catalog when the registry is unavailable or
+misconfigured. Browser search calls the website's `/api/search` route, which
+performs one registry request to the search catalog feed using the same body
+shape as `POST /discovery`. `POST /discovery` remains slug-only for
+resolver-style candidate lookup.
 
 Semantic discovery is off by default. When enabling it, keep the runtime mode
 explicit:

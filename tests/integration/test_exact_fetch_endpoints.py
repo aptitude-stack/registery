@@ -210,3 +210,113 @@ def test_top_installed_skills_returns_visible_current_defaults_in_rank_order(
     assert body["skills"][0]["version"] == "2.0.0"
     assert hidden not in [item["slug"] for item in body["skills"]]
     assert invalid.status_code == 422
+
+
+@pytest.mark.integration
+def test_catalog_search_returns_visible_current_default_metadata_in_discovery_order(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    prefix = f"python.catalog-search.{uuid4().hex}"
+    alpha = f"{prefix}.alpha"
+    beta = f"{prefix}.beta"
+    hidden = f"{prefix}.hidden"
+    request_body = {"name": "Catalog Search", "tags": [prefix]}
+
+    with TestClient(create_app()) as client:
+        _publish(
+            client,
+            alpha,
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                name="Catalog Search",
+                tags=[prefix, "search"],
+            ),
+        )
+        _publish(
+            client,
+            alpha,
+            _request(
+                "2.0.0",
+                intent="publish_version",
+                name="Catalog Search",
+                tags=[prefix, "search"],
+            ),
+        )
+        _publish(
+            client,
+            beta,
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                name="Catalog Search",
+                tags=[prefix, "search"],
+            ),
+        )
+        _publish(
+            client,
+            hidden,
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                name="Catalog Search",
+                tags=[prefix, "search"],
+            ),
+        )
+        _update_status(client, slug=hidden, version="1.0.0", status="archived")
+
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=beta,
+            install_count=15,
+            published_at="2026-03-12T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=alpha,
+            version="1.0.0",
+            install_count=10,
+            published_at="2026-03-12T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=alpha,
+            version="2.0.0",
+            install_count=10,
+            published_at="2026-03-13T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=hidden,
+            install_count=20,
+            published_at="2026-03-14T09:00:00+00:00",
+        )
+
+        response = client.post(
+            "/catalog/search?limit=2",
+            json=request_body,
+            headers=_headers("reader-token"),
+        )
+        invalid = client.post(
+            "/catalog/search?limit=21",
+            json=request_body,
+            headers=_headers("reader-token"),
+        )
+        discovery = client.post(
+            "/discovery",
+            json=request_body,
+            headers=_headers("reader-token"),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [(item["slug"], item["version"]) for item in body["skills"]] == [
+        (beta, "1.0.0"),
+        (alpha, "2.0.0"),
+    ]
+    assert hidden not in [item["slug"] for item in body["skills"]]
+    assert invalid.status_code == 422
+    assert discovery.status_code == 200
+    assert isinstance(discovery.json()["candidates"][0], str)

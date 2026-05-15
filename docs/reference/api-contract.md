@@ -19,7 +19,8 @@ Protected routes:
 
 - `POST /skills/{slug}`
 - `POST /discovery`
-- `GET /catalog/top-skills`
+- `GET /catalog/top-skills` - website homepage catalog feed
+- `POST /catalog/search` - website search catalog feed
 - `GET /skills/{slug}`
 - `GET /resolution/{slug}/{version}`
 - `GET /skills/{slug}/{version}`
@@ -39,6 +40,8 @@ Protected routes:
   - `GET /skills/{slug}/{version}`
   - `GET /skills/{slug}/{version}/content`
 - Discovery returns candidate slugs only.
+- Catalog search may return card-ready metadata, but it must reuse discovery
+  request semantics and remain separate from resolver selection.
 - Resolution returns direct authored `depends_on` only.
 - Exact fetch returns immutable metadata or the exact immutable bundle artifact for one coordinate.
 
@@ -94,9 +97,11 @@ Publish and exact metadata fetch return the same structured response shape:
 
 `provenance` remains advisory publish-time metadata and stays queryable outside the bundle.
 
-## Top Installed Catalog
+## Website Homepage Catalog
 
-`GET /catalog/top-skills?limit=12` returns visible current-default versions ordered by aggregate install count.
+`GET /catalog/top-skills?limit=12` is the website-facing homepage catalog
+feed. It returns visible current-default versions ordered by aggregate install
+count.
 
 ```json
 {
@@ -124,6 +129,54 @@ Rules:
 - Ordering is `install_count DESC`, then `published_at DESC`, then `slug ASC`.
 - Visibility follows the same governance filters as version listing.
 - Archived, private, or otherwise non-visible versions are not returned.
+
+## Website Catalog Search
+
+`POST /catalog/search?limit=20` is the website-facing search catalog feed. It
+accepts the same JSON body as `POST /discovery` and returns visible
+current-default metadata in discovery order. It exists for website/card-style
+catalog rendering; `POST /discovery` continues to return ordered slug strings
+only.
+
+Request:
+
+```json
+{
+  "name": "python lint",
+  "description": "lint FastAPI services",
+  "tags": ["python"],
+  "context_skills": []
+}
+```
+
+Response shape:
+
+```json
+{
+  "skills": [
+    {
+      "slug": "python.lint",
+      "version": "1.2.3",
+      "install_count": 42,
+      "metadata": {
+        "name": "Python Lint",
+        "description": "Linting skill",
+        "tags": ["python", "lint"]
+      },
+      "lifecycle_status": "published",
+      "trust_tier": "internal",
+      "published_at": "2026-03-10T08:30:00Z"
+    }
+  ]
+}
+```
+
+Rules:
+
+- `limit` must be between `1` and `20`; default is `20`.
+- Ordering matches discovery candidate order.
+- Visibility follows the same governance filters as version listing and
+  top-skills.
 
 Checksum semantics:
 
@@ -204,7 +257,8 @@ Error envelope:
 | `GET` | `/readyz` | none | `200` or `503` | Dependency readiness probe |
 | `POST` | `/skills/{slug}` | `publish` | `201` | Publish one immutable `slug@version` via `multipart/form-data` |
 | `POST` | `/discovery` | `read` | `200` | Returns ordered candidate `slug` values only |
-| `GET` | `/catalog/top-skills` | `read` | `200` | Returns visible current-default versions ordered by install count |
+| `GET` | `/catalog/top-skills` | `read` | `200` | Website homepage feed; returns visible current-default versions ordered by install count |
+| `POST` | `/catalog/search` | `read` | `200` | Website search feed; returns visible current-default metadata in discovery order |
 | `GET` | `/skills/{slug}` | `read` | `200` | Returns visible immutable versions for one skill identity |
 | `GET` | `/resolution/{slug}/{version}` | `read` | `200` | Returns direct authored `depends_on` only |
 | `GET` | `/skills/{slug}/{version}` | `read` | `200` | Returns immutable metadata for one exact coordinate |
@@ -232,7 +286,7 @@ Default publish behavior:
 - internal artifacts publish into `public`, `approved`, `prod`.
 - imported artifacts publish into `pending_review`, `dev` and are hidden from production readers until reviewed and promoted.
 
-Visibility is enforced consistently for discovery, version listing, exact metadata, exact content, and resolution. Discovery still returns candidate slugs only, resolution still returns direct authored `depends_on` selectors only, and exact content still returns the same immutable `.tar.zst` bytes.
+Visibility is enforced consistently for discovery, catalog search, version listing, exact metadata, exact content, and resolution. Discovery still returns candidate slugs only, catalog search returns card-ready metadata only, resolution still returns direct authored `depends_on` selectors only, and exact content still returns the same immutable `.tar.zst` bytes.
 
 Discovery remains lexical-primary. Optional semantic expansion and co-usage
 signals are internal ranking inputs inside `POST /discovery`; they do not add

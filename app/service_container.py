@@ -41,6 +41,7 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
     init_engine(
         settings.database_url,
         application_name=f"{settings.app_name}-{settings.app_env}",
+        connect_timeout_seconds=settings.database_connect_timeout_seconds,
     )
     engine = get_engine()
     if engine is not None:
@@ -53,6 +54,22 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
     )
     audit_recorder = SQLAlchemyAuditRecorder(session_factory=session_factory)
     governance_policy = GovernancePolicy(profile=settings.active_policy)
+    skill_discovery_service = SkillDiscoveryService(
+        repository=catalog_repository,
+        audit_recorder=audit_recorder,
+        governance_policy=governance_policy,
+        semantic_discovery_mode=settings.semantic_discovery_mode,
+        embedding_provider=_build_embedding_provider(settings=settings),
+        semantic_embedding_model=settings.semantic_embedding_model,
+        semantic_embedding_index_key=settings.semantic_embedding_index_key,
+        semantic_embedding_dimensions=settings.semantic_embedding_dimensions,
+        semantic_candidate_limit=settings.semantic_candidate_limit,
+        semantic_query_timeout_ms=settings.semantic_query_timeout_ms,
+        semantic_hnsw_ef_search=settings.semantic_hnsw_ef_search,
+        co_usage_ranking_enabled=settings.co_usage_ranking_enabled,
+        co_usage_boost_cap=settings.co_usage_boost_cap,
+        co_usage_context_limit=settings.co_usage_context_limit,
+    )
     return ServiceContainer(
         auth_service=AuthService(
             token_lookup=InMemoryServiceTokenLookup(records=settings.service_token_records),
@@ -65,26 +82,12 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
             audit_recorder=audit_recorder,
             governance_policy=governance_policy,
         ),
-        skill_discovery_service=SkillDiscoveryService(
-            repository=catalog_repository,
-            audit_recorder=audit_recorder,
-            governance_policy=governance_policy,
-            semantic_discovery_mode=settings.semantic_discovery_mode,
-            embedding_provider=_build_embedding_provider(settings=settings),
-            semantic_embedding_model=settings.semantic_embedding_model,
-            semantic_embedding_index_key=settings.semantic_embedding_index_key,
-            semantic_embedding_dimensions=settings.semantic_embedding_dimensions,
-            semantic_candidate_limit=settings.semantic_candidate_limit,
-            semantic_query_timeout_ms=settings.semantic_query_timeout_ms,
-            semantic_hnsw_ef_search=settings.semantic_hnsw_ef_search,
-            co_usage_ranking_enabled=settings.co_usage_ranking_enabled,
-            co_usage_boost_cap=settings.co_usage_boost_cap,
-            co_usage_context_limit=settings.co_usage_context_limit,
-        ),
+        skill_discovery_service=skill_discovery_service,
         skill_fetch_service=SkillFetchService(
             repository=catalog_repository,
             audit_recorder=audit_recorder,
             governance_policy=governance_policy,
+            discovery_service=skill_discovery_service,
         ),
         skill_resolution_service=SkillResolutionService(
             repository=catalog_repository,
