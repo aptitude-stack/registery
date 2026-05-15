@@ -6,6 +6,7 @@ from app.core.audit_events import build_version_list_audit_event
 from app.core.governance import CallerIdentity, GovernancePolicy
 from app.core.ports import AuditPort, SkillFetchPort
 
+from .discovery import SkillDiscoveryRequest, SkillDiscoveryService
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import (
     SkillContentRecord,
@@ -27,10 +28,12 @@ class SkillFetchService:
         repository: SkillFetchPort,
         audit_recorder: AuditPort,
         governance_policy: GovernancePolicy,
+        discovery_service: SkillDiscoveryService | None = None,
     ) -> None:
         self._repository = repository
         self._audit_recorder = audit_recorder
         self._governance_policy = governance_policy
+        self._discovery_service = discovery_service
 
     def get_version_metadata(
         self,
@@ -173,3 +176,58 @@ class SkillFetchService:
             if len(visible) >= limit:
                 break
         return tuple(visible)
+
+    def search_catalog(
+        self,
+        *,
+        caller: CallerIdentity,
+        request: SkillDiscoveryRequest,
+        limit: int,
+    ) -> tuple[SkillVersionDetail, ...]:
+        """Return card-ready current-default skill metadata in discovery order."""
+        if self._discovery_service is None:
+            raise RuntimeError("Skill discovery service is not configured.")
+
+        candidate_slugs = self._discovery_service.discover_candidates(
+            caller=caller,
+            request=request,
+        )
+        details: list[SkillVersionDetail] = []
+        for slug in candidate_slugs:
+            stored_versions = self._repository.list_versions(slug=slug)
+            visible_versions = tuple(
+                stored
+                for stored in stored_versions
+                if self._governance_policy.is_visible_in_list(
+                    caller=caller,
+                    lifecycle_status=stored.lifecycle_status,
+                    namespace=stored.namespace,
+                    review_state=stored.review_state,
+                    promotion_channel=stored.promotion_channel,
+                    trust_tier=stored.trust_tier,
+                    policy_pack=stored.policy_pack,
+                )
+            )
+            current_default = select_current_default_version(visible_versions)
+            if current_default is None:
+                continue
+
+            detail = self._repository.get_version_detail(
+                slug=slug,
+                version=current_default.version,
+            )
+            if detail is None:
+                continue
+            if self._governance_policy.is_visible_in_list(
+                caller=caller,
+                lifecycle_status=detail.lifecycle_status,
+                namespace=detail.namespace,
+                review_state=detail.review_state,
+                promotion_channel=detail.promotion_channel,
+                trust_tier=detail.trust_tier,
+                policy_pack=detail.policy_pack,
+            ):
+                details.append(detail)
+            if len(details) >= limit:
+                break
+        return tuple(details)

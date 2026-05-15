@@ -32,11 +32,18 @@ def test_init_engine_configures_runtime_pooling(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(db, "create_engine", fake_create_engine)
 
     database_url = "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
-    db.init_engine(database_url, application_name="aptitude-registry-prod")
+    db.init_engine(
+        database_url,
+        application_name="aptitude-registry-prod",
+        connect_timeout_seconds=7,
+    )
 
     assert captured["database_url"] == database_url
     assert captured["kwargs"]["pool_pre_ping"] is True
     assert captured["kwargs"]["pool_recycle"] == 300
-    assert captured["kwargs"]["connect_args"] == {"application_name": "aptitude-registry-prod"}
+    assert captured["kwargs"]["connect_args"] == {
+        "application_name": "aptitude-registry-prod",
+        "connect_timeout": 7,
+    }
 
     db.dispose_engine()

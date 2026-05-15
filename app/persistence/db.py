@@ -35,7 +35,12 @@ _SESSION_FACTORY: sessionmaker[Session] | None = None
 _ENGINE_LOCK = Lock()
 
 
-def init_engine(database_url: str, *, application_name: str | None = None) -> None:
+def init_engine(
+    database_url: str,
+    *,
+    application_name: str | None = None,
+    connect_timeout_seconds: int = 5,
+) -> None:
     """Initialize the shared SQLAlchemy engine/session factory.
 
     `application_name` is forwarded to libpq via psycopg's connect_args so the
@@ -51,7 +56,7 @@ def init_engine(database_url: str, *, application_name: str | None = None) -> No
         if _ENGINE is not None:
             _ENGINE.dispose()
 
-        connect_args: dict[str, str] = {}
+        connect_args: dict[str, str | int] = {"connect_timeout": connect_timeout_seconds}
         if application_name is not None:
             connect_args["application_name"] = application_name
 

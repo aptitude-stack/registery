@@ -198,6 +198,12 @@ class Settings(BaseSettings):
 
     database_url: str = Field(alias="DATABASE_URL")
     migration_database_url: str | None = Field(default=None, alias="MIGRATION_DATABASE_URL")
+    database_connect_timeout_seconds: int = Field(
+        default=5,
+        ge=1,
+        le=30,
+        alias="DATABASE_CONNECT_TIMEOUT_SECONDS",
+    )
     app_env: AppEnv = Field(default="dev", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")

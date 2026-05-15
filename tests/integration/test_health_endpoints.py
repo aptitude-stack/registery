@@ -50,9 +50,9 @@ def test_readyz_returns_503_when_database_is_unreachable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
-        "DATABASE_URL",
-        ("postgresql+psycopg://postgres:postgres@127.0.0.1:65432/aptitude?connect_timeout=1"),
+        "DATABASE_URL", "postgresql+psycopg://postgres:postgres@127.0.0.1:65432/aptitude"
     )
+    monkeypatch.setenv("DATABASE_CONNECT_TIMEOUT_SECONDS", "1")
 
     with TestClient(create_app()) as client:
         response = client.get("/readyz")
@@ -62,3 +62,4 @@ def test_readyz_returns_503_when_database_is_unreachable(
     assert body["status"] == "not_ready"
     assert body["checks"][0]["name"] == "database"
     assert body["checks"][0]["status"] == "error"
+    assert body["checks"][0]["detail"]

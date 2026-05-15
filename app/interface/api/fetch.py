@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
+from app.core.skills.discovery import SkillDiscoveryRequest as CoreSkillDiscoveryRequest
 from app.core.skills.models import SkillNotFoundError, SkillVersionNotFoundError
 from app.interface.api.dependencies import ReadCallerDep, SkillFetchServiceDep
 from app.interface.api.errors import error_response
@@ -18,9 +19,11 @@ from app.interface.api.response_docs import (
 )
 from app.interface.api.skill_api_support_fetch import to_metadata_response, to_version_list_response
 from app.interface.dto.examples import (
+    DISCOVERY_REQUEST_EXAMPLE,
     SKILL_VERSION_LIST_RESPONSE_EXAMPLE,
     SKILL_VERSION_METADATA_RESPONSE_EXAMPLE,
 )
+from app.interface.dto.skills_discovery import SkillDiscoveryRequest
 from app.interface.dto.skills_fetch import (
     SkillVersionListResponse,
     SkillVersionMetadataResponse,
@@ -81,6 +84,13 @@ TOP_SKILLS_RESPONSES: ApiResponses = {
     **invalid_request_response(description="The query parameters are invalid."),
 }
 
+CATALOG_SEARCH_RESPONSES: ApiResponses = {
+    status.HTTP_200_OK: {
+        "description": "Visible skill metadata returned in discovery order.",
+    },
+    **invalid_request_response(description="The request body or query parameters are invalid."),
+}
+
 
 @router.get(
     "/catalog/top-skills",
@@ -101,6 +111,44 @@ def list_top_installed_skills(
 ) -> TopSkillsResponse:
     """Return top installed visible current-default skill versions."""
     details = fetch_service.list_top_installed(caller=caller, limit=limit)
+    return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
+
+
+@router.post(
+    "/catalog/search",
+    operation_id="searchCatalogSkills",
+    summary="Search catalog skill cards",
+    description=(
+        "Return current-default visible skill metadata ordered by the same discovery "
+        "behavior as `POST /discovery`."
+    ),
+    response_model=TopSkillsResponse,
+    response_model_exclude_unset=True,
+    responses=CATALOG_SEARCH_RESPONSES,
+    openapi_extra={
+        "requestBody": {"content": {"application/json": {"example": DISCOVERY_REQUEST_EXAMPLE}}}
+    },
+)
+def search_catalog_skills(
+    request: SkillDiscoveryRequest,
+    fetch_service: SkillFetchServiceDep,
+    caller: ReadCallerDep,
+    limit: Annotated[
+        int,
+        Query(ge=1, le=20, description="Maximum number of matching skill cards to return."),
+    ] = 20,
+) -> TopSkillsResponse:
+    """Return visible current-default skill metadata in discovery order."""
+    details = fetch_service.search_catalog(
+        caller=caller,
+        request=CoreSkillDiscoveryRequest(
+            name=request.name,
+            description=request.description,
+            tags=tuple(request.tags),
+            context_skills=tuple(request.context_skills),
+        ),
+        limit=limit,
+    )
     return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
 
 
