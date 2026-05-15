@@ -44,6 +44,7 @@ def test_settings_load_valid_environment(
 
     assert settings.database_url.endswith("/aptitude")
     assert settings.migration_database_url is None
+    assert settings.database_connect_timeout_seconds == 5
     assert settings.app_env == app_env
     assert settings.log_level == "DEBUG"
     assert settings.log_format == "pretty"

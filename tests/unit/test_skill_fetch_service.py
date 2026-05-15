@@ -13,6 +13,7 @@ from app.core.governance import (
     build_default_policy_profile,
 )
 from app.core.skills.bundle_archive import SKILL_ARTIFACT_MEDIA_TYPE, build_skill_bundle
+from app.core.skills.discovery import SkillDiscoveryRequest
 from app.core.skills.fetch import SkillFetchService
 from app.core.skills.models import (
     SkillChecksum,
@@ -47,14 +48,19 @@ class FakeCatalogRepository:
         content: SkillContentRecord | None = None,
         versions: tuple[SkillVersionListEntry, ...] = (),
         top_versions: tuple[SkillVersionDetail, ...] = (),
+        details: tuple[SkillVersionDetail, ...] = (),
     ) -> None:
         self._version = version
         self._content = content
         self._versions = versions
         self._top_versions = top_versions
+        self._details = details
         self.install_calls: list[tuple[str, str]] = []
 
     def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
+        for detail in self._details:
+            if (detail.slug, detail.version) == (slug, version):
+                return detail
         if self._version is None:
             return None
         if (self._version.slug, self._version.version) != (slug, version):
@@ -74,15 +80,24 @@ class FakeCatalogRepository:
         return self._content
 
     def list_versions(self, *, slug: str) -> tuple[SkillVersionListEntry, ...]:
-        if any(item.slug != slug for item in self._versions):
-            return ()
-        return self._versions
+        return tuple(item for item in self._versions if item.slug == slug)
 
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
         return self._top_versions[:limit]
 
     def record_install(self, *, slug: str, version: str) -> None:
         self.install_calls.append((slug, version))
+
+
+class FakeDiscoveryService:
+    """Stub discovery service that returns fixed slug order."""
+
+    def __init__(self, candidates: tuple[str, ...]) -> None:
+        self.candidates = candidates
+
+    def discover_candidates(self, *, caller: CallerIdentity, request: object) -> tuple[str, ...]:
+        del caller, request
+        return self.candidates
 
 
 def _governance_policy() -> GovernancePolicy:
@@ -93,10 +108,15 @@ def _caller(*scopes: str) -> CallerIdentity:
     return CallerIdentity(token_id="token", scopes=frozenset(scopes))
 
 
-def _stored_version(*, lifecycle_status: str = "published") -> SkillVersionDetail:
+def _stored_version(
+    *,
+    slug: str = "python.lint",
+    version: str = "1.0.0",
+    lifecycle_status: str = "published",
+) -> SkillVersionDetail:
     return SkillVersionDetail(
-        slug="python.lint",
-        version="1.0.0",
+        slug=slug,
+        version=version,
         install_count=0,
         version_checksum=SkillChecksum(algorithm="sha256", digest="version-digest"),
         content=SkillContentSummary(
@@ -165,11 +185,12 @@ def _stored_content(*, lifecycle_status: str = "published") -> SkillContentRecor
 def _stored_version_summary(
     version: str,
     *,
+    slug: str = "python.lint",
     lifecycle_status: str = "published",
     published_at: datetime | None = None,
 ) -> SkillVersionListEntry:
     return SkillVersionListEntry(
-        slug="python.lint",
+        slug=slug,
         version=version,
         lifecycle_status=lifecycle_status,
         trust_tier="internal",
@@ -372,3 +393,100 @@ def test_list_top_installed_returns_visible_versions_with_limit() -> None:
     result = service.list_top_installed(caller=_caller("read"), limit=2)
 
     assert [item.slug for item in result] == ["python.first", "python.second"]
+
+
+@pytest.mark.unit
+def test_search_catalog_returns_current_default_metadata_in_discovery_order() -> None:
+    service = SkillFetchService(
+        repository=FakeCatalogRepository(
+            versions=(
+                _stored_version_summary("1.0.0", slug="python.second"),
+                _stored_version_summary("1.0.0", slug="python.first"),
+                _stored_version_summary(
+                    "2.0.0",
+                    slug="python.first",
+                    published_at=datetime(2026, 3, 14, 9, 0, tzinfo=UTC),
+                ),
+            ),
+            details=(
+                _stored_version(slug="python.first", version="2.0.0"),
+                _stored_version(slug="python.second", version="1.0.0"),
+            ),
+        ),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+        discovery_service=FakeDiscoveryService(("python.first", "python.second")),
+    )
+
+    result = service.search_catalog(
+        caller=_caller("read"),
+        request=SkillDiscoveryRequest(name="python", description=None, tags=()),
+        limit=20,
+    )
+
+    assert [(item.slug, item.version) for item in result] == [
+        ("python.first", "2.0.0"),
+        ("python.second", "1.0.0"),
+    ]
+
+
+@pytest.mark.unit
+def test_search_catalog_filters_non_visible_candidates() -> None:
+    service = SkillFetchService(
+        repository=FakeCatalogRepository(
+            versions=(
+                _stored_version_summary(
+                    "1.0.0",
+                    slug="python.hidden",
+                    lifecycle_status="archived",
+                ),
+                _stored_version_summary("1.0.0", slug="python.visible"),
+            ),
+            details=(
+                _stored_version(
+                    slug="python.hidden",
+                    version="1.0.0",
+                    lifecycle_status="archived",
+                ),
+                _stored_version(slug="python.visible", version="1.0.0"),
+            ),
+        ),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+        discovery_service=FakeDiscoveryService(("python.hidden", "python.visible")),
+    )
+
+    result = service.search_catalog(
+        caller=_caller("read"),
+        request=SkillDiscoveryRequest(name="python", description=None, tags=()),
+        limit=20,
+    )
+
+    assert [item.slug for item in result] == ["python.visible"]
+
+
+@pytest.mark.unit
+def test_search_catalog_respects_limit() -> None:
+    service = SkillFetchService(
+        repository=FakeCatalogRepository(
+            versions=(
+                _stored_version_summary("1.0.0", slug="python.first"),
+                _stored_version_summary("1.0.0", slug="python.second"),
+            ),
+            details=(
+                _stored_version(slug="python.first", version="1.0.0"),
+                _stored_version(slug="python.second", version="1.0.0"),
+            ),
+        ),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+        discovery_service=FakeDiscoveryService(("python.first", "python.second")),
+    )
+
+    result = service.search_catalog(
+        caller=_caller("read"),
+        request=SkillDiscoveryRequest(name="python", description=None, tags=()),
+        limit=1,
+    )
+
+    assert [item.slug for item in result] == ["python.first"]
