@@ -25,6 +25,7 @@ from app.core.ports import (
     CoUsageBoostRequest,
     CreateSkillVersionRecord,
     MetadataRecordInput,
+    RelationshipEdgeType,
     SearchCandidatesRequest,
     SearchSemanticCandidatesRequest,
     SkillCatalogRepository,
@@ -42,6 +43,8 @@ from app.core.skills.models import (
     OrganizationRecord,
     PolicyPackRecord,
     SkillContentRecord,
+    SkillGraphEdge,
+    SkillGraphEdgeType,
     SkillOwnershipUpdate,
     SkillRelationshipSource,
     SkillVersionDetail,
@@ -69,6 +72,7 @@ from app.persistence.models.skill_search_document import SkillSearchDocument
 from app.persistence.models.skill_version import SkillVersion
 from app.persistence.models.trust_evidence import TrustEvidence
 from app.persistence.skill_registry_repository_support import (
+    RELATIONSHIP_EDGE_ORDER,
     SEARCH_CANDIDATES_SQL,
     build_contains_pattern,
     build_search_document,
@@ -273,6 +277,12 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             return tuple(to_skill_version_list_entry(item) for item in rows)
 
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
+        return self._list_installed_versions(limit=limit)
+
+    def list_catalog_skill_versions(self) -> tuple[SkillVersionDetail, ...]:
+        return self._list_installed_versions(limit=None)
+
+    def _list_installed_versions(self, *, limit: int | None) -> tuple[SkillVersionDetail, ...]:
         with self._session_factory() as session:
             statement = (
                 select(SkillVersion)
@@ -310,7 +320,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 item.skill.slug,
             ),
         )
-        return tuple(to_skill_version_detail(item) for item in ordered[:limit])
+        if limit is not None:
+            ordered = ordered[:limit]
+        return tuple(to_skill_version_detail(item) for item in ordered)
 
     def get_relationship_source(
         self,
@@ -323,6 +335,42 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             if entity is None:
                 return None
             return to_skill_relationship_source(entity)
+
+    def list_skill_graph_edges(
+        self,
+        *,
+        sources: tuple[tuple[str, str], ...],
+        edge_types: tuple[SkillGraphEdgeType, ...],
+    ) -> tuple[SkillGraphEdge, ...]:
+        if not sources:
+            return ()
+
+        allowed_edge_types = set(edge_types)
+        edges: list[SkillGraphEdge] = []
+        with self._session_factory() as session:
+            for slug, version in sources:
+                entity = self._get_version_entity(session=session, slug=slug, version=version)
+                if entity is None:
+                    continue
+                selectors = sorted(
+                    entity.relationship_selectors,
+                    key=lambda item: (
+                        RELATIONSHIP_EDGE_ORDER[cast(RelationshipEdgeType, item.edge_type)],
+                        item.ordinal,
+                        item.target_slug,
+                    ),
+                )
+                edges.extend(
+                    SkillGraphEdge(
+                        source_slug=entity.skill.slug,
+                        source_version=entity.version,
+                        target_slug=selector.target_slug,
+                        edge_type=cast(SkillGraphEdgeType, selector.edge_type),
+                    )
+                    for selector in selectors
+                    if selector.edge_type in allowed_edge_types
+                )
+        return tuple(edges)
 
     def search_candidates(
         self,

@@ -20,6 +20,7 @@ Protected routes:
 - `POST /skills/{slug}`
 - `POST /discovery`
 - `GET /catalog/top-skills` - website homepage catalog feed
+- `GET /catalog/skill-graph` - website homepage hero relation graph
 - `POST /catalog/search` - website search catalog feed
 - `GET /skills/{slug}`
 - `GET /resolution/{slug}/{version}`
@@ -129,6 +130,46 @@ Rules:
 - Ordering is `install_count DESC`, then `published_at DESC`, then `slug ASC`.
 - Visibility follows the same governance filters as version listing.
 - Archived, private, or otherwise non-visible versions are not returned.
+
+## Website Homepage Skill Graph
+
+`GET /catalog/skill-graph?limit=24` is the website-facing bounded relation
+graph for the catalog hero. It returns visible current-default versions selected
+from top installed skills and authored safe relationships between those returned
+nodes.
+
+```json
+{
+  "nodes": [
+    {
+      "slug": "python.lint",
+      "version": "1.2.3",
+      "name": "Python Lint",
+      "install_count": 42,
+      "trust_tier": "internal",
+      "lifecycle_status": "published"
+    }
+  ],
+  "edges": [
+    {
+      "source_slug": "python.lint",
+      "target_slug": "python.test",
+      "edge_type": "extends"
+    }
+  ]
+}
+```
+
+Rules:
+
+- `limit` must be between `1` and `24`.
+- Nodes use the same ordering and visibility behavior as `/catalog/top-skills`.
+- Edges come from authored `skill_relationship_selectors` on returned source
+  versions.
+- Only `depends_on`, `extends`, and `overlaps_with` edges are returned.
+- `conflicts_with` edges are excluded from this positive hero graph.
+- Edges are returned only when both source and target slugs are in the node set.
+- Edge count is capped at `60`.
 
 ## Website Catalog Search
 

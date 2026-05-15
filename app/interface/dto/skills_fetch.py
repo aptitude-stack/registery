@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -67,3 +68,29 @@ class TopSkillsResponse(BaseModel):
     """Top installed visible skill versions."""
 
     skills: list[SkillVersionMetadataResponse]
+
+
+class SkillGraphNodeResponse(BaseModel):
+    """Catalog graph node for one visible current-default skill."""
+
+    slug: str
+    version: str
+    name: str
+    install_count: int
+    trust_tier: TrustTier
+    lifecycle_status: LifecycleStatus
+
+
+class SkillGraphEdgeResponse(BaseModel):
+    """Authored safe relation between two graph nodes."""
+
+    source_slug: str
+    target_slug: str
+    edge_type: Literal["depends_on", "extends", "overlaps_with"]
+
+
+class SkillGraphResponse(BaseModel):
+    """Bounded catalog graph for website hero visualization."""
+
+    nodes: list[SkillGraphNodeResponse]
+    edges: list[SkillGraphEdgeResponse]

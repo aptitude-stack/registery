@@ -213,6 +213,150 @@ def test_top_installed_skills_returns_visible_current_defaults_in_rank_order(
 
 
 @pytest.mark.integration
+def test_catalog_skills_returns_all_visible_current_defaults_ordered_by_installs(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    prefix = f"python.catalog-all.{uuid4().hex}"
+    alpha = f"{prefix}.alpha"
+    beta = f"{prefix}.beta"
+    gamma = f"{prefix}.gamma"
+    hidden = f"{prefix}.hidden"
+
+    with TestClient(create_app()) as client:
+        _publish(client, alpha, _request("1.0.0", intent="create_skill", name="Alpha"))
+        _publish(client, beta, _request("1.0.0", intent="create_skill", name="Beta"))
+        _publish(client, gamma, _request("1.0.0", intent="create_skill", name="Gamma"))
+        _publish(client, hidden, _request("1.0.0", intent="create_skill", name="Hidden"))
+        _update_status(client, slug=hidden, version="1.0.0", status="archived")
+
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=alpha,
+            install_count=3,
+            published_at="2026-03-12T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=beta,
+            install_count=5,
+            published_at="2026-03-13T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=gamma,
+            install_count=1,
+            published_at="2026-03-14T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=hidden,
+            install_count=99,
+            published_at="2026-03-15T09:00:00+00:00",
+        )
+
+        response = client.get("/catalog/skills", headers=_headers("reader-token"))
+
+    assert response.status_code == 200
+    body = response.json()
+    slugs = [item["slug"] for item in body["skills"]]
+    matching_slugs = [slug for slug in slugs if slug.startswith(prefix)]
+    assert matching_slugs == [beta, alpha, gamma]
+    assert hidden not in slugs
+
+
+@pytest.mark.integration
+def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    prefix = f"python.skill-graph.{uuid4().hex}"
+    source = f"{prefix}.source"
+    target = f"{prefix}.target"
+    overlap = f"{prefix}.overlap"
+    hidden = f"{prefix}.hidden"
+    outside = f"{prefix}.outside"
+
+    with TestClient(create_app()) as client:
+        _publish(client, target, _request("1.0.0", intent="create_skill", name="Target"))
+        _publish(client, overlap, _request("1.0.0", intent="create_skill", name="Overlap"))
+        _publish(client, hidden, _request("1.0.0", intent="create_skill", name="Hidden"))
+        _publish(client, outside, _request("1.0.0", intent="create_skill", name="Outside"))
+        _publish(
+            client,
+            source,
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                name="Source",
+                depends_on=[{"slug": target, "version_constraint": ">=1.0.0"}],
+                extends=[{"slug": overlap, "version": "1.0.0"}],
+                conflicts_with=[{"slug": target, "version": "1.0.0"}],
+                overlaps_with=[
+                    {"slug": hidden, "version": "1.0.0"},
+                    {"slug": outside, "version": "1.0.0"},
+                ],
+            ),
+        )
+        _update_status(client, slug=hidden, version="1.0.0", status="archived")
+
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=source,
+            install_count=30,
+            published_at="2026-03-14T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=target,
+            install_count=20,
+            published_at="2026-03-13T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=overlap,
+            install_count=10,
+            published_at="2026-03-12T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=hidden,
+            install_count=9,
+            published_at="2026-03-11T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=outside,
+            install_count=1,
+            published_at="2026-03-10T09:00:00+00:00",
+        )
+
+        response = client.get(
+            "/catalog/skill-graph?limit=3",
+            headers=_headers("reader-token"),
+        )
+        invalid = client.get(
+            "/catalog/skill-graph?limit=25",
+            headers=_headers("reader-token"),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [(item["slug"], item["version"]) for item in body["nodes"]] == [
+        (source, "1.0.0"),
+        (target, "1.0.0"),
+        (overlap, "1.0.0"),
+    ]
+    assert body["edges"] == [
+        {"source_slug": source, "target_slug": target, "edge_type": "depends_on"},
+        {"source_slug": source, "target_slug": overlap, "edge_type": "extends"},
+    ]
+    assert invalid.status_code == 422
+
+
+@pytest.mark.integration
 def test_catalog_search_returns_visible_current_default_metadata_in_discovery_order(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,

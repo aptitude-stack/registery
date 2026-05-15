@@ -19,6 +19,7 @@ from app.core.governance import (
 
 SHA256_ALGORITHM = "sha256"
 PublishIntent = Literal["create_skill", "publish_version"]
+SkillGraphEdgeType = Literal["depends_on", "extends", "overlaps_with"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +197,36 @@ class SkillVersionList:
 
     slug: str
     versions: tuple[SkillVersionSummary, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SkillGraphNode:
+    """Public catalog graph node for one visible current-default skill."""
+
+    slug: str
+    version: str
+    name: str
+    install_count: int
+    trust_tier: TrustTier
+    lifecycle_status: LifecycleStatus
+
+
+@dataclass(frozen=True, slots=True)
+class SkillGraphEdge:
+    """Authored relation between two catalog graph nodes."""
+
+    source_slug: str
+    source_version: str
+    target_slug: str
+    edge_type: SkillGraphEdgeType
+
+
+@dataclass(frozen=True, slots=True)
+class SkillGraph:
+    """Bounded public catalog graph."""
+
+    nodes: tuple[SkillGraphNode, ...]
+    edges: tuple[SkillGraphEdge, ...]
 
 
 @dataclass(frozen=True, slots=True)
