@@ -17,7 +17,11 @@ from app.interface.api.response_docs import (
     skill_not_found_response,
     skill_version_not_found_response,
 )
-from app.interface.api.skill_api_support_fetch import to_metadata_response, to_version_list_response
+from app.interface.api.skill_api_support_fetch import (
+    to_metadata_response,
+    to_skill_graph_response,
+    to_version_list_response,
+)
 from app.interface.dto.examples import (
     DISCOVERY_REQUEST_EXAMPLE,
     SKILL_VERSION_LIST_RESPONSE_EXAMPLE,
@@ -25,6 +29,7 @@ from app.interface.dto.examples import (
 )
 from app.interface.dto.skills_discovery import SkillDiscoveryRequest
 from app.interface.dto.skills_fetch import (
+    SkillGraphResponse,
     SkillVersionListResponse,
     SkillVersionMetadataResponse,
     TopSkillsResponse,
@@ -84,6 +89,13 @@ TOP_SKILLS_RESPONSES: ApiResponses = {
     **invalid_request_response(description="The query parameters are invalid."),
 }
 
+SKILL_GRAPH_RESPONSES: ApiResponses = {
+    status.HTTP_200_OK: {
+        "description": "Bounded visible skill relation graph returned successfully.",
+    },
+    **invalid_request_response(description="The query parameters are invalid."),
+}
+
 CATALOG_SEARCH_RESPONSES: ApiResponses = {
     status.HTTP_200_OK: {
         "description": "Visible skill metadata returned in discovery order.",
@@ -112,6 +124,31 @@ def list_top_installed_skills(
     """Return top installed visible current-default skill versions."""
     details = fetch_service.list_top_installed(caller=caller, limit=limit)
     return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
+
+
+@router.get(
+    "/catalog/skill-graph",
+    operation_id="getCatalogSkillGraph",
+    summary="Get catalog skill relation graph",
+    description=(
+        "Return visible current-default top installed skill nodes and safe authored "
+        "relations between those nodes."
+    ),
+    response_model=SkillGraphResponse,
+    response_model_exclude_unset=True,
+    responses=SKILL_GRAPH_RESPONSES,
+)
+def get_catalog_skill_graph(
+    fetch_service: SkillFetchServiceDep,
+    caller: ReadCallerDep,
+    limit: Annotated[
+        int,
+        Query(ge=1, le=24, description="Maximum number of graph nodes to return."),
+    ] = 24,
+) -> SkillGraphResponse:
+    """Return a bounded skill relation graph for the website catalog hero."""
+    graph = fetch_service.list_skill_graph(caller=caller, limit=limit)
+    return to_skill_graph_response(graph)
 
 
 @router.post(

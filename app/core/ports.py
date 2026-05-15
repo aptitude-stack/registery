@@ -22,6 +22,8 @@ from app.core.skills.models import (
     OrganizationRecord,
     PolicyPackRecord,
     SkillContentRecord,
+    SkillGraphEdge,
+    SkillGraphEdgeType,
     SkillOwnershipUpdate,
     SkillRelationshipSource,
     SkillVersionDetail,
@@ -274,6 +276,14 @@ class SkillExactReadPort(Protocol):
 
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
         """Return current-default version details ordered by aggregate installs."""
+
+    def list_skill_graph_edges(
+        self,
+        *,
+        sources: tuple[tuple[str, str], ...],
+        edge_types: tuple[SkillGraphEdgeType, ...],
+    ) -> tuple[SkillGraphEdge, ...]:
+        """Return authored relation selectors for the given exact source versions."""
 
 
 class SkillFetchPort(SkillExactReadPort, Protocol):

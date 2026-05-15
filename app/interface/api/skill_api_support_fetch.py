@@ -6,12 +6,16 @@ from app.core.governance import TrustTier
 from app.core.skills.models import (
     ProvenanceMetadata,
     SkillChecksum,
+    SkillGraph,
     SkillMetadata,
     SkillVersionDetail,
     SkillVersionList,
     SkillVersionSummary,
 )
 from app.interface.dto.skills_fetch import (
+    SkillGraphEdgeResponse,
+    SkillGraphNodeResponse,
+    SkillGraphResponse,
     SkillVersionListResponse,
     SkillVersionMetadataResponse,
     SkillVersionSummaryResponse,
@@ -55,6 +59,31 @@ def to_version_list_response(detail: SkillVersionList) -> SkillVersionListRespon
     return SkillVersionListResponse(
         slug=detail.slug,
         versions=[_version_summary_response(item) for item in detail.versions],
+    )
+
+
+def to_skill_graph_response(graph: SkillGraph) -> SkillGraphResponse:
+    """Convert a core catalog graph projection into the public graph response schema."""
+    return SkillGraphResponse(
+        nodes=[
+            SkillGraphNodeResponse(
+                slug=node.slug,
+                version=node.version,
+                name=node.name,
+                install_count=node.install_count,
+                trust_tier=node.trust_tier,
+                lifecycle_status=node.lifecycle_status,
+            )
+            for node in graph.nodes
+        ],
+        edges=[
+            SkillGraphEdgeResponse(
+                source_slug=edge.source_slug,
+                target_slug=edge.target_slug,
+                edge_type=edge.edge_type,
+            )
+            for edge in graph.edges
+        ],
     )
 
 

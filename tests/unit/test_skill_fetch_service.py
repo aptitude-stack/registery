@@ -19,6 +19,7 @@ from app.core.skills.models import (
     SkillChecksum,
     SkillContentRecord,
     SkillContentSummary,
+    SkillGraphEdge,
     SkillMetadata,
     SkillNotFoundError,
     SkillVersionDetail,
@@ -49,12 +50,14 @@ class FakeCatalogRepository:
         versions: tuple[SkillVersionListEntry, ...] = (),
         top_versions: tuple[SkillVersionDetail, ...] = (),
         details: tuple[SkillVersionDetail, ...] = (),
+        graph_edges: tuple[SkillGraphEdge, ...] = (),
     ) -> None:
         self._version = version
         self._content = content
         self._versions = versions
         self._top_versions = top_versions
         self._details = details
+        self._graph_edges = graph_edges
         self.install_calls: list[tuple[str, str]] = []
 
     def get_version_detail(self, *, slug: str, version: str) -> SkillVersionDetail | None:
@@ -84,6 +87,21 @@ class FakeCatalogRepository:
 
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
         return self._top_versions[:limit]
+
+    def list_skill_graph_edges(
+        self,
+        *,
+        sources: tuple[tuple[str, str], ...],
+        edge_types: tuple[str, ...],
+    ) -> tuple[SkillGraphEdge, ...]:
+        source_set = set(sources)
+        edge_type_set = set(edge_types)
+        return tuple(
+            edge
+            for edge in self._graph_edges
+            if (edge.source_slug, edge.source_version) in source_set
+            and edge.edge_type in edge_type_set
+        )
 
     def record_install(self, *, slug: str, version: str) -> None:
         self.install_calls.append((slug, version))
@@ -393,6 +411,60 @@ def test_list_top_installed_returns_visible_versions_with_limit() -> None:
     result = service.list_top_installed(caller=_caller("read"), limit=2)
 
     assert [item.slug for item in result] == ["python.first", "python.second"]
+
+
+@pytest.mark.unit
+def test_list_skill_graph_returns_visible_nodes_and_authored_safe_edges() -> None:
+    service = SkillFetchService(
+        repository=FakeCatalogRepository(
+            top_versions=(
+                _top_version("python.first", install_count=10),
+                _top_version("python.hidden", install_count=9, lifecycle_status="archived"),
+                _top_version("python.second", install_count=8),
+                _top_version("python.third", install_count=7),
+            ),
+            graph_edges=(
+                SkillGraphEdge(
+                    source_slug="python.first",
+                    source_version="1.0.0",
+                    target_slug="python.second",
+                    edge_type="depends_on",
+                ),
+                SkillGraphEdge(
+                    source_slug="python.first",
+                    source_version="1.0.0",
+                    target_slug="python.third",
+                    edge_type="extends",
+                ),
+                SkillGraphEdge(
+                    source_slug="python.first",
+                    source_version="1.0.0",
+                    target_slug="python.second",
+                    edge_type="conflicts_with",
+                ),
+                SkillGraphEdge(
+                    source_slug="python.second",
+                    source_version="1.0.0",
+                    target_slug="python.hidden",
+                    edge_type="overlaps_with",
+                ),
+            ),
+        ),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+    )
+
+    graph = service.list_skill_graph(caller=_caller("read"), limit=3)
+
+    assert [node.slug for node in graph.nodes] == [
+        "python.first",
+        "python.second",
+        "python.third",
+    ]
+    assert [(edge.source_slug, edge.target_slug, edge.edge_type) for edge in graph.edges] == [
+        ("python.first", "python.second", "depends_on"),
+        ("python.first", "python.third", "extends"),
+    ]
 
 
 @pytest.mark.unit
