@@ -25,6 +25,7 @@ from app.core.ports import (
     CoUsageBoostRequest,
     CreateSkillVersionRecord,
     MetadataRecordInput,
+    RelationshipEdgeType,
     SearchCandidatesRequest,
     SearchSemanticCandidatesRequest,
     SkillCatalogRepository,
@@ -354,7 +355,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 selectors = sorted(
                     entity.relationship_selectors,
                     key=lambda item: (
-                        RELATIONSHIP_EDGE_ORDER.get(item.edge_type, 99),
+                        RELATIONSHIP_EDGE_ORDER[cast(RelationshipEdgeType, item.edge_type)],
                         item.ordinal,
                         item.target_slug,
                     ),
