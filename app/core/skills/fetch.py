@@ -10,6 +10,9 @@ from .discovery import SkillDiscoveryRequest, SkillDiscoveryService
 from .exact_read import ExactReadAuditInfo, enforce_and_audit_exact_read
 from .models import (
     SkillContentRecord,
+    SkillGraph,
+    SkillGraphEdgeType,
+    SkillGraphNode,
     SkillNotFoundError,
     SkillVersionDetail,
     SkillVersionList,
@@ -17,6 +20,13 @@ from .models import (
     SkillVersionSummary,
 )
 from .version_ordering import select_current_default_version, sort_versions_for_listing
+
+CATALOG_GRAPH_EDGE_LIMIT = 60
+CATALOG_GRAPH_EDGE_TYPES: tuple[SkillGraphEdgeType, ...] = (
+    "depends_on",
+    "extends",
+    "overlaps_with",
+)
 
 
 class SkillFetchService:
@@ -176,6 +186,61 @@ class SkillFetchService:
             if len(visible) >= limit:
                 break
         return tuple(visible)
+
+    def list_catalog_skills(
+        self,
+        *,
+        caller: CallerIdentity,
+    ) -> tuple[SkillVersionDetail, ...]:
+        """Return all visible current-default versions ordered by aggregate installs."""
+        candidates = self._repository.list_catalog_skill_versions()
+        return tuple(
+            stored
+            for stored in candidates
+            if self._governance_policy.is_visible_in_list(
+                caller=caller,
+                lifecycle_status=stored.lifecycle_status,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                trust_tier=stored.trust_tier,
+                policy_pack=stored.policy_pack,
+            )
+        )
+
+    def list_skill_graph(
+        self,
+        *,
+        caller: CallerIdentity,
+        limit: int,
+    ) -> SkillGraph:
+        """Return a bounded graph of visible current-default top skills."""
+        node_details = self.list_top_installed(caller=caller, limit=limit)
+        nodes = tuple(
+            SkillGraphNode(
+                slug=detail.slug,
+                version=detail.version,
+                name=detail.metadata.name,
+                install_count=detail.install_count,
+                trust_tier=detail.trust_tier,
+                lifecycle_status=detail.lifecycle_status,
+            )
+            for detail in node_details
+        )
+        if not nodes:
+            return SkillGraph(nodes=(), edges=())
+
+        node_slugs = {node.slug for node in nodes}
+        edges = self._repository.list_skill_graph_edges(
+            sources=tuple((node.slug, node.version) for node in nodes),
+            edge_types=CATALOG_GRAPH_EDGE_TYPES,
+        )
+        visible_edges = tuple(
+            edge
+            for edge in edges
+            if edge.source_slug in node_slugs and edge.target_slug in node_slugs
+        )[:CATALOG_GRAPH_EDGE_LIMIT]
+        return SkillGraph(nodes=nodes, edges=visible_edges)
 
     def search_catalog(
         self,
