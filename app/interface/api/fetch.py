@@ -89,6 +89,12 @@ TOP_SKILLS_RESPONSES: ApiResponses = {
     **invalid_request_response(description="The query parameters are invalid."),
 }
 
+CATALOG_SKILLS_RESPONSES: ApiResponses = {
+    status.HTTP_200_OK: {
+        "description": "All visible skill versions returned in install-count order.",
+    },
+}
+
 SKILL_GRAPH_RESPONSES: ApiResponses = {
     status.HTTP_200_OK: {
         "description": "Bounded visible skill relation graph returned successfully.",
@@ -102,6 +108,26 @@ CATALOG_SEARCH_RESPONSES: ApiResponses = {
     },
     **invalid_request_response(description="The request body or query parameters are invalid."),
 }
+
+
+@router.get(
+    "/catalog/skills",
+    operation_id="listCatalogSkills",
+    summary="List catalog skills",
+    description=(
+        "Return all current-default visible skill versions ordered by aggregate install count."
+    ),
+    response_model=TopSkillsResponse,
+    response_model_exclude_unset=True,
+    responses=CATALOG_SKILLS_RESPONSES,
+)
+def list_catalog_skills(
+    fetch_service: SkillFetchServiceDep,
+    caller: ReadCallerDep,
+) -> TopSkillsResponse:
+    """Return all visible current-default skill versions in install-count order."""
+    details = fetch_service.list_catalog_skills(caller=caller)
+    return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
 
 
 @router.get(

@@ -276,6 +276,12 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             return tuple(to_skill_version_list_entry(item) for item in rows)
 
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
+        return self._list_installed_versions(limit=limit)
+
+    def list_catalog_skill_versions(self) -> tuple[SkillVersionDetail, ...]:
+        return self._list_installed_versions(limit=None)
+
+    def _list_installed_versions(self, *, limit: int | None) -> tuple[SkillVersionDetail, ...]:
         with self._session_factory() as session:
             statement = (
                 select(SkillVersion)
@@ -313,7 +319,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 item.skill.slug,
             ),
         )
-        return tuple(to_skill_version_detail(item) for item in ordered[:limit])
+        if limit is not None:
+            ordered = ordered[:limit]
+        return tuple(to_skill_version_detail(item) for item in ordered)
 
     def get_relationship_source(
         self,

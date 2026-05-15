@@ -88,6 +88,9 @@ class FakeCatalogRepository:
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
         return self._top_versions[:limit]
 
+    def list_catalog_skill_versions(self) -> tuple[SkillVersionDetail, ...]:
+        return self._top_versions
+
     def list_skill_graph_edges(
         self,
         *,
@@ -411,6 +414,30 @@ def test_list_top_installed_returns_visible_versions_with_limit() -> None:
     result = service.list_top_installed(caller=_caller("read"), limit=2)
 
     assert [item.slug for item in result] == ["python.first", "python.second"]
+
+
+@pytest.mark.unit
+def test_list_catalog_skills_returns_all_visible_versions_ordered_by_installs() -> None:
+    service = SkillFetchService(
+        repository=FakeCatalogRepository(
+            top_versions=(
+                _top_version("python.first", install_count=10),
+                _top_version("python.hidden", install_count=9, lifecycle_status="archived"),
+                _top_version("python.second", install_count=8),
+                _top_version("python.third", install_count=7),
+            )
+        ),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+    )
+
+    result = service.list_catalog_skills(caller=_caller("read"))
+
+    assert [item.slug for item in result] == [
+        "python.first",
+        "python.second",
+        "python.third",
+    ]
 
 
 @pytest.mark.unit

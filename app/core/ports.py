@@ -277,6 +277,9 @@ class SkillExactReadPort(Protocol):
     def list_top_installed_versions(self, *, limit: int) -> tuple[SkillVersionDetail, ...]:
         """Return current-default version details ordered by aggregate installs."""
 
+    def list_catalog_skill_versions(self) -> tuple[SkillVersionDetail, ...]:
+        """Return all current-default version details ordered by aggregate installs."""
+
     def list_skill_graph_edges(
         self,
         *,

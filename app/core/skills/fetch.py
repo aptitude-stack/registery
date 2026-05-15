@@ -187,6 +187,27 @@ class SkillFetchService:
                 break
         return tuple(visible)
 
+    def list_catalog_skills(
+        self,
+        *,
+        caller: CallerIdentity,
+    ) -> tuple[SkillVersionDetail, ...]:
+        """Return all visible current-default versions ordered by aggregate installs."""
+        candidates = self._repository.list_catalog_skill_versions()
+        return tuple(
+            stored
+            for stored in candidates
+            if self._governance_policy.is_visible_in_list(
+                caller=caller,
+                lifecycle_status=stored.lifecycle_status,
+                namespace=stored.namespace,
+                review_state=stored.review_state,
+                promotion_channel=stored.promotion_channel,
+                trust_tier=stored.trust_tier,
+                policy_pack=stored.policy_pack,
+            )
+        )
+
     def list_skill_graph(
         self,
         *,
