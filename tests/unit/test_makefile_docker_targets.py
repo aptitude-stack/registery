@@ -100,9 +100,12 @@ def test_test_runs_full_suite_with_managed_test_database() -> None:
     assert 'python -m pytest -m "not integration"' not in result.stdout
     assert "python -m pytest tests/integration" not in result.stdout
     assert "docker compose --profile test up -d test-db" in result.stdout
+    assert "for attempt in $(seq 1 90)" in result.stdout
     assert (
         "docker compose --profile test exec -T test-db pg_isready -U postgres -d aptitude_test"
         in result.stdout
     )
+    assert "Timed out waiting for test database to accept connections" in result.stdout
+    assert "docker compose --profile test logs test-db" in result.stdout
     assert "docker compose --profile test rm -f -s -v test-db" in result.stdout
     assert "docker volume rm -f aptitude-test-postgres-data" in result.stdout

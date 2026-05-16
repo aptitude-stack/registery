@@ -32,6 +32,8 @@ APP_BASE_URL ?= http://127.0.0.1:8000
 PRODUCTION_BASE_URL ?= https://api.aptitude-registry.dev
 WAIT_ATTEMPTS ?= 30
 WAIT_SLEEP_SECONDS ?= 1
+TEST_DB_WAIT_ATTEMPTS ?= 90
+TEST_DB_WAIT_SLEEP_SECONDS ?= 1
 PRODUCTION_WAIT_ATTEMPTS ?= 120
 PRODUCTION_WAIT_SLEEP_SECONDS ?= 5
 
@@ -65,12 +67,19 @@ $(COMPOSE_TEST) up -d test-db
 endef
 
 define test_db_wait_commands
-for attempt in $$(seq 1 $(WAIT_ATTEMPTS)); do \
+test_db_ready=0; \
+for attempt in $$(seq 1 $(TEST_DB_WAIT_ATTEMPTS)); do \
 	if $(COMPOSE_TEST) exec -T test-db pg_isready -U $(TEST_POSTGRES_USER) -d $(TEST_POSTGRES_DB) >/dev/null 2>&1; then \
+		test_db_ready=1; \
 		break; \
 	fi; \
-	sleep $(WAIT_SLEEP_SECONDS); \
+	sleep $(TEST_DB_WAIT_SLEEP_SECONDS); \
 done; \
+if [ "$$test_db_ready" != "1" ]; then \
+	echo "Timed out waiting for test database to accept connections after $(TEST_DB_WAIT_ATTEMPTS) attempts." >&2; \
+	$(COMPOSE_TEST) logs test-db >&2; \
+	exit 1; \
+fi; \
 $(COMPOSE_TEST) exec -T test-db pg_isready -U $(TEST_POSTGRES_USER) -d $(TEST_POSTGRES_DB)
 endef
 
