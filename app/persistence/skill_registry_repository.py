@@ -860,10 +860,13 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             if missing:
                 # Deduplicate while preserving order so the error stays stable.
                 seen: set[str] = set()
-                unique_missing = tuple(
-                    slug for slug in missing if not (slug in seen or seen.add(slug))
-                )
-                raise UnknownStarEventSkillsError(slugs=unique_missing)
+                unique_missing: list[str] = []
+                for slug in missing:
+                    if slug in seen:
+                        continue
+                    seen.add(slug)
+                    unique_missing.append(slug)
+                raise UnknownStarEventSkillsError(slugs=tuple(unique_missing))
 
             updated: dict[str, int] = {}
             for slug, delta in deltas:
