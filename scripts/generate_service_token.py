@@ -8,7 +8,7 @@ import json
 import secrets
 import sys
 
-DEFAULT_TOKEN_ID = "telemetry-token"
+DEFAULT_TOKEN_ID = "telemetry_prod"
 DEFAULT_SCOPES = ("telemetry",)
 DEFAULT_SECRET_BYTES = 32
 
@@ -51,7 +51,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--token-id",
         default=DEFAULT_TOKEN_ID,
-        help=f"service token id; defaults to {DEFAULT_TOKEN_ID}",
+        help=f"service token id in token-name_prod form; defaults to {DEFAULT_TOKEN_ID}",
     )
     parser.add_argument(
         "--scope",
