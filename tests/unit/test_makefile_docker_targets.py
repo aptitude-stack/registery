@@ -109,3 +109,20 @@ def test_test_runs_full_suite_with_managed_test_database() -> None:
     assert "docker compose --profile test logs test-db" in result.stdout
     assert "docker compose --profile test rm -f -s -v test-db" in result.stdout
     assert "docker volume rm -f aptitude-test-postgres-data" in result.stdout
+
+
+@pytest.mark.unit
+def test_rotate_generates_service_token_rotation_values() -> None:
+    result = subprocess.run(
+        [
+            "make",
+            "-n",
+            "rotate",
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "run python scripts/generate_service_token.py" in result.stdout
