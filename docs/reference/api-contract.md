@@ -33,6 +33,7 @@ Protected routes:
 - `PATCH /admin/skills/{slug}/ownership`
 - `PATCH /admin/skills/{slug}/{version}/governance`
 - `POST /admin/skills/{slug}/{version}/trust-evidence`
+- `POST /catalog/star-events`
 
 ## Freeze Rule
 
@@ -74,6 +75,7 @@ Publish and exact metadata fetch return the same structured response shape:
   "slug": "python.lint",
   "version": "1.2.3",
   "install_count": 42,
+  "star_count": 13,
   "version_checksum": {"algorithm": "sha256", "digest": "..."},
   "content": {
     "checksum": {"algorithm": "sha256", "digest": "..."},
@@ -243,12 +245,53 @@ Rules:
 - Consumers must not assume markdown text from this route anymore.
 - `ETag` mirrors the stored content checksum digest for the immutable artifact.
 
+## Aggregate Star Telemetry
+
+`POST /catalog/star-events` records an aggregate batch of star/unstar toggle
+events without storing any per-user state. The endpoint is intended for trusted
+server-side aggregation (for example, a website route handler) and not direct
+end-user traffic.
+
+Request:
+
+```json
+{
+  "events": [
+    {"slug": "python.lint", "action": "star"},
+    {"slug": "python.test", "action": "unstar"}
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "accepted": 2,
+  "counts": [
+    {"slug": "python.lint", "star_count": 13},
+    {"slug": "python.test", "star_count": 4}
+  ]
+}
+```
+
+Rules:
+
+- Requires the `telemetry` scope on the bearer token.
+- `events` must contain between `1` and `100` entries.
+- Duplicate slugs in one batch coalesce into a net delta and update once.
+- `star_count` is clamped at zero; surplus `unstar` events do not push it negative.
+- The full batch is rejected with `404` `STAR_EVENT_UNKNOWN_SKILL` when any
+  slug does not exist; no partial updates are committed.
+- The endpoint does not enforce namespace grants. A telemetry token typically
+  carries no namespace roles by design.
+
 ## Authentication And Prod Posture
 
 Protected routes require:
 
 - `Authorization: Bearer <token_id>.<token_secret>`
-- governed service-token scopes: `read`, `publish`, `review`, or `admin`
+- governed service-token scopes: `read`, `publish`, `review`, `admin`, or `telemetry`
 - namespace grants for namespace-scoped registry operations, including allowed promotion channels
 
 Operational rules:
@@ -311,6 +354,7 @@ Error envelope:
 | `PATCH` | `/admin/skills/{slug}/ownership` | `admin` | `200` | Moves a skill identity into a namespace |
 | `PATCH` | `/admin/skills/{slug}/{version}/governance` | `review` | `200` | Updates review, promotion, trust-tier, or policy-pack state |
 | `POST` | `/admin/skills/{slug}/{version}/trust-evidence` | `review` | `201` | Appends trust evidence without rewriting artifact bytes |
+| `POST` | `/catalog/star-events` | `telemetry` | `200` | Records aggregate star/unstar toggle events and returns post-update counts |
 
 ## Enterprise Governance
 

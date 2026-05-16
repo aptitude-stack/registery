@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-CallerScope = Literal["read", "publish", "review", "admin"]
+CallerScope = Literal["read", "publish", "review", "admin", "telemetry"]
 NamespaceRole = Literal["read", "publish", "review", "admin"]
 LifecycleStatus = Literal["published", "deprecated", "archived"]
 TrustTier = Literal["untrusted", "internal", "verified"]
@@ -14,7 +14,13 @@ ArtifactOrigin = Literal["internal", "imported", "verified", "restricted"]
 ReviewState = Literal["pending_review", "approved", "rejected"]
 PromotionChannel = Literal["dev", "staging", "prod"]
 
-ALL_CALLER_SCOPES: tuple[CallerScope, ...] = ("read", "publish", "review", "admin")
+ALL_CALLER_SCOPES: tuple[CallerScope, ...] = (
+    "read",
+    "publish",
+    "review",
+    "admin",
+    "telemetry",
+)
 ALL_NAMESPACE_ROLES: tuple[NamespaceRole, ...] = ("read", "publish", "review", "admin")
 ALL_LIFECYCLE_STATUSES: tuple[LifecycleStatus, ...] = ("published", "deprecated", "archived")
 ALL_TRUST_TIERS: tuple[TrustTier, ...] = ("untrusted", "internal", "verified")

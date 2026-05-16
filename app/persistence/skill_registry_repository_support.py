@@ -222,6 +222,7 @@ def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
         slug=entity.skill.slug,
         version=entity.version,
         install_count=entity.skill.install_count,
+        star_count=entity.skill.star_count,
         version_checksum=SkillChecksum(
             algorithm=SHA256_ALGORITHM,
             digest=entity.checksum_digest,

@@ -224,6 +224,7 @@ class SkillFetchService:
                 install_count=detail.install_count,
                 trust_tier=detail.trust_tier,
                 lifecycle_status=detail.lifecycle_status,
+                star_count=detail.star_count,
             )
             for detail in node_details
         )
