@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload, sessionmaker
@@ -47,11 +47,13 @@ from app.core.skills.models import (
     SkillGraphEdgeType,
     SkillOwnershipUpdate,
     SkillRelationshipSource,
+    SkillStarCount,
     SkillVersionDetail,
     SkillVersionGovernanceUpdate,
     SkillVersionListEntry,
     SkillVersionStatusUpdate,
     TrustEvidenceRecord,
+    UnknownStarEventSkillsError,
 )
 from app.core.skills.version_ordering import select_current_default_version
 from app.intelligence.discovery_signals import (
@@ -839,6 +841,47 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 .values(usage_count=install_count)
             )
             session.commit()
+
+    def apply_star_count_deltas(
+        self,
+        *,
+        deltas: tuple[tuple[str, int], ...],
+    ) -> tuple[SkillStarCount, ...]:
+        if not deltas:
+            return ()
+
+        slugs = tuple(slug for slug, _ in deltas)
+        with self._session_factory() as session:
+            existing = (
+                session.execute(select(Skill.slug).where(Skill.slug.in_(slugs))).scalars().all()
+            )
+            existing_set = set(existing)
+            missing = tuple(slug for slug in slugs if slug not in existing_set)
+            if missing:
+                # Deduplicate while preserving order so the error stays stable.
+                seen: set[str] = set()
+                unique_missing: list[str] = []
+                for slug in missing:
+                    if slug in seen:
+                        continue
+                    seen.add(slug)
+                    unique_missing.append(slug)
+                raise UnknownStarEventSkillsError(slugs=tuple(unique_missing))
+
+            updated: dict[str, int] = {}
+            for slug, delta in deltas:
+                row = session.execute(
+                    update(Skill)
+                    .where(Skill.slug == slug)
+                    .values(star_count=func.greatest(0, Skill.star_count + delta))
+                    .returning(Skill.star_count)
+                ).one_or_none()
+                if row is None:
+                    raise UnknownStarEventSkillsError(slugs=(slug,))
+                updated[slug] = int(row[0])
+            session.commit()
+
+        return tuple(SkillStarCount(slug=slug, star_count=updated[slug]) for slug in slugs)
 
     def update_version_status(
         self,

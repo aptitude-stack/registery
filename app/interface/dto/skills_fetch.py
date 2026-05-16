@@ -28,6 +28,7 @@ class SkillVersionMetadataResponse(BaseModel):
     slug: str
     version: str
     install_count: int
+    star_count: int = 0
     version_checksum: ChecksumResponse
     content: SkillContentSummaryResponse
     metadata: SkillMetadataResponse
@@ -77,6 +78,7 @@ class SkillGraphNodeResponse(BaseModel):
     version: str
     name: str
     install_count: int
+    star_count: int = 0
     trust_tier: TrustTier
     lifecycle_status: LifecycleStatus
 

@@ -20,6 +20,7 @@ from app.core.governance import (
 SHA256_ALGORITHM = "sha256"
 PublishIntent = Literal["create_skill", "publish_version"]
 SkillGraphEdgeType = Literal["depends_on", "extends", "overlaps_with"]
+StarEventAction = Literal["star", "unstar"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +153,7 @@ class SkillVersionDetail:
     trust_tier: TrustTier
     provenance: ProvenanceMetadata | None
     published_at: datetime
+    star_count: int = 0
     namespace: str = "public"
     artifact_origin: ArtifactOrigin = "internal"
     review_state: ReviewState = "approved"
@@ -209,6 +211,7 @@ class SkillGraphNode:
     install_count: int
     trust_tier: TrustTier
     lifecycle_status: LifecycleStatus
+    star_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -357,3 +360,49 @@ class SkillVersionNotFoundError(SkillRegistryError):
         super().__init__(f"Skill version not found: {slug}@{version}")
         self.slug = slug
         self.version = version
+
+
+@dataclass(frozen=True, slots=True)
+class StarEvent:
+    """Single normalized star toggle event for one skill identity."""
+
+    slug: str
+    action: StarEventAction
+
+
+@dataclass(frozen=True, slots=True)
+class SkillStarCount:
+    """Aggregate star count for one skill identity after applying events."""
+
+    slug: str
+    star_count: int
+
+
+class StarEventBatchError(SkillRegistryError):
+    """Base error raised when a batch of star events cannot be applied."""
+
+
+class EmptyStarEventBatchError(StarEventBatchError):
+    """Raised when the caller submits no events."""
+
+    def __init__(self) -> None:
+        super().__init__("Star event batch must contain at least one event.")
+
+
+class StarEventBatchTooLargeError(StarEventBatchError):
+    """Raised when the caller submits more events than the registry accepts."""
+
+    def __init__(self, *, limit: int, received: int) -> None:
+        super().__init__(
+            f"Star event batch must contain at most {limit} events; received {received}."
+        )
+        self.limit = limit
+        self.received = received
+
+
+class UnknownStarEventSkillsError(StarEventBatchError):
+    """Raised when the batch references one or more unknown skill slugs."""
+
+    def __init__(self, *, slugs: tuple[str, ...]) -> None:
+        super().__init__("Star event batch references unknown skill slugs: " + ", ".join(slugs))
+        self.slugs = slugs

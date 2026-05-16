@@ -17,6 +17,7 @@ from app.core.skills.discovery import SkillDiscoveryService
 from app.core.skills.fetch import SkillFetchService
 from app.core.skills.registry import SkillRegistryService
 from app.core.skills.resolution import SkillResolutionService
+from app.core.skills.telemetry import SkillTelemetryService
 from app.interface.api.errors import ApiError
 from app.observability.readiness import ReadinessService
 from app.service_container import ServiceContainer
@@ -176,3 +177,23 @@ def get_review_caller(
 
 
 ReviewCallerDep = Annotated[CallerIdentity, Depends(get_review_caller)]
+
+
+def get_telemetry_caller(
+    credentials: BearerCredentialsDep,
+    auth_service: AuthServiceDep,
+) -> CallerIdentity:
+    """Authenticate a caller with telemetry scope."""
+    caller = _caller_from_request(credentials=credentials, auth_service=auth_service)
+    return _require_scope(caller=caller, auth_service=auth_service, scope="telemetry")
+
+
+TelemetryCallerDep = Annotated[CallerIdentity, Depends(get_telemetry_caller)]
+
+
+def get_skill_telemetry_service(request: Request) -> SkillTelemetryService:
+    """Return the process-scoped telemetry service from the service container."""
+    return _service_container(request).skill_telemetry_service
+
+
+SkillTelemetryServiceDep = Annotated[SkillTelemetryService, Depends(get_skill_telemetry_service)]

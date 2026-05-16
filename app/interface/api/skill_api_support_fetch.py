@@ -35,6 +35,7 @@ def to_metadata_response(detail: SkillVersionDetail) -> SkillVersionMetadataResp
         slug=detail.slug,
         version=detail.version,
         install_count=detail.install_count,
+        star_count=detail.star_count,
         version_checksum=_checksum_response(detail.version_checksum),
         content=_content_summary_response(
             detail.content.checksum,
@@ -71,6 +72,7 @@ def to_skill_graph_response(graph: SkillGraph) -> SkillGraphResponse:
                 version=node.version,
                 name=node.name,
                 install_count=node.install_count,
+                star_count=node.star_count,
                 trust_tier=node.trust_tier,
                 lifecycle_status=node.lifecycle_status,
             )
