@@ -15,24 +15,27 @@ from app.core.governance import (
 from app.core.settings import Settings
 from tests.conftest import DEFAULT_AUTH_SERVICE_TOKENS
 
+DATABASE_URL = "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"
+
+
+def _settings(**overrides: object) -> Settings:
+    return Settings(_env_file=None, DATABASE_URL=DATABASE_URL, **overrides)
+
 
 @pytest.mark.unit
 def test_settings_parse_service_tokens_and_policy_profiles_from_json() -> None:
-    settings = Settings.model_validate(
-        {
-            "DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
-            "AUTH_SERVICE_TOKENS_JSON": DEFAULT_AUTH_SERVICE_TOKENS,
-            "POLICY_PROFILES_JSON": {
-                "strict": {
-                    "publish_rules": {
-                        "untrusted": {"required_scope": "admin", "provenance_required": True},
-                        "internal": {"required_scope": "admin", "provenance_required": True},
-                        "verified": {"required_scope": "admin", "provenance_required": True},
-                    }
+    settings = _settings(
+        AUTH_SERVICE_TOKENS_JSON=DEFAULT_AUTH_SERVICE_TOKENS,
+        POLICY_PROFILES_JSON={
+            "strict": {
+                "publish_rules": {
+                    "untrusted": {"required_scope": "admin", "provenance_required": True},
+                    "internal": {"required_scope": "admin", "provenance_required": True},
+                    "verified": {"required_scope": "admin", "provenance_required": True},
                 }
-            },
-            "ACTIVE_POLICY_PROFILE": "strict",
-        }
+            }
+        },
+        ACTIVE_POLICY_PROFILE="strict",
     )
 
     assert settings.service_token_records[0].token_id == "reader-token"
@@ -45,27 +48,24 @@ def test_settings_parse_service_tokens_and_policy_profiles_from_json() -> None:
 
 @pytest.mark.unit
 def test_settings_parse_service_token_namespace_grants() -> None:
-    settings = Settings.model_validate(
-        {
-            "DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
-            "AUTH_SERVICE_TOKENS_JSON": [
-                {
-                    "token_id": "reviewer-token",
-                    "secret_digest": (
-                        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-                    ),
-                    "scopes": ["read", "review"],
-                    "active": True,
-                    "namespace_grants": [
-                        {
-                            "namespace": "acme.private",
-                            "roles": ["read", "review"],
-                            "promotion_channels": ["dev", "staging"],
-                        }
-                    ],
-                }
-            ],
-        }
+    settings = _settings(
+        AUTH_SERVICE_TOKENS_JSON=[
+            {
+                "token_id": "reviewer-token",
+                "secret_digest": (
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+                ),
+                "scopes": ["read", "review"],
+                "active": True,
+                "namespace_grants": [
+                    {
+                        "namespace": "acme.private",
+                        "roles": ["read", "review"],
+                        "promotion_channels": ["dev", "staging"],
+                    }
+                ],
+            }
+        ],
     )
 
     record = settings.service_token_records[0]
@@ -82,11 +82,7 @@ def test_settings_parse_service_token_namespace_grants() -> None:
 
 @pytest.mark.unit
 def test_governance_policy_blocks_missing_provenance_for_internal_publish() -> None:
-    policy = GovernancePolicy(
-        profile=Settings.model_validate(
-            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
-        ).active_policy
-    )
+    policy = GovernancePolicy(profile=_settings().active_policy)
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.evaluate_publish(
@@ -99,11 +95,7 @@ def test_governance_policy_blocks_missing_provenance_for_internal_publish() -> N
 
 @pytest.mark.unit
 def test_governance_policy_blocks_publish_without_namespace_grant() -> None:
-    policy = GovernancePolicy(
-        profile=Settings.model_validate(
-            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
-        ).active_policy
-    )
+    policy = GovernancePolicy(profile=_settings().active_policy)
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.prepare_publish_governance(
@@ -126,11 +118,7 @@ def test_governance_policy_blocks_publish_without_namespace_grant() -> None:
 
 @pytest.mark.unit
 def test_governance_policy_hides_pending_imports_from_prod_reader() -> None:
-    policy = GovernancePolicy(
-        profile=Settings.model_validate(
-            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
-        ).active_policy
-    )
+    policy = GovernancePolicy(profile=_settings().active_policy)
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.ensure_exact_read_allowed(
@@ -158,11 +146,7 @@ def test_governance_policy_hides_pending_imports_from_prod_reader() -> None:
 
 @pytest.mark.unit
 def test_governance_policy_rejects_archived_to_published_transition() -> None:
-    policy = GovernancePolicy(
-        profile=Settings.model_validate(
-            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
-        ).active_policy
-    )
+    policy = GovernancePolicy(profile=_settings().active_policy)
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.evaluate_transition(
@@ -176,11 +160,7 @@ def test_governance_policy_rejects_archived_to_published_transition() -> None:
 
 @pytest.mark.unit
 def test_prepare_publish_governance_normalizes_provenance_and_attaches_policy_profile() -> None:
-    policy = GovernancePolicy(
-        profile=Settings.model_validate(
-            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
-        ).active_policy
-    )
+    policy = GovernancePolicy(profile=_settings().active_policy)
 
     governance = policy.prepare_publish_governance(
         caller=CallerIdentity(token_id="publisher", scopes=frozenset({"publish"})),
@@ -205,11 +185,7 @@ def test_prepare_publish_governance_normalizes_provenance_and_attaches_policy_pr
 
 @pytest.mark.unit
 def test_prepare_publish_governance_rejects_blank_trimmed_provenance_fields() -> None:
-    policy = GovernancePolicy(
-        profile=Settings.model_validate(
-            {"DATABASE_URL": "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude"}
-        ).active_policy
-    )
+    policy = GovernancePolicy(profile=_settings().active_policy)
 
     with pytest.raises(PolicyViolation) as exc_info:
         policy.prepare_publish_governance(
