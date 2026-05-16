@@ -208,6 +208,24 @@ def test_settings_load_service_tokens_from_dotenv_file(
 
 
 @pytest.mark.unit
+def test_settings_load_service_tokens_from_provider_quoted_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
+    )
+    monkeypatch.setenv(
+        "AUTH_SERVICE_TOKENS_JSON",
+        f"'{json.dumps(DEFAULT_AUTH_SERVICE_TOKENS[:1])}'",
+    )
+
+    settings = Settings(_env_file=None)
+
+    assert tuple(token.token_id for token in settings.auth_service_tokens) == ("reader-token",)
+
+
+@pytest.mark.unit
 def test_get_settings_uses_configured_dotenv_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

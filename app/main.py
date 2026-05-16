@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from time import perf_counter
 from typing import cast
@@ -82,7 +82,7 @@ planning remain client-owned behavior outside this API boundary.
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Initialize process-wide resources and tear them down on shutdown."""
     reset_settings_cache()
     settings = get_settings()
@@ -231,6 +231,7 @@ def run_dev_server() -> None:
     """Run uvicorn with the centralized aptitude logging configuration."""
     import uvicorn
 
+    load_settings()
     app_env = os.getenv("APP_ENV", "dev")
     log_level = os.getenv("LOG_LEVEL", "INFO")
     log_format = normalize_log_format(os.getenv("LOG_FORMAT"))

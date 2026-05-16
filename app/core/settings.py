@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal, cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from app.core.governance import (
     ALL_NAMESPACE_ROLES,
@@ -181,7 +182,9 @@ def _default_namespace_grants(scopes: tuple[CallerScope, ...]) -> tuple[Namespac
                 promotion_channels=frozenset({"*"}),
             ),
         )
-    roles = frozenset(scope for scope in scopes if scope in ALL_NAMESPACE_ROLES)
+    roles = frozenset(
+        cast(NamespaceRole, scope) for scope in scopes if scope in ALL_NAMESPACE_ROLES
+    )
     if not roles:
         return ()
     return (
@@ -191,6 +194,23 @@ def _default_namespace_grants(scopes: tuple[CallerScope, ...]) -> tuple[Namespac
             promotion_channels=frozenset({"prod"}),
         ),
     )
+
+
+def _parse_json_env_setting(value: object, *, field_name: str) -> object:
+    """Decode JSON settings after normalizing provider-pasted quote wrappers."""
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(_strip_provider_quote_wrapper(value))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{field_name} must be valid JSON.") from exc
+
+
+def _strip_provider_quote_wrapper(value: str) -> str:
+    stripped = value.strip()
+    if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in {"'", '"'}:
+        return stripped[1:-1]
+    return stripped
 
 
 class Settings(BaseSettings):
@@ -208,12 +228,15 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_format: Literal["auto", "json", "pretty"] = Field(default="auto", alias="LOG_FORMAT")
     app_name: str = Field(default="aptitude-registry", alias="APP_NAME")
-    auth_service_tokens: tuple[ServiceTokenSettings, ...] = Field(
+    auth_service_tokens: Annotated[tuple[ServiceTokenSettings, ...], NoDecode] = Field(
         default_factory=tuple,
         alias="AUTH_SERVICE_TOKENS_JSON",
     )
-    allowed_hosts: tuple[str, ...] = Field(default_factory=tuple, alias="ALLOWED_HOSTS_JSON")
-    policy_profiles: dict[str, PolicyProfileSettings] = Field(
+    allowed_hosts: Annotated[tuple[str, ...], NoDecode] = Field(
+        default_factory=tuple,
+        alias="ALLOWED_HOSTS_JSON",
+    )
+    policy_profiles: Annotated[dict[str, PolicyProfileSettings], NoDecode] = Field(
         default_factory=dict,
         alias="POLICY_PROFILES_JSON",
     )
@@ -322,6 +345,21 @@ class Settings(BaseSettings):
                 "OPENAI_API_KEY must be set when SEMANTIC_DISCOVERY_MODE is shadow or hybrid."
             )
         return self
+
+    @field_validator("auth_service_tokens", mode="before")
+    @classmethod
+    def parse_auth_service_tokens_json(cls, value: object) -> object:
+        return _parse_json_env_setting(value, field_name="AUTH_SERVICE_TOKENS_JSON")
+
+    @field_validator("allowed_hosts", mode="before")
+    @classmethod
+    def parse_allowed_hosts_json(cls, value: object) -> object:
+        return _parse_json_env_setting(value, field_name="ALLOWED_HOSTS_JSON")
+
+    @field_validator("policy_profiles", mode="before")
+    @classmethod
+    def parse_policy_profiles_json(cls, value: object) -> object:
+        return _parse_json_env_setting(value, field_name="POLICY_PROFILES_JSON")
 
     @field_validator("allowed_hosts")
     @classmethod
