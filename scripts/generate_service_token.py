@@ -41,6 +41,8 @@ def main() -> int:
     print(f"Secret digest:\n{digest}\n")
     print("AUTH_SERVICE_TOKENS_JSON record:")
     print(json.dumps(record, separators=(",", ":"), sort_keys=True))
+    print("\nAUTH_SERVICE_TOKENS_JSON single-token value:")
+    print(json.dumps([record], separators=(",", ":"), sort_keys=True))
     print("\nWebsite env:")
     print(f"REGISTRY_TELEMETRY_TOKEN={bearer_token}")
     return 0

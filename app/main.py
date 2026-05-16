@@ -15,6 +15,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from pydantic import ValidationError
+from pydantic_settings import SettingsError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import ExceptionHandler
 
@@ -286,7 +287,7 @@ def _response_error_code(response: Response) -> str | None:
 def _load_app_settings_for_wiring() -> Settings | None:
     try:
         return load_settings()
-    except ValidationError:
+    except (SettingsError, ValidationError):
         return None
 
 
