@@ -12,11 +12,13 @@ from app.core.skills.discovery import SkillDiscoveryService
 from app.core.skills.fetch import SkillFetchService
 from app.core.skills.registry import SkillRegistryService
 from app.core.skills.resolution import SkillResolutionService
+from app.core.skills.telemetry import SkillTelemetryService
 from app.interface.api.dependencies import (
     get_auth_service,
     get_readiness_service,
     get_skill_fetch_service,
     get_skill_resolution_service,
+    get_skill_telemetry_service,
 )
 from app.observability.readiness import ReadinessService
 from app.service_container import ServiceContainer
@@ -31,6 +33,7 @@ def test_dependency_getters_read_services_from_typed_container() -> None:
         skill_discovery_service=cast(SkillDiscoveryService, object()),
         skill_fetch_service=cast(SkillFetchService, object()),
         skill_resolution_service=cast(SkillResolutionService, object()),
+        skill_telemetry_service=cast(SkillTelemetryService, object()),
     )
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(services=services)))
 
@@ -38,6 +41,7 @@ def test_dependency_getters_read_services_from_typed_container() -> None:
     assert get_readiness_service(request) is services.readiness_service
     assert get_skill_fetch_service(request) is services.skill_fetch_service
     assert get_skill_resolution_service(request) is services.skill_resolution_service
+    assert get_skill_telemetry_service(request) is services.skill_telemetry_service
 
 
 @pytest.mark.unit

@@ -26,6 +26,7 @@ from app.core.skills.models import (
     SkillGraphEdgeType,
     SkillOwnershipUpdate,
     SkillRelationshipSource,
+    SkillStarCount,
     SkillVersionDetail,
     SkillVersionGovernanceUpdate,
     SkillVersionListEntry,
@@ -296,6 +297,25 @@ class SkillFetchPort(SkillExactReadPort, Protocol):
         """Record one successful skill install/download for an exact coordinate."""
 
 
+class SkillTelemetryPort(Protocol):
+    """Persistence capability for aggregate skill telemetry counters."""
+
+    def apply_star_count_deltas(
+        self,
+        *,
+        deltas: tuple[tuple[str, int], ...],
+    ) -> tuple[SkillStarCount, ...]:
+        """Apply per-slug star count deltas atomically.
+
+        Each delta tuple is ``(slug, delta)`` where ``delta`` is the net change
+        to apply to ``skills.star_count``. The implementation must clamp the
+        resulting count at zero and return the post-update star counts for the
+        provided slugs in input order. If any slug does not exist the
+        implementation must raise the persistence-level
+        :class:`UnknownStarEventSkillsError` without committing any updates.
+        """
+
+
 class SkillResolutionPort(Protocol):
     """Persistence capability for exact authored dependency reads."""
 
@@ -439,6 +459,7 @@ class SkillCatalogRepository(
     SkillFetchPort,
     SkillDiscoverySearchPort,
     SkillResolutionPort,
+    SkillTelemetryPort,
     Protocol,
 ):
     """Compatibility composition for the SQLAlchemy catalog adapter."""

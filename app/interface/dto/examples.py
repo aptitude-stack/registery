@@ -48,6 +48,7 @@ SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
     "slug": "python.lint",
     "version": "1.2.3",
     "install_count": 0,
+    "star_count": 0,
     "version_checksum": CHECKSUM_EXAMPLE,
     "content": {
         "checksum": CHECKSUM_EXAMPLE,
@@ -204,4 +205,27 @@ SKILL_VERSION_STATUS_RESPONSE_EXAMPLE = {
     "trust_tier": "internal",
     "lifecycle_changed_at": "2026-03-11T09:15:00Z",
     "is_current_default": True,
+}
+
+STAR_EVENT_BATCH_REQUEST_EXAMPLE = {
+    "events": [
+        {"slug": "python.lint", "action": "star"},
+        {"slug": "python.test", "action": "unstar"},
+    ]
+}
+
+STAR_EVENT_BATCH_RESPONSE_EXAMPLE = {
+    "accepted": 2,
+    "counts": [
+        {"slug": "python.lint", "star_count": 13},
+        {"slug": "python.test", "star_count": 4},
+    ],
+}
+
+UNKNOWN_SKILL_SLUG_ERROR_EXAMPLE = {
+    "error": {
+        "code": "STAR_EVENT_UNKNOWN_SKILL",
+        "message": "Star event batch references unknown skill slugs: python.lint",
+        "details": {"slugs": ["python.lint"]},
+    }
 }

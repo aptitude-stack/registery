@@ -62,6 +62,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert {
             "slug",
             "install_count",
+            "star_count",
             "namespace_fk",
             "created_at",
             "updated_at",

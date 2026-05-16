@@ -34,6 +34,12 @@ class Skill(Base):
         default=0,
         server_default=text("0"),
     )
+    star_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

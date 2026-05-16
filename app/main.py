@@ -33,6 +33,7 @@ from app.interface.api.health import router as health_router
 from app.interface.api.resolution import router as resolution_router
 from app.interface.api.root import router as root_router
 from app.interface.api.skills import router as skills_router
+from app.interface.api.telemetry import router as telemetry_router
 from app.observability.context import clear_request_context, set_request_context
 from app.observability.logging import (
     build_logging_config,
@@ -221,6 +222,7 @@ def create_app() -> FastAPI:
     app.include_router(resolution_router)
     app.include_router(fetch_router)
     app.include_router(skills_router)
+    app.include_router(telemetry_router)
     return app
 
 

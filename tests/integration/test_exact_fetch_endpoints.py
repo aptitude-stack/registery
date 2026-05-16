@@ -99,11 +99,14 @@ def test_content_fetch_increments_aggregate_install_count(
     counts = _query_install_counts(migrated_registry_database, slug=slug)
 
     assert published["install_count"] == 0
+    assert published["star_count"] == 0
     assert initial_metadata.status_code == 200
     assert initial_metadata.json()["install_count"] == 0
+    assert initial_metadata.json()["star_count"] == 0
     assert content.status_code == 200
     assert updated_metadata.status_code == 200
     assert updated_metadata.json()["install_count"] == 1
+    assert updated_metadata.json()["star_count"] == 0
     assert counts == {
         "skill_install_count": 1,
         "min_usage_count": 1,

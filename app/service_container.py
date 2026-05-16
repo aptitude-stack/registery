@@ -12,6 +12,7 @@ from app.core.skills.discovery import SkillDiscoveryService
 from app.core.skills.fetch import SkillFetchService
 from app.core.skills.registry import SkillRegistryService
 from app.core.skills.resolution import SkillResolutionService
+from app.core.skills.telemetry import SkillTelemetryService
 from app.integrations.openai_embeddings import OpenAIEmbeddingProvider
 from app.observability.readiness import ReadinessService
 from app.observability.telemetry import instrument_database_engine
@@ -34,6 +35,7 @@ class ServiceContainer:
     skill_discovery_service: SkillDiscoveryService
     skill_fetch_service: SkillFetchService
     skill_resolution_service: SkillResolutionService
+    skill_telemetry_service: SkillTelemetryService
 
 
 def build_service_container(*, settings: Settings) -> ServiceContainer:
@@ -94,6 +96,7 @@ def build_service_container(*, settings: Settings) -> ServiceContainer:
             audit_recorder=audit_recorder,
             governance_policy=governance_policy,
         ),
+        skill_telemetry_service=SkillTelemetryService(repository=catalog_repository),
     )
 
 
