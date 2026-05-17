@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload, sessionmaker
@@ -52,6 +52,7 @@ from app.core.skills.models import (
     SkillVersionGovernanceUpdate,
     SkillVersionListEntry,
     SkillVersionStatusUpdate,
+    StarEvent,
     TrustEvidenceRecord,
     UnknownStarEventSkillsError,
 )
@@ -71,6 +72,7 @@ from app.persistence.models.skill_content import SkillContent
 from app.persistence.models.skill_metadata import SkillMetadata
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.models.skill_search_document import SkillSearchDocument
+from app.persistence.models.skill_user_star import SkillUserStar
 from app.persistence.models.skill_version import SkillVersion
 from app.persistence.models.trust_evidence import TrustEvidence
 from app.persistence.skill_registry_repository_support import (
@@ -882,6 +884,74 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             session.commit()
 
         return tuple(SkillStarCount(slug=slug, star_count=updated[slug]) for slug in slugs)
+
+    def list_user_starred_skill_slugs(self, *, user_subject: str) -> tuple[str, ...]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(Skill.slug)
+                .join(SkillUserStar, SkillUserStar.skill_fk == Skill.id)
+                .where(SkillUserStar.user_subject == user_subject)
+                .order_by(Skill.slug.asc())
+            ).scalars()
+            return tuple(rows)
+
+    def apply_user_star_events(
+        self,
+        *,
+        user_subject: str,
+        events: tuple[StarEvent, ...],
+    ) -> tuple[SkillStarCount, ...]:
+        if not events:
+            return ()
+
+        slugs = tuple(event.slug for event in events)
+        with self._session_factory() as session:
+            skills = (
+                session.execute(select(Skill).where(Skill.slug.in_(slugs)).with_for_update())
+                .scalars()
+                .all()
+            )
+            skill_by_slug = {skill.slug: skill for skill in skills}
+            missing = tuple(slug for slug in slugs if slug not in skill_by_slug)
+            if missing:
+                seen: set[str] = set()
+                unique_missing: list[str] = []
+                for slug in missing:
+                    if slug in seen:
+                        continue
+                    seen.add(slug)
+                    unique_missing.append(slug)
+                raise UnknownStarEventSkillsError(slugs=tuple(unique_missing))
+
+            results: list[SkillStarCount] = []
+            for event in events:
+                skill = skill_by_slug[event.slug]
+                existing_star_id = session.execute(
+                    select(SkillUserStar.id).where(
+                        SkillUserStar.user_subject == user_subject,
+                        SkillUserStar.skill_fk == skill.id,
+                    )
+                ).scalar_one_or_none()
+                if event.action == "star" and existing_star_id is None:
+                    session.add(
+                        SkillUserStar(
+                            user_subject=user_subject,
+                            skill_fk=skill.id,
+                        )
+                    )
+                    skill.star_count += 1
+                elif event.action == "unstar" and existing_star_id is not None:
+                    session.execute(
+                        delete(SkillUserStar).where(SkillUserStar.id == existing_star_id)
+                    )
+                    skill.star_count = max(0, skill.star_count - 1)
+
+                session.add(skill)
+                session.flush()
+                results.append(SkillStarCount(slug=event.slug, star_count=int(skill.star_count)))
+            session.commit()
+
+        return tuple(results)
 
     def update_version_status(
         self,
