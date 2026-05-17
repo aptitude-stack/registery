@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, status
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from app.core.skills.models import (
@@ -27,6 +29,7 @@ from app.interface.dto.skills_telemetry import (
     StarCountResponse,
     StarEventBatchRequest,
     StarEventBatchResponse,
+    UserStarredSkillsResponse,
 )
 
 router = APIRouter(tags=["telemetry"])
@@ -73,12 +76,18 @@ def record_skill_star_events(
 ) -> StarEventBatchResponse | JSONResponse:
     """Record a batch of star/unstar events and return aggregate star counts."""
     try:
-        counts = telemetry_service.record_star_events(
-            caller=caller,
-            events=tuple(
-                StarEvent(slug=event.slug, action=event.action) for event in request.events
-            ),
-        )
+        events = tuple(StarEvent(slug=event.slug, action=event.action) for event in request.events)
+        if request.user_subject is None:
+            counts = telemetry_service.record_star_events(
+                caller=caller,
+                events=events,
+            )
+        else:
+            counts = telemetry_service.record_user_star_events(
+                caller=caller,
+                user_subject=request.user_subject,
+                events=events,
+            )
     except EmptyStarEventBatchError as exc:
         return error_response(
             request=http_request,
@@ -108,4 +117,34 @@ def record_skill_star_events(
         counts=[
             StarCountResponse(slug=count.slug, star_count=count.star_count) for count in counts
         ],
+    )
+
+
+@router.get(
+    "/catalog/user-stars",
+    operation_id="listUserStarredSkills",
+    summary="List starred skills for a trusted user subject",
+    description=(
+        "Return skill slugs starred by one authenticated user subject. The endpoint "
+        "requires a service token with the `telemetry` scope and is intended for "
+        "trusted server-side callers."
+    ),
+    response_model=UserStarredSkillsResponse,
+)
+def list_user_starred_skills(
+    user_subject: Annotated[
+        str,
+        Query(min_length=1, max_length=320, description="Trusted authenticated user subject."),
+    ],
+    telemetry_service: SkillTelemetryServiceDep,
+    caller: TelemetryCallerDep,
+) -> UserStarredSkillsResponse:
+    """Return starred skill slugs for one authenticated user subject."""
+    return UserStarredSkillsResponse(
+        starred_slugs=list(
+            telemetry_service.list_user_starred_skill_slugs(
+                caller=caller,
+                user_subject=user_subject,
+            )
+        )
     )

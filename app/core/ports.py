@@ -31,6 +31,7 @@ from app.core.skills.models import (
     SkillVersionGovernanceUpdate,
     SkillVersionListEntry,
     SkillVersionStatusUpdate,
+    StarEvent,
     TrustEvidenceRecord,
 )
 
@@ -313,6 +314,22 @@ class SkillTelemetryPort(Protocol):
         provided slugs in input order. If any slug does not exist the
         implementation must raise the persistence-level
         :class:`UnknownStarEventSkillsError` without committing any updates.
+        """
+
+    def list_user_starred_skill_slugs(self, *, user_subject: str) -> tuple[str, ...]:
+        """Return skill slugs starred by one authenticated user subject."""
+
+    def apply_user_star_events(
+        self,
+        *,
+        user_subject: str,
+        events: tuple[StarEvent, ...],
+    ) -> tuple[SkillStarCount, ...]:
+        """Apply star events idempotently for one user subject.
+
+        Implementations should increment the aggregate count only when a new
+        ``(user_subject, skill)`` row is inserted, and decrement only when an
+        existing row is removed.
         """
 
 

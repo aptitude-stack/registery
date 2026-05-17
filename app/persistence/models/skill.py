@@ -12,6 +12,7 @@ from app.persistence.models.base import Base
 
 if TYPE_CHECKING:
     from app.persistence.models.namespace import Namespace
+    from app.persistence.models.skill_user_star import SkillUserStar
     from app.persistence.models.skill_version import SkillVersion
 
 
@@ -58,3 +59,4 @@ class Skill(Base):
         foreign_keys="SkillVersion.skill_fk",
     )
     namespace: Mapped[Namespace] = relationship(back_populates="skills")
+    user_stars: Mapped[list[SkillUserStar]] = relationship(cascade="all, delete-orphan")

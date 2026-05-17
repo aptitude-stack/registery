@@ -10,6 +10,7 @@ from app.core.skills.telemetry import MAX_STAR_EVENT_BATCH_SIZE
 from app.interface.validation import SLUG_PATTERN
 
 StarEventActionLiteral = Literal["star", "unstar"]
+UserSubject = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=320)]
 
 
 class StarEventRequest(BaseModel):
@@ -30,6 +31,10 @@ class StarEventBatchRequest(BaseModel):
         list[StarEventRequest],
         Field(min_length=1, max_length=MAX_STAR_EVENT_BATCH_SIZE),
     ]
+    user_subject: UserSubject | None = Field(
+        default=None,
+        description="Trusted authenticated user subject for idempotent per-user stars.",
+    )
 
 
 class StarCountResponse(BaseModel):
@@ -44,3 +49,9 @@ class StarEventBatchResponse(BaseModel):
 
     accepted: int
     counts: list[StarCountResponse]
+
+
+class UserStarredSkillsResponse(BaseModel):
+    """Skill slugs currently starred by one authenticated user."""
+
+    starred_slugs: list[str]

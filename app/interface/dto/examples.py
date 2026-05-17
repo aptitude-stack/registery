@@ -208,10 +208,11 @@ SKILL_VERSION_STATUS_RESPONSE_EXAMPLE = {
 }
 
 STAR_EVENT_BATCH_REQUEST_EXAMPLE = {
+    "user_subject": "test1@example.com",
     "events": [
         {"slug": "python.lint", "action": "star"},
         {"slug": "python.test", "action": "unstar"},
-    ]
+    ],
 }
 
 STAR_EVENT_BATCH_RESPONSE_EXAMPLE = {

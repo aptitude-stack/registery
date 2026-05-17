@@ -10,6 +10,7 @@ from app.persistence.models.skill_content import SkillContent
 from app.persistence.models.skill_metadata import SkillMetadata
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.models.skill_search_document import SkillSearchDocument
+from app.persistence.models.skill_user_star import SkillUserStar
 from app.persistence.models.skill_version import SkillVersion
 from app.persistence.models.trust_evidence import TrustEvidence
 
@@ -24,6 +25,7 @@ __all__ = [
     "SkillMetadata",
     "SkillRelationshipSelector",
     "SkillSearchDocument",
+    "SkillUserStar",
     "SkillVersion",
     "TrustEvidence",
 ]

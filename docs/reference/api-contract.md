@@ -34,6 +34,7 @@ Protected routes:
 - `PATCH /admin/skills/{slug}/{version}/governance`
 - `POST /admin/skills/{slug}/{version}/trust-evidence`
 - `POST /catalog/star-events`
+- `GET /catalog/user-stars`
 
 ## Freeze Rule
 
@@ -245,17 +246,20 @@ Rules:
 - Consumers must not assume markdown text from this route anymore.
 - `ETag` mirrors the stored content checksum digest for the immutable artifact.
 
-## Aggregate Star Telemetry
+## Star Telemetry
 
 `POST /catalog/star-events` records an aggregate batch of star/unstar toggle
-events without storing any per-user state. The endpoint is intended for trusted
-server-side aggregation (for example, a website route handler) and not direct
-end-user traffic.
+events. When `user_subject` is present, the registry stores a per-user star
+relation and updates `star_count` idempotently. When `user_subject` is omitted,
+the endpoint preserves the legacy aggregate-only delta behavior. The endpoint is
+intended for trusted server-side aggregation (for example, a website route
+handler) and not direct end-user traffic.
 
 Request:
 
 ```json
 {
+  "user_subject": "test1@example.com",
   "events": [
     {"slug": "python.lint", "action": "star"},
     {"slug": "python.test", "action": "unstar"}
@@ -279,12 +283,33 @@ Rules:
 
 - Requires the `telemetry` scope on the bearer token.
 - `events` must contain between `1` and `100` entries.
-- Duplicate slugs in one batch coalesce into a net delta and update once.
+- With `user_subject`, `star` inserts one `(user_subject, skill)` relation and
+  increments only when the relation did not already exist. `unstar` deletes that
+  relation and decrements only when it existed.
+- Without `user_subject`, duplicate slugs in one batch coalesce into a net delta
+  and update once.
 - `star_count` is clamped at zero; surplus `unstar` events do not push it negative.
 - The full batch is rejected with `404` `STAR_EVENT_UNKNOWN_SKILL` when any
   slug does not exist; no partial updates are committed.
 - The endpoint does not enforce namespace grants. A telemetry token typically
   carries no namespace roles by design.
+
+`GET /catalog/user-stars?user_subject=test1%40example.com` returns the skill
+slugs currently starred by one trusted user subject.
+
+Response:
+
+```json
+{
+  "starred_slugs": ["python.lint", "python.test"]
+}
+```
+
+Rules:
+
+- Requires the `telemetry` scope on the bearer token.
+- `user_subject` must be supplied by a trusted server-side caller. Browsers and
+  untrusted clients must not choose this value directly.
 
 ## Authentication And Prod Posture
 
@@ -354,7 +379,8 @@ Error envelope:
 | `PATCH` | `/admin/skills/{slug}/ownership` | `admin` | `200` | Moves a skill identity into a namespace |
 | `PATCH` | `/admin/skills/{slug}/{version}/governance` | `review` | `200` | Updates review, promotion, trust-tier, or policy-pack state |
 | `POST` | `/admin/skills/{slug}/{version}/trust-evidence` | `review` | `201` | Appends trust evidence without rewriting artifact bytes |
-| `POST` | `/catalog/star-events` | `telemetry` | `200` | Records aggregate star/unstar toggle events and returns post-update counts |
+| `POST` | `/catalog/star-events` | `telemetry` | `200` | Records star/unstar toggle events and returns post-update counts |
+| `GET` | `/catalog/user-stars` | `telemetry` | `200` | Lists skill slugs starred by one trusted user subject |
 
 ## Enterprise Governance
 
