@@ -33,12 +33,14 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_relationship_selectors" in inspector.get_table_names()
         assert "skill_search_documents" in inspector.get_table_names()
         assert "skill_search_embeddings" in inspector.get_table_names()
+        assert "skill_user_stars" in inspector.get_table_names()
         assert "skill_usage_observation_runs" in inspector.get_table_names()
         assert "skill_usage_observations" in inspector.get_table_names()
         assert "skill_co_usage_pairs" in inspector.get_table_names()
         assert "skill_dependencies" not in inspector.get_table_names()
         assert "skill_relationship_edges" not in inspector.get_table_names()
         assert "skill_version_checksums" not in inspector.get_table_names()
+        user_star_columns = {column["name"] for column in inspector.get_columns("skill_user_stars")}
 
         skill_columns = {column["name"] for column in inspector.get_columns("skills")}
         metadata_columns = {column["name"] for column in inspector.get_columns("skill_metadata")}
@@ -68,6 +70,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
             "updated_at",
         } <= skill_columns
         assert "current_version_id" not in skill_columns
+        assert {"user_subject", "skill_fk", "created_at"} <= user_star_columns
 
         assert {
             "lifecycle_status",
@@ -138,6 +141,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_relationship_selectors" not in inspector.get_table_names()
         assert "skill_search_documents" not in inspector.get_table_names()
         assert "skill_search_embeddings" not in inspector.get_table_names()
+        assert "skill_user_stars" not in inspector.get_table_names()
         assert "skill_usage_observation_runs" not in inspector.get_table_names()
         assert "skill_usage_observations" not in inspector.get_table_names()
         assert "skill_co_usage_pairs" not in inspector.get_table_names()

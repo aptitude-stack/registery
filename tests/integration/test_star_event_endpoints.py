@@ -109,6 +109,82 @@ def test_star_events_apply_deltas_and_clamp_at_zero(
 
 
 @pytest.mark.integration
+def test_star_events_are_idempotent_per_user_subject(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    _set_telemetry_token(monkeypatch)
+    suffix = uuid4().hex
+    slug = f"python.lint-{suffix}"
+
+    with TestClient(create_app()) as client:
+        _publish(
+            client,
+            slug,
+            _request("1.0.0", intent="create_skill", name="Lint", description="Lint skill"),
+        )
+
+        first = client.post(
+            "/catalog/star-events",
+            json={
+                "user_subject": "test1@example.com",
+                "events": [{"slug": slug, "action": "star"}],
+            },
+            headers=_telemetry_headers(),
+        )
+        duplicate = client.post(
+            "/catalog/star-events",
+            json={
+                "user_subject": "test1@example.com",
+                "events": [{"slug": slug, "action": "star"}],
+            },
+            headers=_telemetry_headers(),
+        )
+        second_user = client.post(
+            "/catalog/star-events",
+            json={
+                "user_subject": "test2@example.com",
+                "events": [{"slug": slug, "action": "star"}],
+            },
+            headers=_telemetry_headers(),
+        )
+        starred = client.get(
+            "/catalog/user-stars",
+            params={"user_subject": "test1@example.com"},
+            headers=_telemetry_headers(),
+        )
+        unstarred = client.post(
+            "/catalog/star-events",
+            json={
+                "user_subject": "test1@example.com",
+                "events": [
+                    {"slug": slug, "action": "unstar"},
+                    {"slug": slug, "action": "unstar"},
+                ],
+            },
+            headers=_telemetry_headers(),
+        )
+        metadata = client.get(
+            f"/skills/{slug}/1.0.0",
+            headers=_headers("reader-token"),
+        )
+
+    assert first.status_code == 200, first.text
+    assert first.json()["counts"] == [{"slug": slug, "star_count": 1}]
+    assert duplicate.status_code == 200, duplicate.text
+    assert duplicate.json()["counts"] == [{"slug": slug, "star_count": 1}]
+    assert second_user.status_code == 200, second_user.text
+    assert second_user.json()["counts"] == [{"slug": slug, "star_count": 2}]
+    assert starred.status_code == 200, starred.text
+    assert starred.json() == {"starred_slugs": [slug]}
+    assert unstarred.status_code == 200, unstarred.text
+    assert unstarred.json()["counts"][-1] == {"slug": slug, "star_count": 1}
+    assert metadata.status_code == 200
+    assert metadata.json()["star_count"] == 1
+
+
+@pytest.mark.integration
 def test_star_events_reject_unknown_slug_without_committing(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,

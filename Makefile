@@ -39,7 +39,7 @@ PRODUCTION_WAIT_SLEEP_SECONDS ?= 5
 
 .PHONY: \
 	help \
-	run-dev run-prod quality test format build \
+	run-dev run-prod quality test format build rotate \
 	_ci-quality _ci-test _ci-image _ci-smoke _ci-production-smoke _ci-down \
 	_format-check _lint _format _typecheck _test _import-check \
 	_test-db-up _test-db-wait _test-db-down \
@@ -142,6 +142,9 @@ test: _test ## Run the full test suite
 format: _format ## Format the codebase with Ruff
 
 build: _image-push ## Build and push the multi-platform Docker image
+
+rotate: ## Generate production service token rotation env values
+	$(PYTHON) scripts/generate_service_token.py
 
 #-----------------------------------------------------------------------------------
 
