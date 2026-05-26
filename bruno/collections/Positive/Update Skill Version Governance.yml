@@ -12,7 +12,7 @@ http:
     - name: Content-Type
       value: application/json
     - name: Authorization
-      value: Bearer {{reviewToken}}
+      value: Bearer {{adminToken}}
   body:
     type: json
     data: |-
