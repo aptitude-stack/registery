@@ -5,8 +5,9 @@ Use this benchmark before changing semantic discovery tuning such as
 
 The benchmark creates deterministic synthetic skills under a reserved
 `benchmark.semantic.*` slug prefix, inserts deterministic `indexed` semantic
-vectors, compares approximate HNSW results against an exact scan baseline, and
-then removes the benchmark rows by default. It does not call OpenAI.
+vectors, compares approximate HNSW results against an exact scan baseline,
+measures retrieval quality against the expected synthetic family, and then
+removes the benchmark rows by default. It does not call OpenAI.
 
 ## Run
 
@@ -36,9 +37,10 @@ The command prints a concise table followed by one JSON object on the final
 line. The JSON includes:
 
 - `semantic_hnsw`: recall and latency for each `hnsw.ef_search` value compared
-  with an exact semantic baseline
+  with an exact semantic baseline, plus quality metrics against the expected
+  synthetic family
 - `discovery`: end-to-end `off`, `shadow`, and `hybrid` discovery latency and
-  benchmark-cluster recall
+  benchmark-cluster recall, plus ranking quality metrics
 - `cleanup`: whether benchmark rows were deleted
 
 Use the final JSON line for saved artifacts or automated comparisons.
@@ -49,6 +51,20 @@ Exact baseline means the query disables index scans with
 `SET LOCAL enable_indexscan = off`, then orders by cosine distance. HNSW recall
 is the overlap between approximate top-k results and that exact top-k result
 set.
+
+Quality metrics use the deterministic synthetic family as the relevance label:
+
+- `hit_rate_at_k`: whether at least one expected-family result appears in the
+  returned top-k list
+- `mrr_at_k`: reciprocal rank of the first expected-family result
+- `ndcg_at_k`: ranking quality with higher credit for expected-family results
+  near the top
+- `relevant_recall_at_k`: how much of the expected-family top-k capacity was
+  filled by expected-family results
+
+Use HNSW `recall@k` to tune ANN approximation against exact vector search. Use
+the quality metrics to compare whether semantic and hybrid discovery modes
+return the expected synthetic family early in the final ranked candidates.
 
 Start with the checked-in values:
 

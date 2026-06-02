@@ -48,8 +48,11 @@ def run_check(
     """Send one embedding request using the configured production settings."""
     if not settings.openai_api_key:
         return CheckResult(
-            exit_code=1,
-            message="OpenAI embedding check failed: OPENAI_API_KEY is required.",
+            exit_code=0,
+            message=(
+                "OpenAI embedding check warning: OPENAI_API_KEY is not configured; "
+                "semantic discovery is unavailable and deployment will use lexical-only discovery."
+            ),
         )
 
     try:
@@ -62,9 +65,10 @@ def run_check(
         )
     except Exception as exc:  # noqa: BLE001 - deploy check should report provider failures clearly.
         return CheckResult(
-            exit_code=1,
+            exit_code=0,
             message=(
-                "OpenAI embedding check failed "
+                "OpenAI embedding check warning: semantic discovery is unavailable; "
+                "deployment will use lexical-only discovery. Provider check failed "
                 f"for model={settings.semantic_embedding_model!r}, "
                 f"dimensions={settings.semantic_embedding_dimensions}: "
                 f"{type(exc).__name__}: {exc}"
