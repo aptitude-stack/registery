@@ -17,7 +17,7 @@ from app.core.skills.bundle_archive import (
 def test_demo_catalog_contains_expected_versions_relationships_and_sections() -> None:
     catalog = build_demo_catalog()
 
-    assert len(catalog) == 10
+    assert len(catalog) == 11
 
     by_coordinate = {(entry.command.slug, entry.command.version): entry for entry in catalog}
     assert set(by_coordinate) == {
@@ -30,6 +30,7 @@ def test_demo_catalog_contains_expected_versions_relationships_and_sections() ->
         ("python.test", "1.0.0"),
         ("python.security.scan", "1.0.0"),
         ("python.legacy.audit", "0.9.0"),
+        ("documentation-writing", "1.0.0"),
         ("python.bundle.code-quality", "1.0.0"),
     }
 
@@ -39,6 +40,7 @@ def test_demo_catalog_contains_expected_versions_relationships_and_sections() ->
     test_v1 = by_coordinate[("python.test", "1.0.0")]
     security_v1 = by_coordinate[("python.security.scan", "1.0.0")]
     legacy_v1 = by_coordinate[("python.legacy.audit", "0.9.0")]
+    documentation_v1 = by_coordinate[("documentation-writing", "1.0.0")]
     bundle_v1 = by_coordinate[("python.bundle.code-quality", "1.0.0")]
 
     assert lint_v1.desired_lifecycle_status == "deprecated"
@@ -64,6 +66,15 @@ def test_demo_catalog_contains_expected_versions_relationships_and_sections() ->
     assert security_v1.command.governance.trust_tier == "verified"
     assert security_v1.command.relationships.conflicts_with[0].slug == "python.legacy.audit"
     assert security_v1.command.relationships.conflicts_with[0].version == "0.9.0"
+
+    assert documentation_v1.command.metadata.name == "Documentation Writing"
+    assert documentation_v1.command.metadata.tags == (
+        "documentation",
+        "docs",
+        "writing",
+        "guides",
+        "reference",
+    )
 
     assert bundle_v1.command.relationships.depends_on[0].slug == "python.lint"
     assert bundle_v1.command.relationships.depends_on[1].slug == "python.format"

@@ -50,7 +50,11 @@ from app.core.skills.models import (
     SkillVersionListEntry,
     SkillVersionStatusUpdate,
 )
-from app.core.skills.normalization import normalize_search_text, normalize_tag_list
+from app.core.skills.normalization import (
+    expand_search_aliases,
+    normalize_search_text,
+    normalize_tag_list,
+)
 from app.persistence.models.skill_version import SkillVersion
 
 RELATIONSHIP_EDGE_ORDER: dict[RelationshipEdgeType, int] = {
@@ -82,17 +86,19 @@ SEARCH_CANDIDATES_SQL = text(
             doc.content_size_bytes,
             doc.usage_count,
             CASE
-                WHEN :query_text IS NOT NULL AND doc.normalized_slug = :query_text THEN TRUE
+                WHEN :identity_query_text IS NOT NULL
+                    AND doc.normalized_slug = :identity_query_text THEN TRUE
                 ELSE FALSE
             END AS exact_slug_match,
             CASE
-                WHEN :query_text IS NOT NULL AND doc.normalized_name = :query_text THEN TRUE
+                WHEN :identity_query_text IS NOT NULL
+                    AND doc.normalized_name = :identity_query_text THEN TRUE
                 ELSE FALSE
             END AS exact_name_match,
             CASE
-                WHEN :query_text IS NOT NULL THEN ts_rank_cd(
+                WHEN :full_text_query_text IS NOT NULL THEN ts_rank_cd(
                     doc.search_vector,
-                    plainto_tsquery('simple'::regconfig, :query_text)
+                    plainto_tsquery('simple'::regconfig, :full_text_query_text)
                 )
                 ELSE 0.0
             END AS lexical_score,
@@ -108,10 +114,16 @@ SEARCH_CANDIDATES_SQL = text(
         LEFT JOIN policy_packs AS pack
             ON pack.slug = doc.policy_pack_slug
         WHERE (
-            :query_text IS NULL
-            OR doc.search_vector @@ plainto_tsquery('simple'::regconfig, :query_text)
-            OR doc.normalized_slug = :query_text
-            OR doc.normalized_name = :query_text
+            (:identity_query_text IS NULL AND :full_text_query_text IS NULL)
+            OR (
+                :full_text_query_text IS NOT NULL
+                AND doc.search_vector @@ plainto_tsquery(
+                    'simple'::regconfig,
+                    :full_text_query_text
+                )
+            )
+            OR doc.normalized_slug = :identity_query_text
+            OR doc.normalized_name = :identity_query_text
             OR (
                 :query_contains_pattern IS NOT NULL
                 AND (
@@ -199,7 +211,8 @@ SEARCH_CANDIDATES_SQL = text(
     LIMIT :limit
     """
 ).bindparams(
-    bindparam("query_text", type_=Text()),
+    bindparam("identity_query_text", type_=Text()),
+    bindparam("full_text_query_text", type_=Text()),
     bindparam("query_contains_pattern", type_=Text()),
     bindparam("required_tags", type_=ARRAY(Text())),
     bindparam("required_tag_count", type_=Integer()),
@@ -394,10 +407,13 @@ def build_search_document(
 
 def build_search_document_source(*, slug: str, metadata: MetadataRecordInput) -> str:
     """Combine immutable searchable fields into one deterministic text source."""
-    parts = [normalize_search_text(slug) or "", normalize_search_text(metadata.name) or ""]
+    parts = [
+        expand_search_aliases(slug) or "",
+        expand_search_aliases(metadata.name) or "",
+    ]
     if metadata.description is not None:
-        parts.append(normalize_search_text(metadata.description) or "")
-    parts.extend(normalize_tag_list(metadata.tags))
+        parts.append(expand_search_aliases(metadata.description) or "")
+    parts.extend(expand_search_aliases(tag) or "" for tag in normalize_tag_list(metadata.tags))
     return " ".join(part for part in parts if part)
 
 

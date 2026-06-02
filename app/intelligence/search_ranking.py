@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.core.skills.normalization import normalize_search_text, normalize_tag, normalize_tag_list
+from app.core.skills.normalization import (
+    expand_search_aliases,
+    normalize_search_text,
+    normalize_tag,
+    normalize_tag_list,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,6 +17,7 @@ class NormalizedSkillSearchRequest:
     """Pure normalized representation of a search request."""
 
     query_text: str | None
+    full_text_query_text: str | None
     query_terms: tuple[str, ...]
     tags: tuple[str, ...]
     language: str | None
@@ -49,6 +55,7 @@ def normalize_search_request(
 ) -> NormalizedSkillSearchRequest:
     """Normalize external search inputs into a deterministic internal shape."""
     normalized_query = normalize_search_text(q)
+    full_text_query = expand_search_aliases(normalized_query)
     normalized_tags = normalize_tag_list(tags)
     normalized_language = normalize_tag(language)
     effective_values: tuple[str, ...] = normalized_tags
@@ -58,6 +65,7 @@ def normalize_search_request(
 
     return NormalizedSkillSearchRequest(
         query_text=normalized_query,
+        full_text_query_text=full_text_query,
         query_terms=tokenize_query(normalized_query),
         tags=normalized_tags,
         language=normalized_language,
