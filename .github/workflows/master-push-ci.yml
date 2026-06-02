@@ -75,6 +75,9 @@ jobs:
       - name: Install production dependencies
         run: uv sync --frozen --no-dev
 
+      - name: Verify OpenAI embedding configuration
+        run: uv run python scripts/check_openai_embeddings.py
+
       - name: Migrate Neon to Alembic head
         run: uv run alembic upgrade head
 
