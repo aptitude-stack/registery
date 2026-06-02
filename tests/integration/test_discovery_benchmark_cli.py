@@ -48,6 +48,7 @@ def test_discovery_benchmark_cli_reports_recall_latency_and_cleans_up(
     )
 
     assert result.returncode == 0, result.stderr
+    assert "semantic discovery degraded to lexical fallback" not in result.stderr
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["config"]["skills"] == 30
     assert payload["config"]["queries"] == 3
@@ -55,6 +56,9 @@ def test_discovery_benchmark_cli_reports_recall_latency_and_cleans_up(
     assert payload["semantic_hnsw"][0]["recall_at_k"] >= 0.0
     assert payload["semantic_hnsw"][0]["latency"]["p95_ms"] >= 0.0
     assert {row["mode"] for row in payload["discovery"]} == {"off", "shadow", "hybrid"}
+    assert any(
+        row["mode"] == "hybrid" and row["cluster_recall_at_k"] > 0.0 for row in payload["discovery"]
+    )
     assert payload["cleanup"] == {"enabled": True, "deleted_skill_count": 30}
 
     engine = create_engine(migrated_registry_database)

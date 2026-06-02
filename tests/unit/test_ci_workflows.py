@@ -119,6 +119,7 @@ def test_master_push_ci_migrates_deploys_and_smokes_production_after_final_gate(
     assert "run: make _ci-down" not in document
     assert "DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}" in document
     assert "MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}" in document
+    assert 'SEMANTIC_DISCOVERY_MODE: "off"' in document
     assert "RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}" in document
     assert "uv run alembic upgrade head" in document
     assert "uv run python scripts/check_alembic_at_head.py" in document
