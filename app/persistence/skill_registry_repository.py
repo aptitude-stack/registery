@@ -5,7 +5,20 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Integer,
+    Text,
+    bindparam,
+    delete,
+    func,
+    select,
+    text,
+    update,
+)
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload, selectinload, sessionmaker
@@ -421,9 +434,8 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         vector_type = f"halfvec({request.embedding_dimensions})"
         with self._session_factory() as session:
             session.execute(text(f"SET LOCAL hnsw.ef_search = {request.hnsw_ef_search}"))
-            rows = session.execute(
-                text(
-                    f"""
+            semantic_statement = text(
+                f"""
                     SELECT
                         doc.skill_version_fk,
                         doc.slug,
@@ -490,7 +502,25 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     ORDER BY semantic_distance ASC, doc.slug ASC, doc.skill_version_fk DESC
                     LIMIT :limit
                     """
-                ),
+            ).bindparams(
+                bindparam("query_embedding", type_=Text()),
+                bindparam("embedding_model", type_=Text()),
+                bindparam("embedding_dimensions", type_=Integer()),
+                bindparam("required_tags", type_=ARRAY(Text())),
+                bindparam("required_tag_count", type_=Integer()),
+                bindparam("published_after", type_=DateTime(timezone=True)),
+                bindparam("max_content_size_bytes", type_=BigInteger()),
+                bindparam("lifecycle_statuses", type_=ARRAY(Text())),
+                bindparam("trust_tiers", type_=ARRAY(Text())),
+                bindparam("namespaces", type_=ARRAY(Text())),
+                bindparam("namespaces_unrestricted", type_=Boolean()),
+                bindparam("promotion_channels", type_=ARRAY(Text())),
+                bindparam("promotion_channels_unrestricted", type_=Boolean()),
+                bindparam("review_states", type_=ARRAY(Text())),
+                bindparam("limit", type_=Integer()),
+            )
+            rows = session.execute(
+                semantic_statement,
                 {
                     "query_embedding": query_embedding,
                     "embedding_model": request.embedding_model,

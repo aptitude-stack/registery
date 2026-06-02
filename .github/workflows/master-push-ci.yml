@@ -51,12 +51,14 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
 
     steps:
       - name: Check required deployment secrets
         run: |
           : "${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL GitHub secret is required}"
+          : "${OPENAI_API_KEY:?OPENAI_API_KEY GitHub secret is required}"
           : "${RENDER_DEPLOY_HOOK_URL:?RENDER_DEPLOY_HOOK_URL GitHub secret is required}"
 
       - name: Check out repository
@@ -72,6 +74,9 @@ jobs:
 
       - name: Install production dependencies
         run: uv sync --frozen --no-dev
+
+      - name: Verify OpenAI embedding configuration
+        run: uv run python scripts/check_openai_embeddings.py
 
       - name: Migrate Neon to Alembic head
         run: uv run alembic upgrade head
