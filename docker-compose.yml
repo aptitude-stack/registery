@@ -60,6 +60,7 @@ services:
       LOG_LEVEL: INFO
       PORT: 8000
       UVICORN_RELOAD: "false"
+      SEMANTIC_DISCOVERY_MODE: "off"
       OTEL_ENABLED: "false"
       OTEL_SDK_DISABLED: "true"
     ports:
@@ -82,6 +83,7 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
       ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
+      SEMANTIC_DISCOVERY_MODE: "off"
       OTEL_ENABLED: "false"
       OTEL_SDK_DISABLED: "true"
     command: ["alembic", "upgrade", "head"]
@@ -101,6 +103,7 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
       ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
+      SEMANTIC_DISCOVERY_MODE: "off"
       OTEL_ENABLED: "false"
       OTEL_SDK_DISABLED: "true"
     command: ["python", "-m", "app.bootstrap.seed_demo"]

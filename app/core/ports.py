@@ -130,7 +130,8 @@ class CreateSkillVersionRecord:
 class SearchCandidatesRequest:
     """Normalized discovery request sent to the persistence search adapter."""
 
-    query_text: str | None
+    identity_query_text: str | None
+    full_text_query_text: str | None
     required_tags: tuple[str, ...]
     fresh_within_days: int | None
     max_content_size_bytes: int | None

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Literal
 
+SemanticDiscoveryMode = Literal["off", "shadow", "hybrid"]
 SemanticEmbeddingProvider = Literal["openai"]
 
-DEFAULT_SEMANTIC_DISCOVERY_MODE: Literal["off"] = "off"
+DEFAULT_SEMANTIC_DISCOVERY_MODE: SemanticDiscoveryMode = "hybrid"
 DEFAULT_SEMANTIC_EMBEDDING_PROVIDER: SemanticEmbeddingProvider = "openai"
 DEFAULT_SEMANTIC_EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION = "description-tags-v1"

@@ -40,10 +40,7 @@ class SkillDiscoveryService(SkillSearchService):
                 max_footprint_bytes=None,
                 limit=20,
                 context_skills=request.context_skills,
-                semantic_text=build_semantic_query_source(
-                    description=request.description,
-                    tags=request.tags,
-                ),
+                semantic_text=_semantic_query_text(request),
                 semantic_text_is_explicit=True,
             ),
         )
@@ -55,3 +52,11 @@ def _query_text(request: SkillDiscoveryRequest) -> str:
     if request.description:
         parts.append(request.description)
     return " ".join(parts)
+
+
+def _semantic_query_text(request: SkillDiscoveryRequest) -> str:
+    source = build_semantic_query_source(
+        description=request.description,
+        tags=request.tags,
+    )
+    return source or request.name

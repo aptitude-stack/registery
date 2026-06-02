@@ -89,6 +89,7 @@ def default_auth_service_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
         json.dumps(DEFAULT_AUTH_SERVICE_TOKENS),
     )
     monkeypatch.setenv("ALLOWED_HOSTS_JSON", json.dumps(DEFAULT_ALLOWED_HOSTS))
+    monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "off")
 
 
 @pytest.fixture(autouse=True)
@@ -104,6 +105,7 @@ def dummy_settings_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
                 "APP_ENV=prod",
                 "LOG_LEVEL=DEBUG",
                 "APP_NAME=aptitude-test",
+                "SEMANTIC_DISCOVERY_MODE=off",
             ]
         ),
         encoding="utf-8",

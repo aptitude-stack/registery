@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+SEARCH_TOKEN_ALIASES: dict[str, tuple[str, ...]] = {
+    "doc": ("documentation",),
+    "docs": ("documentation",),
+}
+
 
 def normalize_search_text(value: str | None) -> str | None:
     """Normalize free-text input into a compact lowercase string."""
@@ -12,6 +17,22 @@ def normalize_search_text(value: str | None) -> str | None:
 
     normalized = " ".join(value.split()).strip().lower()
     return normalized or None
+
+
+def expand_search_aliases(value: str | None) -> str | None:
+    """Expand bounded search aliases while preserving original token order."""
+    normalized = normalize_search_text(value)
+    if normalized is None:
+        return None
+
+    expanded: list[str] = []
+    seen: set[str] = set()
+    for token in normalized.split():
+        for candidate in (token, *SEARCH_TOKEN_ALIASES.get(token, ())):
+            if candidate not in seen:
+                expanded.append(candidate)
+                seen.add(candidate)
+    return " ".join(expanded) or None
 
 
 def normalize_tag(value: str | None) -> str | None:

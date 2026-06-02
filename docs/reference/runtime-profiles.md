@@ -96,8 +96,10 @@ Tests and CI are execution environments, not runtime profiles.
 - `ACTIVE_POLICY_PROFILE`: selects which policy profile is active at runtime; defaults to `default`
 - `LOG_LEVEL`, `LOG_FORMAT`: logging configuration
 - `OTEL_ENABLED` plus standard `OTEL_EXPORTER_OTLP_*` env vars: OpenTelemetry/Grafana Cloud configuration (see `observability-grafana-cloud.md`)
-- `OPENAI_API_KEY`: required only when semantic discovery/indexing calls OpenAI
-- `SEMANTIC_DISCOVERY_MODE`: `off`, `shadow`, or `hybrid`; defaults to `off`
+- `OPENAI_API_KEY`: required for default hybrid semantic discovery, `shadow`,
+  and indexing calls that use OpenAI; not required when
+  `SEMANTIC_DISCOVERY_MODE=off`
+- `SEMANTIC_DISCOVERY_MODE`: `off`, `shadow`, or `hybrid`; defaults to `hybrid`
 - `SEMANTIC_EMBEDDING_PROVIDER`: embedding provider, currently `openai`
 - `SEMANTIC_EMBEDDING_MODEL`: provider model sent to OpenAI, currently `text-embedding-3-small`
 - `SEMANTIC_EMBEDDING_INDEX_KEY`: persisted embedding compatibility key, currently `openai:text-embedding-3-small:description-tags-v1`
@@ -152,8 +154,8 @@ create new `APP_ENV` values.
 
 ## Semantic Indexing
 
-Semantic discovery is off by default and remains optional. The app can boot
-without `OPENAI_API_KEY` while `SEMANTIC_DISCOVERY_MODE=off`.
+Semantic discovery is hybrid by default. The app can boot without
+`OPENAI_API_KEY` only when `SEMANTIC_DISCOVERY_MODE=off` is set explicitly.
 
 Use the local indexer for development backfills and emergency production
 fallbacks:
@@ -168,15 +170,14 @@ The indexer creates missing pending rows for the active
 then marks rows `indexed` or `failed`. Provider failures do not affect publish,
 exact fetch, resolution, lifecycle changes, or lexical discovery.
 
-Rollout order:
+Operational modes:
 
-1. Run indexing with semantic discovery still `off`.
-2. Enable `SEMANTIC_DISCOVERY_MODE=shadow` to exercise provider and SQL paths
+1. Use the default `hybrid` mode for normal runtime discovery when
+   `OPENAI_API_KEY` and indexed rows are available.
+2. Use `SEMANTIC_DISCOVERY_MODE=shadow` to exercise provider and SQL paths
    without changing public ordering.
-3. Move to `hybrid` only after indexed-row counts, failures, and latency are
-   acceptable.
-4. Roll back by setting `SEMANTIC_DISCOVERY_MODE=off`; no database rollback is
-   required.
+3. Use `SEMANTIC_DISCOVERY_MODE=off` for lexical-only startup or rollback; no
+   database rollback is required.
 
 In production, `render.yaml` owns the Cron trigger for the semantic indexing
 Workflow task. The Workflow service itself remains configured in the Render

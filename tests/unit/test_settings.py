@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from app.core.governance import build_default_policy_profile
 from app.core.semantic_defaults import (
     DEFAULT_SEMANTIC_CANDIDATE_LIMIT,
+    DEFAULT_SEMANTIC_DISCOVERY_MODE,
     DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
     DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
     DEFAULT_SEMANTIC_EMBEDDING_MODEL,
@@ -36,6 +37,7 @@ def test_settings_load_valid_environment(
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_FORMAT", "pretty")
     monkeypatch.setenv("APP_NAME", "aptitude-test")
+    monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "off")
     if app_env == "prod":
         monkeypatch.setenv("ALLOWED_HOSTS_JSON", json.dumps(DEFAULT_ALLOWED_HOSTS))
 
@@ -63,6 +65,40 @@ def test_settings_load_valid_environment(
     assert settings.semantic_hnsw_ef_search == DEFAULT_SEMANTIC_HNSW_EF_SEARCH
     assert settings.co_usage_ranking_enabled is False
     assert settings.co_usage_boost_cap == 0.05
+
+
+@pytest.mark.unit
+def test_settings_default_semantic_discovery_mode_is_hybrid_with_provider_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
+    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.delenv("SEMANTIC_DISCOVERY_MODE", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert DEFAULT_SEMANTIC_DISCOVERY_MODE == "hybrid"
+    assert settings.semantic_discovery_mode == "hybrid"
+
+
+@pytest.mark.unit
+def test_settings_explicit_semantic_off_does_not_require_openai_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/aptitude",
+    )
+    monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "off")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.semantic_discovery_mode == "off"
+    assert settings.openai_api_key is None
 
 
 @pytest.mark.unit

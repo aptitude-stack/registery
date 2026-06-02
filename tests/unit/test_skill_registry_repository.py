@@ -12,6 +12,7 @@ from app.core.ports import (
 )
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.skill_registry_repository_support import (
+    SEARCH_CANDIDATES_SQL,
     build_contains_pattern,
     build_search_document_source,
     classify_integrity_error,
@@ -66,6 +67,33 @@ def test_build_search_document_source_combines_searchable_fields() -> None:
     assert "python hard cut source" in source
     assert "hard cut discovery candidate" in source
     assert "hard-cut" in source
+
+
+def test_build_search_document_source_expands_known_search_aliases() -> None:
+    source = build_search_document_source(
+        slug="documentation-writing",
+        metadata=MetadataRecordInput(
+            name="Documentation Writing",
+            description="Write long-form docs and reference guides.",
+            tags=("documentation", "writing"),
+            inputs_schema=None,
+            outputs_schema=None,
+            token_estimate=None,
+            maturity_score=None,
+            security_score=None,
+        ),
+    )
+
+    assert "docs documentation" in source
+
+
+def test_search_sql_uses_identity_query_separately_from_full_text_query() -> None:
+    sql = " ".join(str(SEARCH_CANDIDATES_SQL).split())
+
+    assert "doc.search_vector @@ plainto_tsquery(" in sql
+    assert ":full_text_query_text" in sql
+    assert "doc.normalized_slug = :identity_query_text" in sql
+    assert "doc.normalized_name = :identity_query_text" in sql
 
 
 def test_classify_integrity_error_returns_typed_duplicate_version_error() -> None:

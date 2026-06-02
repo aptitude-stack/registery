@@ -19,11 +19,11 @@ flowchart TD
     A["Discovery request: {name, description, tags, context_skills?}"] --> B["DTO validation and normalization"]
     B --> C["Build lexical text from name + description"]
     B --> D["Build semantic text from description + tags"]
-    C --> E["Normalize query and tags"]
+    C --> E["Normalize query, expand bounded aliases, and split identity vs full-text text"]
     D --> E
     E --> F["Resolve governance filters"]
     F --> G["Lexical search over skill_search_documents"]
-    F --> H["Optional semantic expansion over skill_search_embeddings"]
+    F --> H["Hybrid semantic expansion over skill_search_embeddings unless explicitly disabled"]
     G --> I["Conservative RRF fusion"]
     H --> I
     I --> J["Optional bounded co-usage boost"]
@@ -62,8 +62,10 @@ When semantic discovery is enabled, the semantic query text is built from:
 - `description`, if present
 - normalized `tags`
 
-The required `name` is not semantic input. If a request contains only `name`
-and no description or tags, semantic expansion is skipped.
+If both description and tags are absent, semantic retrieval falls back to the
+required `name`. This keeps short search-box requests such as `docs` eligible
+for semantic recall while the stored semantic index still excludes slug and
+name. Set `SEMANTIC_DISCOVERY_MODE=off` for explicit lexical-only behavior.
 
 ## Search Data Model
 
@@ -108,10 +110,15 @@ At publish time, the repository builds one normalized text source from:
 That source is turned into a PostgreSQL full-text `tsvector` using the
 `simple` text search configuration.
 
+Before storage, bounded lexical aliases are expanded for known catalog
+abbreviations. For example, `doc` and `docs` add the `documentation` token. This
+is deliberately a small recall aid for expected catalog vocabulary, not a broad
+synonym engine.
+
 Conceptually, the stored searchable document is:
 
 ```text
-normalize(slug) + " " + normalize(name) + " " + normalize(description) + " " + normalize(tags...)
+expand_aliases(normalize(slug)) + " " + expand_aliases(normalize(name)) + " " + expand_aliases(normalize(description)) + " " + expand_aliases(normalize(tags...))
 ```
 
 ## What Goes Into Semantic Embeddings
@@ -131,9 +138,11 @@ Query semantic source:
 normalize(request.description) + " " + normalize(request.tags...)
 ```
 
-Slug and name remain lexical identity signals for exact, near-exact, and
-substring lookup. Tags have two roles: hard containment filters when requested,
-and semantic source text when embeddings are generated.
+If a query has no description or tags, the runtime semantic query source falls
+back to `normalize(request.name)`. Slug and name remain lexical identity signals
+for exact, near-exact, and substring lookup. Tags have two roles: hard
+containment filters when requested, and semantic source text when embeddings are
+generated.
 
 ## Query Normalization
 
@@ -142,6 +151,9 @@ Before hitting the database, the core search layer:
 - lowercases text
 - collapses repeated whitespace
 - tokenizes the query into terms
+- expands bounded aliases such as `doc`/`docs` to `documentation`
+- keeps the original normalized query for exact slug/name and substring lookup
+- sends the alias-expanded query to PostgreSQL full-text search and `ts_rank_cd`
 - normalizes tags
 - applies a hard limit of `20` results for discovery
 
@@ -158,7 +170,7 @@ passes governance and structured filters and matches at least one text path.
 This is the main lexical search path:
 
 - the document side uses `to_tsvector('simple', ...)`
-- the query side uses `plainto_tsquery('simple', :query_text)`
+- the query side uses `plainto_tsquery('simple', :full_text_query_text)`
 - the boolean match operator is `search_vector @@ tsquery`
 
 `plainto_tsquery` turns plain user text into a Postgres full-text query. In
@@ -184,15 +196,15 @@ With the `simple` configuration, this search is lexical and conservative:
 
 ### 2. Exact Slug Match
 
-If normalized query text exactly equals `normalized_slug`, the row receives an
-`exact_slug_match` flag.
+If the original normalized query text exactly equals `normalized_slug`, the row
+receives an `exact_slug_match` flag.
 
 This is both a match path and the strongest ranking signal.
 
 ### 3. Exact Name Match
 
-If normalized query text exactly equals `normalized_name`, the row receives an
-`exact_name_match` flag.
+If the original normalized query text exactly equals `normalized_name`, the row
+receives an `exact_name_match` flag.
 
 ### 4. Substring Match on Slug or Name
 
@@ -264,11 +276,13 @@ lexical candidates in this order:
 8. lexical slug ordering for stable ties
 9. higher internal version row id as the last tie-break
 
-If `SEMANTIC_DISCOVERY_MODE=shadow`, semantic retrieval runs but the public
-ordering remains lexical-only. If `SEMANTIC_DISCOVERY_MODE=hybrid`, semantic
-search may add a small bounded set of eligible candidates and contribute to
-ranking through conservative reciprocal rank fusion over lexical and semantic
-rank positions. Fusion is conservative:
+Search is hybrid by default and requires a configured embedding provider such
+as OpenAI. `SEMANTIC_DISCOVERY_MODE=off` is the explicit lexical-only escape
+hatch. If `SEMANTIC_DISCOVERY_MODE=shadow`, semantic retrieval runs but the
+public ordering remains lexical-only. If `SEMANTIC_DISCOVERY_MODE=hybrid`,
+semantic search may add a small bounded set of eligible candidates and
+contribute to ranking through conservative reciprocal rank fusion over lexical
+and semantic rank positions. Fusion is conservative:
 
 - exact slug/name matches always win
 - overlapping lexical and semantic candidates receive both rank signals
@@ -414,7 +428,7 @@ match through text or tags.
 Discovery candidate selection in `Aptitude Registry` is:
 
 - indexed
-- lexical
+- hybrid by default, with explicit lexical-only mode
 - metadata-driven
 - governance-aware
 - deterministic

@@ -4,6 +4,7 @@ These runbooks cover the live operational surfaces for local validation and prod
 
 - [`publish-failures.md`](publish-failures.md)
 - [`discovery-latency-regression.md`](discovery-latency-regression.md)
+- [`discovery-semantic-benchmark.md`](discovery-semantic-benchmark.md)
 - [`resolution-failures.md`](resolution-failures.md)
 - [`fetch-failures.md`](fetch-failures.md)
 - [`governance-denials.md`](governance-denials.md)

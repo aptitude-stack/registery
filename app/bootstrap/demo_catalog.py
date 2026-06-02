@@ -580,6 +580,60 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
+            slug="documentation-writing",
+            version="1.0.0",
+            name="Documentation Writing",
+            description="Internal workflow for writing documentation, docs, guides, and API references.",
+            tags=("documentation", "docs", "writing", "guides", "reference"),
+            trust_tier="internal",
+            token_estimate=520,
+            maturity_score=0.9,
+            security_score=0.93,
+            publisher_identity="ci/demo-documentation",
+            content=_markdown(
+                title="Documentation Writing",
+                purpose=(
+                    "Write clear technical documentation for projects, APIs, workflows, and operational "
+                    "guides while keeping structure, audience, and maintenance needs explicit."
+                ),
+                when_to_use=(
+                    "Use this when a user asks for docs, documentation, guides, references, tutorials, "
+                    "or other written technical material that should be easy to scan and maintain."
+                ),
+                prerequisites=(
+                    "- Source material or repository context available\n"
+                    "- Target audience and document purpose understood\n"
+                    "- Existing docs conventions reviewed when present"
+                ),
+                inputs=("- `topic`\n- `audience`\n- `source_paths`\n- `document_type`"),
+                outputs=(
+                    "- Draft or revised documentation\n"
+                    "- Clear section structure\n"
+                    "- Notes on assumptions and follow-up source gaps"
+                ),
+                steps=(
+                    "1. Identify the reader goal and choose the appropriate documentation shape.\n"
+                    "2. Gather relevant source material from code, examples, and existing docs.\n"
+                    "3. Draft concise sections with accurate commands, paths, and examples.\n"
+                    "4. Remove stale or redundant wording while preserving public contracts.\n"
+                    "5. Return the updated document and verification notes."
+                ),
+                examples=(
+                    "- Write an API usage guide from endpoint tests.\n"
+                    "- Clean up a contributor reference after runtime changes.\n"
+                    "- Add operator documentation for a new deployment setting."
+                ),
+                failure_modes=(
+                    "- Writing from incomplete source context can create inaccurate guarantees.\n"
+                    "- Mixing tutorials and references makes docs harder to maintain.\n"
+                    "- Unverified commands or examples drift quickly from the implementation."
+                ),
+                version_notes=(
+                    "- `1.0.0`: initial documentation-writing workflow for docs, guides, and references."
+                ),
+            ),
+        ),
+        _entry(
             slug="python.bundle.code-quality",
             version="1.0.0",
             name="Python Code Quality Bundle",
@@ -735,6 +789,7 @@ def _provenance(*, slug: str, version: str, publisher_identity: str) -> Provenan
         ("python.test", "1.0.0"): "4444444444444444444444444444444444444444",
         ("python.security.scan", "1.0.0"): "5555555555555555555555555555555555555555",
         ("python.legacy.audit", "0.9.0"): "6666666666666666666666666666666666666666",
+        ("documentation-writing", "1.0.0"): "8888888888888888888888888888888888888888",
         ("python.bundle.code-quality", "1.0.0"): "7777777777777777777777777777777777777777",
     }
     return ProvenanceMetadata(
