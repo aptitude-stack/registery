@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from app.core.ports import MetadataRecordInput
-from app.core.skills.normalization import normalize_search_text, normalize_tag_list
+from app.core.skills.normalization import (
+    expand_search_aliases,
+    normalize_search_text,
+    normalize_tag_list,
+)
 from app.intelligence.search_ranking import normalize_search_request
 from app.persistence.skill_registry_repository_support import build_search_document_source
 
@@ -35,4 +39,23 @@ def test_shared_normalization_aligns_search_documents_and_queries() -> None:
     assert normalize_tag_list(("Lint", "python", "lint")) == ("lint", "python")
     assert "python.lint" in document_source
     assert normalized_request.query_text == "python lint"
+    assert normalized_request.full_text_query_text == "python lint"
     assert normalized_request.effective_tags == ("lint", "python")
+
+
+def test_search_alias_expansion_is_deterministic_and_deduplicated() -> None:
+    assert expand_search_aliases("docs doc documentation writing") == (
+        "docs documentation doc writing"
+    )
+
+    normalized_request = normalize_search_request(
+        q="docs",
+        tags=(),
+        language=None,
+        fresh_within_days=None,
+        max_footprint_bytes=None,
+        limit=20,
+    )
+
+    assert normalized_request.query_text == "docs"
+    assert normalized_request.full_text_query_text == "docs documentation"

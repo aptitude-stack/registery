@@ -68,3 +68,35 @@ def test_discovery_queries_search_documents_without_touching_skill_contents(
     assert response.json()["candidates"] == [slug]
     assert any("skill_search_documents" in statement for statement in executed_selects)
     assert all("skill_contents" not in statement for statement in executed_selects)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_word", ["docs", "documentation", "writing"])
+def test_discovery_word_queries_return_expected_documentation_skill(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+    query_word: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+
+    with TestClient(create_app()) as client:
+        _publish(
+            client,
+            "documentation-writing",
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                raw_markdown="# Documentation Writing\n\nWrite docs, guides, and references.\n",
+                name="Documentation Writing",
+                description="Write documentation, docs, guides, and API references.",
+                tags=["documentation", "docs", "writing"],
+            ),
+        )
+        response = client.post(
+            "/discovery",
+            json={"name": query_word},
+            headers=_headers("reader-token"),
+        )
+
+    assert response.status_code == 200
+    assert "documentation-writing" in response.json()["candidates"]

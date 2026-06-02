@@ -467,3 +467,35 @@ def test_catalog_search_returns_visible_current_default_metadata_in_discovery_or
     assert invalid.status_code == 422
     assert discovery.status_code == 200
     assert isinstance(discovery.json()["candidates"][0], str)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_word", ["docs", "documentation", "writing"])
+def test_catalog_search_word_queries_return_expected_documentation_card(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+    query_word: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+
+    with TestClient(create_app()) as client:
+        _publish(
+            client,
+            "documentation-writing",
+            _request(
+                "1.0.0",
+                intent="create_skill",
+                raw_markdown="# Documentation Writing\n\nWrite docs, guides, and references.\n",
+                name="Documentation Writing",
+                description="Write documentation, docs, guides, and API references.",
+                tags=["documentation", "docs", "writing"],
+            ),
+        )
+        response = client.post(
+            "/catalog/search",
+            json={"name": query_word},
+            headers=_headers("reader-token"),
+        )
+
+    assert response.status_code == 200
+    assert "documentation-writing" in [item["slug"] for item in response.json()["skills"]]

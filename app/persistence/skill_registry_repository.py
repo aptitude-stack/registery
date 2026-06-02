@@ -389,8 +389,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             rows = session.execute(
                 SEARCH_CANDIDATES_SQL,
                 {
-                    "query_text": request.query_text,
-                    "query_contains_pattern": build_contains_pattern(request.query_text),
+                    "identity_query_text": request.identity_query_text,
+                    "full_text_query_text": request.full_text_query_text,
+                    "query_contains_pattern": build_contains_pattern(request.identity_query_text),
                     "required_tags": list(request.required_tags),
                     "required_tag_count": len(request.required_tags),
                     "published_after": published_after,

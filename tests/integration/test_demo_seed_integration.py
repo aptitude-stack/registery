@@ -75,7 +75,7 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
 
     assert first_state == second_state
     assert second_state == {
-        "version_count": 10,
+        "version_count": 11,
         "archived_count": 1,
         "deprecated_count": 2,
         "archived_format_count": 1,
@@ -104,6 +104,11 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
             },
             headers=_headers("reader-token"),
         )
+        docs_discovery = client.post(
+            "/discovery",
+            json={"name": "docs"},
+            headers=_headers("reader-token"),
+        )
 
     assert archived_reader.status_code == 403
     assert archived_reader.json()["error"]["code"] == "POLICY_EXACT_READ_FORBIDDEN"
@@ -130,3 +135,5 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
 
     assert discovery.status_code == 200
     assert "python.bundle.code-quality" in discovery.json()["candidates"]
+    assert docs_discovery.status_code == 200
+    assert "documentation-writing" in docs_discovery.json()["candidates"]

@@ -149,7 +149,8 @@ class SkillSearchService:
         )
         lexical_results = self._repository.search_candidates(
             request=SearchCandidatesRequest(
-                query_text=normalized_request.query_text,
+                identity_query_text=normalized_request.query_text,
+                full_text_query_text=normalized_request.full_text_query_text,
                 required_tags=normalized_request.effective_tags,
                 fresh_within_days=normalized_request.fresh_within_days,
                 max_content_size_bytes=normalized_request.max_footprint_bytes,

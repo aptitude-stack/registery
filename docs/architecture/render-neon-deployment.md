@@ -141,11 +141,11 @@ performs one registry request to the search catalog feed using the same body
 shape as `POST /discovery`. `POST /discovery` remains slug-only for
 resolver-style candidate lookup.
 
-Semantic discovery is off by default. When enabling it, keep the runtime mode
-explicit:
+Semantic discovery is hybrid by default. Keep the runtime mode explicit when a
+deployment should run lexical-only or shadow semantic retrieval:
 
 ```text
-SEMANTIC_DISCOVERY_MODE=shadow
+SEMANTIC_DISCOVERY_MODE=hybrid
 OPENAI_API_KEY=<encrypted OpenAI API key>
 SEMANTIC_EMBEDDING_PROVIDER=openai
 SEMANTIC_EMBEDDING_MODEL=text-embedding-3-small
@@ -156,9 +156,11 @@ SEMANTIC_QUERY_TIMEOUT_MS=150
 SEMANTIC_HNSW_EF_SEARCH=100
 ```
 
-Use `shadow` before `hybrid` so semantic retrieval can be observed without
-changing discovery ordering. Do not enable `hybrid` until an embedding provider
-and indexing job are actually writing `indexed` rows.
+Set `SEMANTIC_DISCOVERY_MODE=off` for lexical-only startup without
+`OPENAI_API_KEY`. Use `shadow` when semantic retrieval should be observed
+without changing discovery ordering. Hybrid can degrade to lexical-only on
+provider or semantic SQL failures, but production deployments should still
+configure the provider and indexing job so `indexed` rows exist.
 
 Keep the Render `onrender.com` host in `ALLOWED_HOSTS_JSON` until custom-domain
 verification and health checks are stable. After that, either keep it for

@@ -66,6 +66,7 @@ class _Repository:
         self.semantic = semantic
         self.boosts = boosts or {}
         self.semantic_should_fail = semantic_should_fail
+        self.search_requests: list[SearchCandidatesRequest] = []
         self.semantic_requests: list[SearchSemanticCandidatesRequest] = []
         self.co_usage_requests: list[CoUsageBoostRequest] = []
 
@@ -74,6 +75,7 @@ class _Repository:
         *,
         request: SearchCandidatesRequest,
     ) -> tuple[StoredSkillSearchCandidate, ...]:
+        self.search_requests.append(request)
         return self.lexical
 
     def search_semantic_candidates(
@@ -220,7 +222,7 @@ def test_discovery_semantic_query_uses_description_and_tags_not_required_name() 
 
 
 @pytest.mark.unit
-def test_discovery_skips_semantic_query_when_only_name_is_present() -> None:
+def test_discovery_uses_name_for_semantic_query_when_only_name_is_present() -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(lexical=(_candidate("python.lint"),))
 
@@ -234,8 +236,29 @@ def test_discovery_skips_semantic_query_when_only_name_is_present() -> None:
     )
 
     assert results == ("python.lint",)
-    assert provider.calls == []
-    assert repository.semantic_requests == []
+    assert provider.calls == ["python lint"]
+    assert len(repository.semantic_requests) == 1
+
+
+@pytest.mark.unit
+def test_search_sends_identity_and_full_text_queries_to_repository() -> None:
+    repository = _Repository(lexical=(_candidate("documentation-writing"),))
+
+    results = _service(repository).search(
+        caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
+        query=SkillSearchQuery(
+            q="docs",
+            tags=(),
+            language=None,
+            fresh_within_days=None,
+            max_footprint_bytes=None,
+            limit=20,
+        ),
+    )
+
+    assert tuple(item.slug for item in results) == ("documentation-writing",)
+    assert repository.search_requests[0].identity_query_text == "docs"
+    assert repository.search_requests[0].full_text_query_text == "docs documentation"
 
 
 @pytest.mark.unit
