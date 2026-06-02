@@ -9,6 +9,7 @@ from scripts.benchmark_discovery_search import (
     build_benchmark_dataset,
     latency_summary,
     percentile,
+    ranking_quality_at_k,
     recall_at_k,
 )
 
@@ -24,6 +25,28 @@ def test_percentile_uses_nearest_rank() -> None:
 def test_recall_at_k_compares_expected_top_k() -> None:
     assert recall_at_k(expected=("a", "b", "c"), actual=("b", "x", "a"), limit=2) == 0.5
     assert recall_at_k(expected=(), actual=("a",), limit=10) == 1.0
+
+
+@pytest.mark.unit
+def test_ranking_quality_at_k_reports_relevance_metrics() -> None:
+    quality = ranking_quality_at_k(
+        relevant=("a", "b", "c"),
+        actual=("x", "b", "y", "a"),
+        limit=4,
+    )
+
+    assert quality == {
+        "hit_rate_at_k": 1.0,
+        "mrr_at_k": 0.5,
+        "ndcg_at_k": 0.4982,
+        "relevant_recall_at_k": 0.6667,
+    }
+    assert ranking_quality_at_k(relevant=(), actual=("a",), limit=4) == {
+        "hit_rate_at_k": 1.0,
+        "mrr_at_k": 1.0,
+        "ndcg_at_k": 1.0,
+        "relevant_recall_at_k": 1.0,
+    }
 
 
 @pytest.mark.unit

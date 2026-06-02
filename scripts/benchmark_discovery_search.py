@@ -113,6 +113,55 @@ def recall_at_k(*, expected: Sequence[str], actual: Sequence[str], limit: int) -
     return len(set(expected_top).intersection(actual[:limit])) / len(expected_top)
 
 
+def ranking_quality_at_k(
+    *,
+    relevant: Sequence[str],
+    actual: Sequence[str],
+    limit: int,
+) -> dict[str, float]:
+    """Return binary relevance quality metrics for a ranked top-k result."""
+    relevant_set = set(relevant)
+    actual_top = tuple(actual[:limit])
+    if not relevant_set:
+        return {
+            "hit_rate_at_k": 1.0,
+            "mrr_at_k": 1.0,
+            "ndcg_at_k": 1.0,
+            "relevant_recall_at_k": 1.0,
+        }
+
+    relevant_hits = [rank for rank, slug in enumerate(actual_top, start=1) if slug in relevant_set]
+    hit_rate = 1.0 if relevant_hits else 0.0
+    mrr = 1.0 / relevant_hits[0] if relevant_hits else 0.0
+    recall = len(relevant_hits) / min(len(relevant_set), limit)
+    dcg = sum(1.0 / math.log2(rank + 1) for rank in relevant_hits)
+    ideal_hit_count = min(len(relevant_set), limit)
+    idcg = sum(1.0 / math.log2(rank + 1) for rank in range(1, ideal_hit_count + 1))
+    ndcg = dcg / idcg if idcg else 0.0
+
+    return {
+        "hit_rate_at_k": round(hit_rate, 4),
+        "mrr_at_k": round(mrr, 4),
+        "ndcg_at_k": round(ndcg, 4),
+        "relevant_recall_at_k": round(recall, 4),
+    }
+
+
+def average_quality(quality_values: Sequence[dict[str, float]]) -> dict[str, float]:
+    if not quality_values:
+        return {
+            "hit_rate_at_k": 0.0,
+            "mrr_at_k": 0.0,
+            "ndcg_at_k": 0.0,
+            "relevant_recall_at_k": 0.0,
+        }
+    keys = tuple(quality_values[0])
+    return {
+        key: round(sum(value[key] for value in quality_values) / len(quality_values), 4)
+        for key in keys
+    }
+
+
 def latency_summary(duration_ms: Sequence[float]) -> dict[str, float]:
     return {
         "p50_ms": round(percentile(duration_ms, 50), 3),
@@ -206,6 +255,7 @@ def run_benchmark(
     for ef_search in ef_search_values:
         durations: list[float] = []
         recalls: list[float] = []
+        quality_values: list[dict[str, float]] = []
         failures = 0
         for _ in range(iterations):
             for query in queries:
@@ -224,6 +274,14 @@ def run_benchmark(
                     recalls.append(
                         recall_at_k(expected=exact_results[query.text], actual=actual, limit=limit)
                     )
+                    quality_values.append(
+                        _cluster_quality(
+                            expected_cluster=query.cluster,
+                            actual=actual,
+                            skills=skills,
+                            limit=limit,
+                        )
+                    )
                 except Exception:
                     failures += 1
                     raise
@@ -233,6 +291,7 @@ def run_benchmark(
             {
                 "ef_search": ef_search,
                 "recall_at_k": round(sum(recalls) / len(recalls), 4) if recalls else 0.0,
+                "quality": average_quality(quality_values),
                 "latency": latency_summary(durations),
                 "failure_count": failures,
             }
@@ -244,6 +303,7 @@ def run_benchmark(
         for ef_search in ef_values:
             durations = []
             cluster_recalls = []
+            quality_values = []
             failures = 0
             service = _build_search_service(
                 repository=repository,
@@ -284,6 +344,14 @@ def run_benchmark(
                                 limit=limit,
                             )
                         )
+                        quality_values.append(
+                            _cluster_quality(
+                                expected_cluster=query.cluster,
+                                actual=actual,
+                                skills=skills,
+                                limit=limit,
+                            )
+                        )
                     except Exception:
                         failures += 1
                         raise
@@ -296,6 +364,7 @@ def run_benchmark(
                     "cluster_recall_at_k": round(sum(cluster_recalls) / len(cluster_recalls), 4)
                     if cluster_recalls
                     else 0.0,
+                    "quality": average_quality(quality_values),
                     "latency": latency_summary(durations),
                     "failure_count": failures,
                 }
@@ -576,12 +645,17 @@ def format_summary(result: dict[str, Any]) -> str:
         "Discovery benchmark summary",
         "",
         "Semantic HNSW exact-baseline comparison:",
-        "ef_search  recall@k  p50_ms  p95_ms  p99_ms  failures",
+        "ef_search  recall@k  rel_rec@k  hit@k   mrr@k   ndcg@k  p50_ms  p95_ms  p99_ms  fail",
     ]
     for row in result["semantic_hnsw"]:
         latency = row["latency"]
+        quality = row["quality"]
         lines.append(
             f"{row['ef_search']:>9}  {row['recall_at_k']:<8.4f}  "
+            f"{quality['relevant_recall_at_k']:<12.4f}  "
+            f"{quality['hit_rate_at_k']:<6.4f}  "
+            f"{quality['mrr_at_k']:<6.4f}  "
+            f"{quality['ndcg_at_k']:<6.4f}  "
             f"{latency['p50_ms']:<6.3f}  {latency['p95_ms']:<6.3f}  "
             f"{latency['p99_ms']:<6.3f}  {row['failure_count']}"
         )
@@ -589,14 +663,18 @@ def format_summary(result: dict[str, Any]) -> str:
         [
             "",
             "End-to-end discovery comparison:",
-            "mode    ef_search  cluster_recall@k  p50_ms  p95_ms  p99_ms  failures",
+            "mode    ef_search  clus_rec@k  hit@k   mrr@k   ndcg@k  p50_ms  p95_ms  p99_ms  fail",
         ]
     )
     for row in result["discovery"]:
         latency = row["latency"]
+        quality = row["quality"]
         ef_search = "-" if row["ef_search"] is None else str(row["ef_search"])
         lines.append(
             f"{row['mode']:<7} {ef_search:>8}  {row['cluster_recall_at_k']:<16.4f}  "
+            f"{quality['hit_rate_at_k']:<6.4f}  "
+            f"{quality['mrr_at_k']:<6.4f}  "
+            f"{quality['ndcg_at_k']:<6.4f}  "
             f"{latency['p50_ms']:<6.3f}  {latency['p95_ms']:<6.3f}  "
             f"{latency['p99_ms']:<6.3f}  {row['failure_count']}"
         )
@@ -813,6 +891,17 @@ def _cluster_recall(
 ) -> float:
     expected = tuple(skill.slug for skill in skills if skill.cluster == expected_cluster)
     return recall_at_k(expected=expected, actual=actual, limit=limit)
+
+
+def _cluster_quality(
+    *,
+    expected_cluster: int,
+    actual: Sequence[str],
+    skills: Sequence[BenchmarkSkill],
+    limit: int,
+) -> dict[str, float]:
+    relevant = tuple(skill.slug for skill in skills if skill.cluster == expected_cluster)
+    return ranking_quality_at_k(relevant=relevant, actual=actual, limit=limit)
 
 
 def _skill_vector(
