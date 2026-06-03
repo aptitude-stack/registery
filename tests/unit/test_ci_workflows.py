@@ -122,7 +122,7 @@ def test_master_push_ci_migrates_deploys_and_smokes_production_after_final_gate(
     assert "OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}" in document
     assert 'SEMANTIC_DISCOVERY_MODE: "off"' in document
     assert "RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}" in document
-    assert ': "${OPENAI_API_KEY:?OPENAI_API_KEY GitHub secret is required}"' not in document
+    assert ': "${OPENAI_API_KEY:?OPENAI_API_KEY GitHub secret is required}"' in document
     assert "uv run python scripts/check_openai_embeddings.py" in document
     assert document.index("uv run python scripts/check_openai_embeddings.py") < document.index(
         "uv run alembic upgrade head"
