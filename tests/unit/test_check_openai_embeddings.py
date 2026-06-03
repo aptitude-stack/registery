@@ -44,7 +44,7 @@ def test_openai_embeddings_deploy_check_exercises_configured_model() -> None:
             "text": "aptitude registry semantic deployment check",
             "model": "text-embedding-3-small",
             "dimensions": 3,
-            "timeout_ms": 250,
+            "timeout_ms": 5_000,
         }
     ]
 
@@ -87,3 +87,27 @@ def test_openai_embeddings_deploy_check_fails_for_provider_errors() -> None:
     assert "OpenAI embedding check failed" in result.message
     assert "RuntimeError: 401 invalid api key" in result.message
     assert "test-openai-key" not in result.message
+
+
+@pytest.mark.unit
+def test_openai_embeddings_deploy_check_retries_transient_provider_errors() -> None:
+    class _FlakyProvider(_FakeProvider):
+        def embed_query(self, **kwargs: Any) -> tuple[float, ...]:
+            self.calls.append(kwargs)
+            if len(self.calls) < 3:
+                raise TimeoutError("provider timed out")
+            return self.embedding
+
+    provider = _FlakyProvider(api_key="test-openai-key")
+    settings = Settings(
+        _env_file=None,
+        DATABASE_URL=DATABASE_URL,
+        OPENAI_API_KEY="test-openai-key",
+        SEMANTIC_EMBEDDING_DIMENSIONS=3,
+    )
+
+    result = run_check(settings=settings, provider_factory=lambda *, api_key: provider)
+
+    assert result.exit_code == 0
+    assert "OpenAI embedding check passed" in result.message
+    assert len(provider.calls) == 3
