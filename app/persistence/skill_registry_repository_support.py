@@ -140,6 +140,8 @@ SEARCH_CANDIDATES_SQL = text(
         )
           AND (
             :required_tag_count = 0
+            OR doc.normalized_slug = :identity_query_text
+            OR doc.normalized_name = :identity_query_text
             OR doc.normalized_tags @> :required_tags
           )
           AND (
