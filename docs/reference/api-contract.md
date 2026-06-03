@@ -138,8 +138,7 @@ Rules:
 
 `GET /catalog/skill-graph?limit=24` is the website-facing bounded relation
 graph for the catalog hero. It returns visible current-default versions selected
-from top installed skills and authored safe relationships between those returned
-nodes.
+from top installed skills and safe graph edges between those returned nodes.
 
 ```json
 {
@@ -157,7 +156,9 @@ nodes.
     {
       "source_slug": "python.lint",
       "target_slug": "python.test",
-      "edge_type": "extends"
+      "edge_type": "extends",
+      "provenance": "authored",
+      "confidence": null
     }
   ]
 }
@@ -167,9 +168,10 @@ Rules:
 
 - `limit` must be between `1` and `24`.
 - Nodes use the same ordering and visibility behavior as `/catalog/top-skills`.
-- Edges come from authored `skill_relationship_selectors` on returned source
-  versions.
-- Only `depends_on`, `extends`, and `overlaps_with` edges are returned.
+- Edges come from the `skill_graph_edges` projection.
+- Authored edges use `provenance=authored`; co-usage-derived `relates_to`
+  edges use `provenance=co_usage`.
+- Only `depends_on`, `extends`, `overlaps_with`, and `relates_to` edges are returned.
 - `conflicts_with` edges are excluded from this positive hero graph.
 - Edges are returned only when both source and target slugs are in the node set.
 - Edge count is capped at `60`.
@@ -373,6 +375,7 @@ Error envelope:
 | `GET` | `/skills/{slug}/{version}` | `read` | `200` | Returns immutable metadata for one exact coordinate |
 | `GET` | `/skills/{slug}/{version}/content` | `read` | `200` | Returns immutable `application/zstd` artifact with cache headers |
 | `PATCH` | `/skills/{slug}/{version}/status` | `admin` | `200` | Transitions lifecycle state |
+| `POST` | `/admin/co-usage/observation-runs` | `admin` | `200` | Imports trusted resolver co-usage evidence and syncs advisory `relates_to` graph edges |
 | `POST` | `/admin/organizations` | `admin` | `201` | Creates an enterprise organization |
 | `POST` | `/admin/namespaces` | `admin` | `201` | Creates a namespace owned by an organization |
 | `PUT` | `/admin/policy-packs/{slug}` | `admin` | `200` | Creates or updates a registry-enforced policy-pack reference |

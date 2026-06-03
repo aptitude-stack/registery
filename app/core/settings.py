@@ -297,6 +297,30 @@ class Settings(BaseSettings):
         le=50,
         alias="CO_USAGE_CONTEXT_LIMIT",
     )
+    co_usage_relates_to_min_runs: int = Field(
+        default=3,
+        ge=1,
+        le=10_000,
+        alias="CO_USAGE_RELATES_TO_MIN_RUNS",
+    )
+    co_usage_relates_to_min_rate: float = Field(
+        default=0.20,
+        ge=0.0,
+        le=1.0,
+        alias="CO_USAGE_RELATES_TO_MIN_RATE",
+    )
+    co_usage_relates_to_min_lift: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=100.0,
+        alias="CO_USAGE_RELATES_TO_MIN_LIFT",
+    )
+    co_usage_relates_to_window_days: int = Field(
+        default=90,
+        ge=1,
+        le=3650,
+        alias="CO_USAGE_RELATES_TO_WINDOW_DAYS",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

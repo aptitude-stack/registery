@@ -26,6 +26,7 @@ CATALOG_GRAPH_EDGE_TYPES: tuple[SkillGraphEdgeType, ...] = (
     "depends_on",
     "extends",
     "overlaps_with",
+    "relates_to",
 )
 
 

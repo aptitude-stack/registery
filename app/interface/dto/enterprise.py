@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.governance import PromotionChannel, ReviewState, TrustTier
+from app.core.skills.normalization import normalize_search_text
 from app.interface.dto.skills_shared import normalize_optional_text, normalize_required_text
 from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
 
@@ -148,3 +149,58 @@ class TrustEvidenceResponse(BaseModel):
     digest: str | None
     uri: str | None
     created_at: datetime
+
+
+class CoUsageObservationImportRequest(BaseModel):
+    """Trusted resolver co-usage observation import request."""
+
+    source: str = Field(min_length=1, max_length=100)
+    source_digest: str = Field(min_length=64, max_length=64)
+    observed_at: datetime
+    skill_slugs: list[str] = Field(min_length=1, max_length=100)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str) -> str:
+        return normalize_required_text(value)
+
+    @field_validator("source_digest")
+    @classmethod
+    def validate_source_digest(cls, value: str) -> str:
+        digest = value.strip().lower()
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+            raise ValueError("source_digest must be a 64-character lowercase sha256 hex digest.")
+        return digest
+
+    @field_validator("observed_at")
+    @classmethod
+    def validate_observed_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("observed_at must include a timezone offset.")
+        return value
+
+    @field_validator("skill_slugs")
+    @classmethod
+    def validate_skill_slugs(cls, value: list[str]) -> list[str]:
+        normalized = []
+        for item in value:
+            slug = normalize_search_text(item)
+            if slug is None:
+                raise ValueError("skill_slugs must not contain blank values.")
+            normalized.append(slug)
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("skill_slugs must not contain duplicates.")
+        return normalized
+
+
+class CoUsageObservationImportResponse(BaseModel):
+    """Summary returned after trusted co-usage observation import."""
+
+    imported: bool
+    observations_accepted: int
+    pairs_rebuilt: int
+    edges_activated: int
+    edges_deactivated: int
+    duplicate: bool = False
