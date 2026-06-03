@@ -35,6 +35,8 @@ def index_semantic_embeddings(
     settings = get_settings()
     indexer = build_indexer(settings=settings)
     totals = {"backfilled": 0, "claimed": 0, "indexed": 0, "failed": 0}
+    if indexer is None:
+        return totals
     try:
         for _ in range(max_batches):
             result = indexer.run_batch(

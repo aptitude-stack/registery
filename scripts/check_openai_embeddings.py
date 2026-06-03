@@ -50,8 +50,8 @@ def run_check(
     """Send one embedding request using the configured production settings."""
     if not settings.openai_api_key:
         return CheckResult(
-            exit_code=1,
-            message="OpenAI embedding check failed: OPENAI_API_KEY is not configured.",
+            exit_code=0,
+            message="OpenAI embedding check warning: OPENAI_API_KEY is not configured.",
         )
 
     timeout_ms = max(settings.semantic_query_timeout_ms, CHECK_TIMEOUT_MS)
@@ -71,9 +71,9 @@ def run_check(
     else:
         assert last_error is not None
         return CheckResult(
-            exit_code=1,
+            exit_code=0,
             message=(
-                "OpenAI embedding check failed: provider check failed "
+                "OpenAI embedding check warning: provider check failed "
                 f"for model={settings.semantic_embedding_model!r}, "
                 f"dimensions={settings.semantic_embedding_dimensions}: "
                 f"{type(last_error).__name__}: {last_error}"

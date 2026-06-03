@@ -146,7 +146,7 @@ def test_settings_validate_semantic_discovery_controls(monkeypatch: pytest.Monke
 
 
 @pytest.mark.unit
-def test_settings_require_openai_key_when_semantic_mode_uses_provider(
+def test_settings_allow_semantic_mode_without_openai_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -156,8 +156,10 @@ def test_settings_require_openai_key_when_semantic_mode_uses_provider(
     monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "shadow")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    with pytest.raises(ValidationError, match="OPENAI_API_KEY"):
-        Settings(_env_file=None)
+    settings = Settings(_env_file=None)
+
+    assert settings.semantic_discovery_mode == "shadow"
+    assert settings.openai_api_key is None
 
 
 @pytest.mark.unit

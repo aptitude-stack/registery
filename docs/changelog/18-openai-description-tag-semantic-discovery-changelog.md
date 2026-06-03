@@ -77,8 +77,8 @@ sequenceDiagram
 
 ## Design Notes
 
-- `SEMANTIC_DISCOVERY_MODE=off` does not require `OPENAI_API_KEY`; `shadow` and
-  `hybrid` fail startup without it:
+- Missing `OPENAI_API_KEY` values warn and fall back to lexical-only discovery
+  even when `SEMANTIC_DISCOVERY_MODE` is `shadow` or `hybrid`:
   [app/core/settings.py](../../app/core/settings.py).
 - The semantic query source for discovery is `description + tags`; the required
   `name` is lexical-only so identity wording does not distort embeddings:
