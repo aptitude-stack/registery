@@ -23,7 +23,7 @@ def _caller() -> CallerIdentity:
 def test_publish_audit_event_includes_redacted_actor_and_provenance_summary() -> None:
     event = build_publish_audit_event(
         caller=_caller(),
-        slug="python.lint",
+        slug="python-lint",
         version="1.2.3",
         trust_tier="internal",
         provenance=ProvenanceMetadata(
@@ -49,7 +49,7 @@ def test_publish_audit_event_includes_redacted_actor_and_provenance_summary() ->
 def test_lifecycle_denied_audit_event_captures_reason_code() -> None:
     event = build_lifecycle_audit_event(
         caller=_caller(),
-        slug="python.lint",
+        slug="python-lint",
         version="1.2.3",
         previous_status="archived",
         lifecycle_status="published",
@@ -71,7 +71,7 @@ def test_lifecycle_denied_audit_event_captures_reason_code() -> None:
 def test_exact_read_denied_event_tracks_surface_and_outcome() -> None:
     event = build_exact_read_denied_audit_event(
         caller=_caller(),
-        slug="python.lint",
+        slug="python-lint",
         version="1.2.3",
         lifecycle_status="archived",
         trust_tier="internal",
@@ -107,14 +107,14 @@ def test_version_list_audit_event_tracks_slug_and_result_count() -> None:
     event = build_version_list_audit_event(
         caller=_caller(),
         policy_profile="default",
-        slug="python.lint",
+        slug="python-lint",
         result_count=2,
     )
 
     assert event.event_type == "skill.version_list_read"
     assert event.payload is not None
     assert event.payload["surface"] == "list"
-    assert event.payload["slug"] == "python.lint"
+    assert event.payload["slug"] == "python-lint"
     assert event.payload["result_count"] == 2
 
 
@@ -124,7 +124,7 @@ def test_audit_events_include_request_id_from_observability_context() -> None:
     try:
         event = build_publish_audit_event(
             caller=_caller(),
-            slug="python.lint",
+            slug="python-lint",
             version="1.2.3",
             trust_tier="internal",
             provenance=None,

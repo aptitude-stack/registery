@@ -25,8 +25,8 @@ def test_publish_discovery_resolution_and_exact_fetch(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     suffix = uuid4().hex
-    dependency_slug = f"python.dep.{suffix}"
-    source_slug = f"python.source.{suffix}"
+    dependency_slug = f"python-dep-{suffix}"
+    source_slug = f"python-source-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -57,7 +57,7 @@ def test_publish_discovery_resolution_and_exact_fetch(
                     "publisher_identity": "ci/example-release",
                 },
                 depends_on=[{"slug": dependency_slug, "version": "1.0.0"}],
-                extends=[{"slug": "python.base", "version": "1.0.0"}],
+                extends=[{"slug": "python-base", "version": "1.0.0"}],
             ),
         )
 
@@ -168,10 +168,10 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     suffix = uuid4().hex
-    published_slug = f"python.discovery.published.{suffix}"
-    deprecated_slug = f"python.discovery.deprecated.{suffix}"
-    archived_slug = f"python.discovery.archived.{suffix}"
-    internal_slug = f"python.discovery.internal.{suffix}"
+    published_slug = f"python-discovery-published-{suffix}"
+    deprecated_slug = f"python-discovery-deprecated-{suffix}"
+    archived_slug = f"python-discovery-archived-{suffix}"
+    internal_slug = f"python-discovery-internal-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(

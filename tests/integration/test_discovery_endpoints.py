@@ -24,7 +24,7 @@ def test_discovery_queries_search_documents_without_touching_skill_contents(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.discovery.metadata-only.{uuid4().hex}"
+    slug = f"python-discovery-metadata-only-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         _publish(

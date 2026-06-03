@@ -47,8 +47,8 @@ def test_star_events_apply_deltas_and_clamp_at_zero(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     _set_telemetry_token(monkeypatch)
     suffix = uuid4().hex
-    slug_lint = f"python.lint-{suffix}"
-    slug_test = f"python.test-{suffix}"
+    slug_lint = f"python-lint-{suffix}"
+    slug_test = f"python-test-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -116,7 +116,7 @@ def test_star_events_are_idempotent_per_user_subject(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     _set_telemetry_token(monkeypatch)
     suffix = uuid4().hex
-    slug = f"python.lint-{suffix}"
+    slug = f"python-lint-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -192,8 +192,8 @@ def test_star_events_reject_unknown_slug_without_committing(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     _set_telemetry_token(monkeypatch)
     suffix = uuid4().hex
-    slug = f"python.lint-{suffix}"
-    missing = f"python.missing-{suffix}"
+    slug = f"python-lint-{suffix}"
+    missing = f"python-missing-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -233,7 +233,7 @@ def test_star_events_require_telemetry_scope(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     _set_telemetry_token(monkeypatch)
     suffix = uuid4().hex
-    slug = f"python.lint-{suffix}"
+    slug = f"python-lint-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -281,7 +281,7 @@ def test_star_events_validate_request_shape(
         )
         bad_action = client.post(
             "/catalog/star-events",
-            json={"events": [{"slug": "python.lint", "action": "favorite"}]},
+            json={"events": [{"slug": "python-lint", "action": "favorite"}]},
             headers=_telemetry_headers(),
         )
         bad_slug = client.post(

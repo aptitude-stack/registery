@@ -79,7 +79,7 @@ def test_content_fetch_increments_aggregate_install_count(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.install-count.{uuid4().hex}"
+    slug = f"python-install-count-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         published = _publish(client, slug, _request("1.0.0", intent="create_skill"))
@@ -123,11 +123,11 @@ def test_exact_fetch_returns_not_found_for_missing_coordinates(
 
     with TestClient(create_app()) as client:
         metadata = client.get(
-            "/skills/python.missing/9.9.9",
+            "/skills/python-missing/9.9.9",
             headers=_headers("reader-token"),
         )
         content = client.get(
-            "/skills/python.missing/9.9.9/content",
+            "/skills/python-missing/9.9.9/content",
             headers=_headers("reader-token"),
         )
 
@@ -143,12 +143,12 @@ def test_top_installed_skills_returns_visible_current_defaults_in_rank_order(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.top.{uuid4().hex}"
-    alpha = f"{prefix}.alpha"
-    beta = f"{prefix}.beta"
-    hidden = f"{prefix}.hidden"
-    tie_a = f"{prefix}.tie-a"
-    tie_b = f"{prefix}.tie-b"
+    prefix = f"python-top-{uuid4().hex}"
+    alpha = f"{prefix}-alpha"
+    beta = f"{prefix}-beta"
+    hidden = f"{prefix}-hidden"
+    tie_a = f"{prefix}-tie-a"
+    tie_b = f"{prefix}-tie-b"
 
     with TestClient(create_app()) as client:
         _publish(client, alpha, _request("1.0.0", intent="create_skill", name="Alpha"))
@@ -221,11 +221,11 @@ def test_catalog_skills_returns_all_visible_current_defaults_ordered_by_installs
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.catalog-all.{uuid4().hex}"
-    alpha = f"{prefix}.alpha"
-    beta = f"{prefix}.beta"
-    gamma = f"{prefix}.gamma"
-    hidden = f"{prefix}.hidden"
+    prefix = f"python-catalog-all-{uuid4().hex}"
+    alpha = f"{prefix}-alpha"
+    beta = f"{prefix}-beta"
+    gamma = f"{prefix}-gamma"
+    hidden = f"{prefix}-hidden"
 
     with TestClient(create_app()) as client:
         _publish(client, alpha, _request("1.0.0", intent="create_skill", name="Alpha"))
@@ -275,12 +275,12 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.skill-graph.{uuid4().hex}"
-    source = f"{prefix}.source"
-    target = f"{prefix}.target"
-    overlap = f"{prefix}.overlap"
-    hidden = f"{prefix}.hidden"
-    outside = f"{prefix}.outside"
+    prefix = f"python-skill-graph-{uuid4().hex}"
+    source = f"{prefix}-source"
+    target = f"{prefix}-target"
+    overlap = f"{prefix}-overlap"
+    hidden = f"{prefix}-hidden"
+    outside = f"{prefix}-outside"
 
     with TestClient(create_app()) as client:
         _publish(client, target, _request("1.0.0", intent="create_skill", name="Target"))
@@ -378,10 +378,10 @@ def test_co_usage_import_creates_and_deactivates_relates_to_graph_edges(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("CO_USAGE_RELATES_TO_WINDOW_DAYS", "90")
-    prefix = f"python.co-usage-graph.{uuid4().hex}"
-    source = f"{prefix}.source"
-    target = f"{prefix}.target"
-    other = f"{prefix}.other"
+    prefix = f"python-co-usage-graph-{uuid4().hex}"
+    source = f"{prefix}-source"
+    target = f"{prefix}-target"
+    other = f"{prefix}-other"
 
     with TestClient(create_app()) as client:
         _publish(client, source, _request("1.0.0", intent="create_skill", name="Source"))
@@ -484,7 +484,7 @@ def test_co_usage_import_rejects_unknown_observed_skill(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.co-usage-unknown.{uuid4().hex}"
+    slug = f"python-co-usage-unknown-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         _publish(client, slug, _request("1.0.0", intent="create_skill"))
@@ -494,7 +494,7 @@ def test_co_usage_import_rejects_unknown_observed_skill(
                 "source": "resolver",
                 "source_digest": f"{1:064x}",
                 "observed_at": "2026-03-01T12:00:00Z",
-                "skill_slugs": [slug, f"{slug}.missing"],
+                "skill_slugs": [slug, f"{slug}-missing"],
             },
             headers=_headers("admin-token"),
         )
@@ -509,10 +509,10 @@ def test_catalog_search_returns_visible_current_default_metadata_in_discovery_or
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.catalog-search.{uuid4().hex}"
-    alpha = f"{prefix}.alpha"
-    beta = f"{prefix}.beta"
-    hidden = f"{prefix}.hidden"
+    prefix = f"python-catalog-search-{uuid4().hex}"
+    alpha = f"{prefix}-alpha"
+    beta = f"{prefix}-beta"
+    hidden = f"{prefix}-hidden"
     request_body = {"name": "Catalog Search", "tags": [prefix]}
 
     with TestClient(create_app()) as client:

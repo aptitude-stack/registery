@@ -26,11 +26,11 @@ runtime:
       \ '');\nsetDefault('sanity_primary_content_digest', '');\n\nlet runId = bru.getVar('runId');\n\
       \nif (resetFlowStarts.has(requestName) || !runId) {\n  runId = `${Date.now()}-${Math.floor(Math.random()\
       \ * 100000)}`;\n  bru.setVar('runId', runId);\n  bru.setVar('sanity_dependency_slug',\
-      \ `postman.dep.${runId}`);\n  bru.setVar('sanity_extension_slug', `postman.ext.${runId}`);\n\
-      \  bru.setVar('sanity_overlap_slug', `postman.overlap.${runId}`);\n  bru.setVar('sanity_primary_slug',\
-      \ `postman.primary.${runId}`);\n  bru.setVar('negative_invalid_slug', `postman.invalid.${runId}`);\n\
-      \  bru.setVar('negative_duplicate_slug', `postman.duplicate.${runId}`);\n  bru.setVar('negative_missing_slug',\
-      \ `postman.missing.${runId}`);\n  bru.setVar('sanity_primary_content_digest',\
+      \ `postman-dep-${runId}`);\n  bru.setVar('sanity_extension_slug', `postman-ext-${runId}`);\n\
+      \  bru.setVar('sanity_overlap_slug', `postman-overlap-${runId}`);\n  bru.setVar('sanity_primary_slug',\
+      \ `postman-primary-${runId}`);\n  bru.setVar('negative_invalid_slug', `postman-invalid-${runId}`);\n\
+      \  bru.setVar('negative_duplicate_slug', `postman-duplicate-${runId}`);\n  bru.setVar('negative_missing_slug',\
+      \ `postman-missing-${runId}`);\n  bru.setVar('sanity_primary_content_digest',\
       \ '');\n}"
   - type: tests
     code: "const json = res.getBody();\n\ntest('Status is 404', function () {\n  expect(res.getStatus()).to.equal(404);\n\
