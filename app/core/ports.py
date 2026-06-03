@@ -18,6 +18,8 @@ from app.core.governance import (
     TrustTier,
 )
 from app.core.skills.models import (
+    CoUsageObservationImportResult,
+    CoUsageRelatesToPolicy,
     NamespaceRecord,
     OrganizationRecord,
     PolicyPackRecord,
@@ -463,10 +465,23 @@ class SkillGovernanceAdminPort(Protocol):
         """Append one trust evidence row to a version."""
 
 
+class CoUsageObservationImportPort(Protocol):
+    """Import contract for trusted resolver co-usage evidence."""
+
+    def import_observation_run(
+        self,
+        *,
+        record: CoUsageObservationImportRecord,
+        policy: CoUsageRelatesToPolicy,
+    ) -> CoUsageObservationImportResult:
+        """Import one selected-skill outcome and sync derived graph edges."""
+
+
 class SkillRegistryPort(
     SkillPublishPort,
     SkillExactReadPort,
     SkillGovernanceAdminPort,
+    CoUsageObservationImportPort,
     Protocol,
 ):
     """Persistence capability set used by the registry write/admin service."""
@@ -535,13 +550,6 @@ class EmbeddingIndexPort(Protocol):
         error: str,
     ) -> None:
         """Record indexing failure without affecting publish success."""
-
-
-class CoUsageObservationImportPort(Protocol):
-    """Dormant import contract for future trusted resolver co-usage evidence."""
-
-    def import_observation_run(self, *, record: CoUsageObservationImportRecord) -> None:
-        """Import one selected-skill outcome for aggregate rebuilds."""
 
 
 class ServiceTokenLookupPort(Protocol):
