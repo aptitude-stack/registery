@@ -220,7 +220,7 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_integration_database)
     slug = "test-python-audit-fixture"
-    denied_slug = f"{slug}.policy"
+    denied_slug = f"{slug}-policy"
 
     with TestClient(create_app()) as client:
         publish_response = _publish_response(

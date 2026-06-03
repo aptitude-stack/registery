@@ -387,7 +387,7 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
             client, slug, _request("2.0.0", intent="publish_version")
         )
         publish_missing = _publish_response(
-            client, f"{slug}.missing", _request("1.0.0", intent="publish_version")
+            client, f"{slug}-missing", _request("1.0.0", intent="publish_version")
         )
 
     assert create_skill.status_code == 201
