@@ -16,6 +16,7 @@ from sqlalchemy import (
     func,
     select,
     text,
+    tuple_,
     update,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -377,7 +378,28 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         source_slugs = tuple(source_versions)
         edge_type_set = set(edge_types)
         with self._session_factory() as session:
-            rows = session.execute(
+            authored_rows = session.execute(
+                select(
+                    Skill.slug.label("source_slug"),
+                    SkillGraphEdgeModel.target_slug,
+                    SkillGraphEdgeModel.edge_type,
+                    SkillGraphEdgeModel.provenance,
+                    SkillGraphEdgeModel.confidence,
+                    SkillGraphEdgeModel.evidence,
+                )
+                .join(Skill, Skill.id == SkillGraphEdgeModel.source_skill_fk)
+                .join(
+                    SkillVersion,
+                    SkillVersion.id == SkillGraphEdgeModel.source_skill_version_fk,
+                )
+                .where(
+                    SkillGraphEdgeModel.active.is_(True),
+                    SkillGraphEdgeModel.provenance == "authored",
+                    SkillGraphEdgeModel.edge_type.in_(tuple(edge_type_set)),
+                    tuple_(Skill.slug, SkillVersion.version).in_(sources),
+                )
+            ).mappings()
+            co_usage_rows = session.execute(
                 select(
                     Skill.slug.label("source_slug"),
                     SkillGraphEdgeModel.target_slug,
@@ -389,6 +411,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 .join(Skill, Skill.id == SkillGraphEdgeModel.source_skill_fk)
                 .where(
                     SkillGraphEdgeModel.active.is_(True),
+                    SkillGraphEdgeModel.provenance == "co_usage",
                     Skill.slug.in_(source_slugs),
                     SkillGraphEdgeModel.edge_type.in_(tuple(edge_type_set)),
                 )
@@ -402,7 +425,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     provenance=cast(SkillGraphEdgeProvenance, row["provenance"]),
                     confidence=(None if row["confidence"] is None else float(row["confidence"])),
                 )
-                for row in rows
+                for row in [*authored_rows, *co_usage_rows]
             ]
         return tuple(
             sorted(

@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
+from app.core.settings import reset_settings_cache
+from app.main import create_app
+from app.persistence.db import dispose_engine
+from tests.integration.skill_endpoint_helpers import _publish, _request
 
 
 @pytest.mark.integration
@@ -171,3 +176,98 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_graph_edges" not in inspector.get_table_names()
     finally:
         downgraded_engine.dispose()
+
+
+@pytest.mark.integration
+def test_graph_projection_cleanup_migration_deactivates_stale_and_missing_edges(
+    monkeypatch: pytest.MonkeyPatch,
+    clean_integration_database: str,
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("script_location", "alembic")
+    config.set_main_option("sqlalchemy.url", clean_integration_database)
+    command.upgrade(config, "0009_skill_graph_edges")
+
+    monkeypatch.setenv("DATABASE_URL", clean_integration_database)
+    prefix = "migration-graph-cleanup"
+    source = f"{prefix}-source"
+    target = f"{prefix}-target"
+    missing = f"{prefix}-missing"
+    reset_settings_cache()
+    dispose_engine()
+    with TestClient(create_app()) as client:
+        _publish(
+            client,
+            source,
+            _request(
+                "0.1.0",
+                intent="create_skill",
+                name="Cleanup Source",
+                overlaps_with=[{"slug": target, "version": "0.1.0"}],
+            ),
+        )
+        _publish(
+            client,
+            source,
+            _request(
+                "0.1.1",
+                intent="publish_version",
+                name="Cleanup Source",
+                overlaps_with=[
+                    {"slug": target, "version": "0.1.0"},
+                    {"slug": missing, "version": "0.1.0"},
+                ],
+            ),
+        )
+        _publish(
+            client,
+            target,
+            _request("0.1.0", intent="create_skill", name="Cleanup Target"),
+        )
+    reset_settings_cache()
+    dispose_engine()
+
+    command.upgrade(config, "head")
+
+    engine = create_engine(clean_integration_database)
+    try:
+        with engine.connect() as connection:
+            rows = (
+                connection.execute(
+                    text(
+                        """
+                        SELECT
+                            version.version AS source_version,
+                            edge.target_slug,
+                            edge.active,
+                            edge.target_skill_fk IS NOT NULL AS target_fk_backfilled
+                        FROM skill_graph_edges AS edge
+                        JOIN skill_versions AS version
+                            ON version.id = edge.source_skill_version_fk
+                        JOIN skills AS source
+                            ON source.id = edge.source_skill_fk
+                        WHERE source.slug = :source
+                        ORDER BY version.version, edge.target_slug
+                        """
+                    ),
+                    {"source": source},
+                )
+                .mappings()
+                .all()
+            )
+    finally:
+        engine.dispose()
+
+    assert [
+        (
+            row["source_version"],
+            row["target_slug"],
+            row["active"],
+            row["target_fk_backfilled"],
+        )
+        for row in rows
+    ] == [
+        ("0.1.0", target, False, True),
+        ("0.1.1", missing, False, False),
+        ("0.1.1", target, True, True),
+    ]
