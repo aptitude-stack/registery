@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from app.audit.recorder import SQLAlchemyAuditRecorder
@@ -23,6 +24,8 @@ from app.persistence.db import (
     init_engine,
 )
 from app.persistence.skill_registry_repository import SQLAlchemySkillCatalogRepository
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,4 +108,12 @@ def _build_embedding_provider(*, settings: Settings) -> OpenAIEmbeddingProvider 
         return None
     if settings.semantic_embedding_provider == "openai" and settings.openai_api_key is not None:
         return OpenAIEmbeddingProvider(api_key=settings.openai_api_key)
+    logger.warning(
+        "semantic discovery configured without an embedding provider; using lexical-only fallback",
+        extra={
+            "event_type": "semantic.discovery.provider_unavailable",
+            "semantic_mode": settings.semantic_discovery_mode,
+            "semantic_provider": settings.semantic_embedding_provider,
+        },
+    )
     return None

@@ -50,7 +50,7 @@ def test_openai_embeddings_deploy_check_exercises_configured_model() -> None:
 
 
 @pytest.mark.unit
-def test_openai_embeddings_deploy_check_fails_when_key_is_absent() -> None:
+def test_openai_embeddings_deploy_check_warns_when_key_is_absent() -> None:
     settings = Settings(
         _env_file=None,
         DATABASE_URL=DATABASE_URL,
@@ -62,12 +62,12 @@ def test_openai_embeddings_deploy_check_fails_when_key_is_absent() -> None:
         provider_factory=lambda *, api_key: _FakeProvider(api_key=api_key),
     )
 
-    assert result.exit_code == 1
-    assert result.message == ("OpenAI embedding check failed: OPENAI_API_KEY is not configured.")
+    assert result.exit_code == 0
+    assert result.message == ("OpenAI embedding check warning: OPENAI_API_KEY is not configured.")
 
 
 @pytest.mark.unit
-def test_openai_embeddings_deploy_check_fails_for_provider_errors() -> None:
+def test_openai_embeddings_deploy_check_warns_for_provider_errors() -> None:
     class _FailingProvider(_FakeProvider):
         def embed_query(self, **kwargs: Any) -> tuple[float, ...]:
             raise RuntimeError("401 invalid api key")
@@ -83,8 +83,8 @@ def test_openai_embeddings_deploy_check_fails_for_provider_errors() -> None:
         provider_factory=lambda *, api_key: _FailingProvider(api_key=api_key),
     )
 
-    assert result.exit_code == 1
-    assert "OpenAI embedding check failed" in result.message
+    assert result.exit_code == 0
+    assert "OpenAI embedding check warning" in result.message
     assert "RuntimeError: 401 invalid api key" in result.message
     assert "test-openai-key" not in result.message
 

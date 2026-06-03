@@ -364,10 +364,6 @@ class Settings(BaseSettings):
                 "embedding provider, model, and "
                 f"{DEFAULT_SEMANTIC_EMBEDDING_SOURCE_VERSION} source contract."
             )
-        if self.semantic_discovery_mode != "off" and not self.openai_api_key:
-            raise ValueError(
-                "OPENAI_API_KEY must be set when SEMANTIC_DISCOVERY_MODE is shadow or hybrid."
-            )
         return self
 
     @field_validator("auth_service_tokens", mode="before")
