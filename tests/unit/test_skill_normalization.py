@@ -14,7 +14,7 @@ from app.persistence.skill_registry_repository_support import build_search_docum
 
 def test_shared_normalization_aligns_search_documents_and_queries() -> None:
     document_source = build_search_document_source(
-        slug="  Python.Lint  ",
+        slug="  Python-Lint  ",
         metadata=MetadataRecordInput(
             name=" Python   Lint ",
             description="  Lint Python files  ",
@@ -37,7 +37,7 @@ def test_shared_normalization_aligns_search_documents_and_queries() -> None:
 
     assert normalize_search_text(" Python  Lint ") == "python lint"
     assert normalize_tag_list(("Lint", "python", "lint")) == ("lint", "python")
-    assert "python.lint" in document_source
+    assert "python-lint" in document_source
     assert normalized_request.query_text == "python lint"
     assert normalized_request.full_text_query_text == "python lint"
     assert normalized_request.effective_tags == ("lint", "python")

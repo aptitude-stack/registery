@@ -24,7 +24,7 @@ from app.interface.dto.enterprise import (
     VersionGovernanceResponse,
     VersionGovernanceUpdateRequest,
 )
-from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
+from app.interface.validation import GOVERNANCE_SLUG_PATTERN, SEMVER_PATTERN, SLUG_PATTERN
 
 router = APIRouter(prefix="/admin", tags=["enterprise-admin"])
 
@@ -85,7 +85,7 @@ def create_namespace(
     response_model=PolicyPackResponse,
 )
 def upsert_policy_pack(
-    slug: Annotated[str, Path(pattern=SLUG_PATTERN)],
+    slug: Annotated[str, Path(pattern=GOVERNANCE_SLUG_PATTERN)],
     request: PolicyPackUpsertRequest,
     registry_service: SkillRegistryServiceDep,
     caller: AdminCallerDep,

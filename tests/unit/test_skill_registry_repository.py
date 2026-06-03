@@ -44,13 +44,13 @@ def test_sort_relationship_selectors_uses_canonical_edge_family_order() -> None:
 
 def test_build_contains_pattern_normalizes_none_and_escapes_like_wildcards() -> None:
     assert build_contains_pattern(None) is None
-    assert build_contains_pattern("python.discovery") == "%python.discovery%"
+    assert build_contains_pattern("python-discovery") == "%python-discovery%"
     assert build_contains_pattern(r"python\_%") == r"%python\\\_\%%"
 
 
 def test_build_search_document_source_combines_searchable_fields() -> None:
     source = build_search_document_source(
-        slug="Python.Discovery",
+        slug="Python-Discovery",
         metadata=MetadataRecordInput(
             name="  Python Hard Cut Source  ",
             description=" Hard cut discovery candidate ",
@@ -63,7 +63,7 @@ def test_build_search_document_source_combines_searchable_fields() -> None:
         ),
     )
 
-    assert "python.discovery" in source
+    assert "python-discovery" in source
     assert "python hard cut source" in source
     assert "hard cut discovery candidate" in source
     assert "hard-cut" in source

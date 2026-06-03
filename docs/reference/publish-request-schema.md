@@ -62,22 +62,22 @@ The request has two required parts:
     "provenance": {
       "repo_url": "https://github.com/example/skills",
       "commit_sha": "aabbccddeeff00112233445566778899aabbccdd",
-      "tree_path": "skills/python.lint",
+      "tree_path": "skills/python-lint",
       "publisher_identity": "ci/acme-release"
     }
   },
   "relationships": {
     "depends_on": [
       {
-        "slug": "python.base",
+        "slug": "python-base",
         "version_constraint": ">=1.0.0,<2.0.0",
         "optional": true,
         "markers": ["linux", "gpu"]
       }
     ],
-    "extends": [{"slug": "python.base", "version": "1.0.0"}],
+    "extends": [{"slug": "python-base", "version": "1.0.0"}],
     "conflicts_with": [],
-    "overlaps_with": [{"slug": "python.format", "version": "1.0.0"}]
+    "overlaps_with": [{"slug": "python-format", "version": "1.0.0"}]
   }
 }
 ```

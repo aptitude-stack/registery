@@ -625,7 +625,7 @@ def test_hybrid_mode_records_semantic_failure_signal_when_semantic_sql_fails(
 ) -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(
-        lexical=(_candidate("python.lint"),),
+        lexical=(_candidate("python-lint"),),
         semantic_should_fail=True,
     )
 
@@ -639,7 +639,7 @@ def test_hybrid_mode_records_semantic_failure_signal_when_semantic_sql_fails(
             query=_query(),
         )
 
-    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-lint",)
     assert any(
         record.__dict__.get("event_type") == "semantic.discovery.failed"
         for record in caplog.records
@@ -1181,16 +1181,16 @@ If using the recommended decision, add to `tests/unit/test_skill_search_service.
 @pytest.mark.unit
 def test_co_usage_boosts_are_not_requested_when_ranking_disabled_even_with_context() -> None:
     repository = _Repository(
-        lexical=(_candidate("python.docs", lexical_score=0.3), _candidate("python.pytest")),
-        boosts={"python.pytest": 0.05},
+        lexical=(_candidate("python-docs", lexical_score=0.3), _candidate("python-pytest")),
+        boosts={"python-pytest": 0.05},
     )
 
     results = _service(repository, co_usage_enabled=False).search(
         caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
-        query=_query(context_skills=("python.lint",)),
+        query=_query(context_skills=("python-lint",)),
     )
 
-    assert tuple(item.slug for item in results) == ("python.docs", "python.pytest")
+    assert tuple(item.slug for item in results) == ("python-docs", "python-pytest")
     assert repository.co_usage_requests == []
 ```
 

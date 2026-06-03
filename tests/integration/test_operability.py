@@ -139,7 +139,7 @@ def test_publish_flow_stitches_request_id_into_audit_rows_and_metrics(
     migrated_integration_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_integration_database)
-    slug = f"python.operability.{uuid4().hex}"
+    slug = f"python-operability-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         payload = _request("1.0.0")

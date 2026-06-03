@@ -34,7 +34,7 @@ def test_build_search_explanation_tracks_text_and_tag_matches() -> None:
     explanation = build_search_explanation(
         query_terms=("python", "lint"),
         requested_tags=("python",),
-        slug="python.lint",
+        slug="python-lint",
         name="Python Lint",
         description="Linting skill for Python codebases",
         tags=("python", "lint"),

@@ -44,7 +44,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
     """Return the fixed rich demo catalog used for local Docker seeding."""
     return (
         _entry(
-            slug="python.base",
+            slug="python-base",
             version="1.0.0",
             name="Python Base Runtime",
             description="Foundational execution and environment setup patterns for Python skills.",
@@ -106,7 +106,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.base",
+            slug="python-base",
             version="1.1.0",
             name="Python Base Runtime",
             description="Foundational Python environment setup with stronger CI and cache guidance.",
@@ -167,7 +167,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.lint",
+            slug="python-lint",
             version="1.0.0",
             name="Python Lint",
             description="Legacy lint workflow for Python repositories using older rule baselines.",
@@ -178,9 +178,9 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             security_score=0.84,
             publisher_identity="ci/demo-quality",
             desired_lifecycle_status="deprecated",
-            depends_on=(_dependency(slug="python.base", version_constraint=">=1.0.0,<2.0.0"),),
-            extends=(_exact_relationship(slug="python.base", version="1.1.0"),),
-            overlaps_with=(_exact_relationship(slug="python.format", version="2.0.0"),),
+            depends_on=(_dependency(slug="python-base", version_constraint=">=1.0.0,<2.0.0"),),
+            extends=(_exact_relationship(slug="python-base", version="1.1.0"),),
+            overlaps_with=(_exact_relationship(slug="python-format", version="2.0.0"),),
             content=_markdown(
                 title="Python Lint",
                 purpose=(
@@ -229,7 +229,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.lint",
+            slug="python-lint",
             version="2.0.0",
             name="Python Lint",
             description="Modern Ruff-based lint workflow for Python repositories.",
@@ -239,9 +239,9 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             maturity_score=0.93,
             security_score=0.95,
             publisher_identity="ci/demo-quality",
-            depends_on=(_dependency(slug="python.base", version_constraint=">=1.0.0,<2.0.0"),),
-            extends=(_exact_relationship(slug="python.base", version="1.1.0"),),
-            overlaps_with=(_exact_relationship(slug="python.format", version="2.0.0"),),
+            depends_on=(_dependency(slug="python-base", version_constraint=">=1.0.0,<2.0.0"),),
+            extends=(_exact_relationship(slug="python-base", version="1.1.0"),),
+            overlaps_with=(_exact_relationship(slug="python-format", version="2.0.0"),),
             content=_markdown(
                 title="Python Lint",
                 purpose=(
@@ -253,7 +253,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
                     "shared dependency in broader code-quality bundles."
                 ),
                 prerequisites=(
-                    "- `python.base` runtime available\n"
+                    "- `python-base` runtime available\n"
                     "- Ruff installed via the repo toolchain\n"
                     "- Project rule configuration committed or intentionally inherited"
                 ),
@@ -290,7 +290,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.format",
+            slug="python-format",
             version="1.0.0",
             name="Python Format",
             description="Archived formatting workflow kept for exact-read and lifecycle testing.",
@@ -301,8 +301,8 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             security_score=0.83,
             publisher_identity="ci/demo-quality",
             desired_lifecycle_status="archived",
-            depends_on=(_dependency(slug="python.base", version="1.1.0"),),
-            overlaps_with=(_exact_relationship(slug="python.lint", version="2.0.0"),),
+            depends_on=(_dependency(slug="python-base", version="1.1.0"),),
+            overlaps_with=(_exact_relationship(slug="python-lint", version="2.0.0"),),
             content=_markdown(
                 title="Python Format",
                 purpose=(
@@ -347,7 +347,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.format",
+            slug="python-format",
             version="2.0.0",
             name="Python Format",
             description="Current formatting workflow for Python repositories.",
@@ -357,8 +357,8 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             maturity_score=0.91,
             security_score=0.94,
             publisher_identity="ci/demo-quality",
-            depends_on=(_dependency(slug="python.base", version="1.1.0"),),
-            overlaps_with=(_exact_relationship(slug="python.lint", version="2.0.0"),),
+            depends_on=(_dependency(slug="python-base", version="1.1.0"),),
+            overlaps_with=(_exact_relationship(slug="python-lint", version="2.0.0"),),
             content=_markdown(
                 title="Python Format",
                 purpose=(
@@ -370,7 +370,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
                     "or when a bundle needs explicit formatting coverage."
                 ),
                 prerequisites=(
-                    "- `python.base` runtime available\n"
+                    "- `python-base` runtime available\n"
                     "- Active formatter configuration such as Ruff format or Black-compatible rules\n"
                     "- Write permissions when not running in check mode"
                 ),
@@ -388,7 +388,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
                     "5. Return a concise summary that downstream jobs can consume."
                 ),
                 examples=(
-                    "- Enforce clean formatting before `python.lint`.\n"
+                    "- Enforce clean formatting before `python-lint`.\n"
                     "- Normalize style in local development before pushing a branch.\n"
                     "- Provide reusable formatting capability inside a code-quality bundle."
                 ),
@@ -403,7 +403,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.test",
+            slug="python-test",
             version="1.0.0",
             name="Python Test",
             description="Verified pytest execution workflow for Python services and libraries.",
@@ -414,9 +414,9 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             security_score=0.98,
             publisher_identity="release/demo-verified",
             depends_on=(
-                _dependency(slug="python.base", version="1.1.0"),
+                _dependency(slug="python-base", version="1.1.0"),
                 _dependency(
-                    slug="python.lint",
+                    slug="python-lint",
                     version_constraint=">=2.0.0,<3.0.0",
                     optional=True,
                     markers=("ci", "linux"),
@@ -466,7 +466,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.security.scan",
+            slug="python-security-scan",
             version="1.0.0",
             name="Python Security Scan",
             description="Verified security scanning workflow for Python projects.",
@@ -476,8 +476,8 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             maturity_score=0.94,
             security_score=0.99,
             publisher_identity="release/demo-security",
-            depends_on=(_dependency(slug="python.test", version_constraint=">=1.0.0,<2.0.0"),),
-            conflicts_with=(_exact_relationship(slug="python.legacy.audit", version="0.9.0"),),
+            depends_on=(_dependency(slug="python-test", version_constraint=">=1.0.0,<2.0.0"),),
+            conflicts_with=(_exact_relationship(slug="python-legacy-audit", version="0.9.0"),),
             content=_markdown(
                 title="Python Security Scan",
                 purpose=(
@@ -524,7 +524,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.legacy.audit",
+            slug="python-legacy-audit",
             version="0.9.0",
             name="Python Legacy Audit",
             description="Deprecated untrusted audit workflow retained for compatibility testing.",
@@ -535,7 +535,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             security_score=0.58,
             publisher_identity="community/demo-legacy",
             desired_lifecycle_status="deprecated",
-            overlaps_with=(_exact_relationship(slug="python.security.scan", version="1.0.0"),),
+            overlaps_with=(_exact_relationship(slug="python-security-scan", version="1.0.0"),),
             content=_markdown(
                 title="Python Legacy Audit",
                 purpose=(
@@ -544,7 +544,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
                 ),
                 when_to_use=(
                     "Use this only for compatibility and governance tests. It should not be preferred over "
-                    "the verified `python.security.scan` workflow."
+                    "the verified `python-security-scan` workflow."
                 ),
                 prerequisites=(
                     "- Python runtime available\n"
@@ -634,7 +634,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             ),
         ),
         _entry(
-            slug="python.bundle.code-quality",
+            slug="python-bundle-code-quality",
             version="1.0.0",
             name="Python Code Quality Bundle",
             description="Composite internal quality workflow that combines lint, format, and test coverage.",
@@ -645,11 +645,11 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
             security_score=0.96,
             publisher_identity="ci/demo-bundles",
             depends_on=(
-                _dependency(slug="python.lint", version="2.0.0"),
-                _dependency(slug="python.format", version="2.0.0"),
-                _dependency(slug="python.test", version_constraint=">=1.0.0,<2.0.0"),
+                _dependency(slug="python-lint", version="2.0.0"),
+                _dependency(slug="python-format", version="2.0.0"),
+                _dependency(slug="python-test", version_constraint=">=1.0.0,<2.0.0"),
             ),
-            extends=(_exact_relationship(slug="python.base", version="1.1.0"),),
+            extends=(_exact_relationship(slug="python-base", version="1.1.0"),),
             content=_markdown(
                 title="Python Code Quality Bundle",
                 purpose=(
@@ -662,7 +662,7 @@ def build_demo_catalog() -> tuple[DemoSeedEntry, ...]:
                 ),
                 prerequisites=(
                     "- Current Python runtime baseline\n"
-                    "- Published `python.lint`, `python.format`, and `python.test` skills available\n"
+                    "- Published `python-lint`, `python-format`, and `python-test` skills available\n"
                     "- Repository targets suitable for a full quality pass"
                 ),
                 inputs=(
@@ -780,17 +780,17 @@ def _exact_relationship(*, slug: str, version: str) -> SkillRelationshipSelector
 
 def _provenance(*, slug: str, version: str, publisher_identity: str) -> ProvenanceMetadata:
     digests = {
-        ("python.base", "1.0.0"): "1111111111111111111111111111111111111111",
-        ("python.base", "1.1.0"): "1111111111111111111111111111111111111112",
-        ("python.lint", "1.0.0"): "2222222222222222222222222222222222222221",
-        ("python.lint", "2.0.0"): "2222222222222222222222222222222222222222",
-        ("python.format", "1.0.0"): "3333333333333333333333333333333333333331",
-        ("python.format", "2.0.0"): "3333333333333333333333333333333333333332",
-        ("python.test", "1.0.0"): "4444444444444444444444444444444444444444",
-        ("python.security.scan", "1.0.0"): "5555555555555555555555555555555555555555",
-        ("python.legacy.audit", "0.9.0"): "6666666666666666666666666666666666666666",
+        ("python-base", "1.0.0"): "1111111111111111111111111111111111111111",
+        ("python-base", "1.1.0"): "1111111111111111111111111111111111111112",
+        ("python-lint", "1.0.0"): "2222222222222222222222222222222222222221",
+        ("python-lint", "2.0.0"): "2222222222222222222222222222222222222222",
+        ("python-format", "1.0.0"): "3333333333333333333333333333333333333331",
+        ("python-format", "2.0.0"): "3333333333333333333333333333333333333332",
+        ("python-test", "1.0.0"): "4444444444444444444444444444444444444444",
+        ("python-security-scan", "1.0.0"): "5555555555555555555555555555555555555555",
+        ("python-legacy-audit", "0.9.0"): "6666666666666666666666666666666666666666",
         ("documentation-writing", "1.0.0"): "8888888888888888888888888888888888888888",
-        ("python.bundle.code-quality", "1.0.0"): "7777777777777777777777777777777777777777",
+        ("python-bundle-code-quality", "1.0.0"): "7777777777777777777777777777777777777777",
     }
     return ProvenanceMetadata(
         repo_url="https://github.com/example/aptitude-demo-skills",

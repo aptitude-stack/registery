@@ -4,7 +4,7 @@ Use this benchmark before changing semantic discovery tuning such as
 `SEMANTIC_HNSW_EF_SEARCH`.
 
 The benchmark creates deterministic synthetic skills under a reserved
-`benchmark.semantic.*` slug prefix, inserts deterministic `indexed` semantic
+`benchmark-semantic-*` slug prefix, inserts deterministic `indexed` semantic
 vectors, compares approximate HNSW results against an exact scan baseline, and
 then removes the benchmark rows by default. It does not call OpenAI.
 
@@ -64,4 +64,4 @@ the p95/p99 latency increase on the target database shape.
 
 Rows are removed by default. Use `--keep-data` only when inspecting query plans
 or database state manually. Cleanup is restricted to prefixes that start with
-`benchmark.semantic.` and end with `.`.
+`benchmark-semantic-` and end with `-`.

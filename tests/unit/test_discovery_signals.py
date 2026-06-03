@@ -114,9 +114,9 @@ def test_validate_embedding_vector_rejects_wrong_dimensions_and_non_finite_value
 
 @pytest.mark.unit
 def test_fusion_keeps_exact_matches_before_hybrid_rank() -> None:
-    exact = _candidate("python.lint", exact_slug_match=True, lexical_score=1.0)
-    lexical_only = _candidate("python.format", lexical_score=0.8)
-    hybrid_match = _candidate("python.style", lexical_score=0.1)
+    exact = _candidate("python-lint", exact_slug_match=True, lexical_score=1.0)
+    lexical_only = _candidate("python-format", lexical_score=0.8)
+    hybrid_match = _candidate("python-style", lexical_score=0.1)
 
     fused = fuse_discovery_candidates(
         lexical_candidates=(exact, lexical_only, hybrid_match),
@@ -126,16 +126,16 @@ def test_fusion_keeps_exact_matches_before_hybrid_rank() -> None:
     )
 
     assert tuple(item.slug for item in fused) == (
-        "python.lint",
-        "python.style",
-        "python.format",
+        "python-lint",
+        "python-style",
+        "python-format",
     )
 
 
 @pytest.mark.unit
 def test_fusion_uses_semantic_rank_for_overlapping_candidates() -> None:
-    lexical_only = _candidate("python.format", lexical_score=0.8)
-    hybrid_match = _candidate("python.style", lexical_score=0.1)
+    lexical_only = _candidate("python-format", lexical_score=0.8)
+    hybrid_match = _candidate("python-style", lexical_score=0.1)
 
     fused = fuse_discovery_candidates(
         lexical_candidates=(lexical_only, hybrid_match),
@@ -145,16 +145,16 @@ def test_fusion_uses_semantic_rank_for_overlapping_candidates() -> None:
     )
 
     assert tuple(item.slug for item in fused) == (
-        "python.style",
-        "python.format",
+        "python-style",
+        "python-format",
     )
 
 
 @pytest.mark.unit
 def test_fusion_can_promote_strong_semantic_only_candidate_into_limited_results() -> None:
-    exact = _candidate("python.lint", exact_name_match=True, lexical_score=1.0)
-    weak_lexical = _candidate("python.format", lexical_score=0.1)
-    semantic_only = _candidate("python.static-analysis")
+    exact = _candidate("python-lint", exact_name_match=True, lexical_score=1.0)
+    weak_lexical = _candidate("python-format", lexical_score=0.1)
+    semantic_only = _candidate("python-static-analysis")
 
     fused = fuse_discovery_candidates(
         lexical_candidates=(exact, weak_lexical),
@@ -164,33 +164,33 @@ def test_fusion_can_promote_strong_semantic_only_candidate_into_limited_results(
     )
 
     assert tuple(item.slug for item in fused) == (
-        "python.lint",
-        "python.static-analysis",
+        "python-lint",
+        "python-static-analysis",
     )
 
 
 @pytest.mark.unit
 def test_co_usage_boost_is_capped_and_cannot_outrank_exact_matches() -> None:
-    exact = _candidate("python.lint", exact_slug_match=True, lexical_score=1.0)
-    related = _candidate("python.pytest", lexical_score=0.2)
-    unrelated = _candidate("python.docs", lexical_score=0.3)
+    exact = _candidate("python-lint", exact_slug_match=True, lexical_score=1.0)
+    related = _candidate("python-pytest", lexical_score=0.2)
+    unrelated = _candidate("python-docs", lexical_score=0.3)
 
     fused = fuse_discovery_candidates(
         lexical_candidates=(exact, unrelated, related),
         semantic_candidates=(),
-        co_usage_boosts={"python.pytest": 100.0},
+        co_usage_boosts={"python-pytest": 100.0},
         limit=20,
     )
 
     assert tuple(item.slug for item in fused) == (
-        "python.lint",
-        "python.pytest",
-        "python.docs",
+        "python-lint",
+        "python-pytest",
+        "python-docs",
     )
 
 
 def test_candidate_literal_types_stay_visible_to_type_checkers() -> None:
-    candidate = _candidate("python.types")
+    candidate = _candidate("python-types")
 
     lifecycle: LifecycleStatus = candidate.lifecycle_status
     trust: TrustTier = candidate.trust_tier

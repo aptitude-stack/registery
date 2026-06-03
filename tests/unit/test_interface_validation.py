@@ -11,8 +11,10 @@ from app.interface.validation import MARKER_PATTERN, SLUG_PATTERN, VERSION_CONST
 @pytest.mark.parametrize(
     ("value", "is_valid"),
     [
-        ("python.lint", True),
-        ("python_lint", True),
+        ("python-lint", True),
+        ("python.lint", False),
+        ("python_lint", False),
+        ("Python-Lint", False),
         ("python lint", False),
         ("", False),
     ],

@@ -9,13 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.governance import PromotionChannel, ReviewState, TrustTier
 from app.interface.dto.skills_shared import normalize_optional_text, normalize_required_text
-from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
+from app.interface.validation import GOVERNANCE_SLUG_PATTERN, SEMVER_PATTERN
 
 
 class OrganizationCreateRequest(BaseModel):
     """Request to create one organization."""
 
-    slug: str = Field(pattern=SLUG_PATTERN, max_length=128)
+    slug: str = Field(pattern=GOVERNANCE_SLUG_PATTERN, max_length=128)
     display_name: str = Field(min_length=1, max_length=200)
 
     model_config = ConfigDict(extra="forbid")
@@ -37,8 +37,8 @@ class OrganizationResponse(BaseModel):
 class NamespaceCreateRequest(BaseModel):
     """Request to create one namespace."""
 
-    slug: str = Field(pattern=SLUG_PATTERN, max_length=128)
-    organization_slug: str = Field(pattern=SLUG_PATTERN, max_length=128)
+    slug: str = Field(pattern=GOVERNANCE_SLUG_PATTERN, max_length=128)
+    organization_slug: str = Field(pattern=GOVERNANCE_SLUG_PATTERN, max_length=128)
     visibility: Literal["public", "private"] = "private"
 
     model_config = ConfigDict(extra="forbid")
@@ -78,7 +78,7 @@ class PolicyPackResponse(BaseModel):
 class SkillOwnershipUpdateRequest(BaseModel):
     """Request to move a skill into a namespace."""
 
-    namespace: str = Field(pattern=SLUG_PATTERN, max_length=128)
+    namespace: str = Field(pattern=GOVERNANCE_SLUG_PATTERN, max_length=128)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -96,7 +96,11 @@ class VersionGovernanceUpdateRequest(BaseModel):
     review_state: ReviewState | None = None
     promotion_channel: PromotionChannel | None = None
     trust_tier: TrustTier | None = None
-    policy_pack_slug: str | None = Field(default=None, pattern=SLUG_PATTERN, max_length=128)
+    policy_pack_slug: str | None = Field(
+        default=None,
+        pattern=GOVERNANCE_SLUG_PATTERN,
+        max_length=128,
+    )
     note: str | None = Field(default=None, max_length=1000)
 
     model_config = ConfigDict(extra="forbid")

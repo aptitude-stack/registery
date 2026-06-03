@@ -131,7 +131,7 @@ def _caller(*scopes: str) -> CallerIdentity:
 
 def _stored_version(
     *,
-    slug: str = "python.lint",
+    slug: str = "python-lint",
     version: str = "1.0.0",
     lifecycle_status: str = "published",
 ) -> SkillVersionDetail:
@@ -192,7 +192,7 @@ def _top_version(
 def _stored_content(*, lifecycle_status: str = "published") -> SkillContentRecord:
     payload = build_skill_bundle("# Python Lint\n")
     return SkillContentRecord(
-        slug="python.lint",
+        slug="python-lint",
         version="1.0.0",
         payload=payload,
         checksum=SkillChecksum(algorithm="sha256", digest="content-digest"),
@@ -206,7 +206,7 @@ def _stored_content(*, lifecycle_status: str = "published") -> SkillContentRecor
 def _stored_version_summary(
     version: str,
     *,
-    slug: str = "python.lint",
+    slug: str = "python-lint",
     lifecycle_status: str = "published",
     published_at: datetime | None = None,
 ) -> SkillVersionListEntry:
@@ -231,11 +231,11 @@ def test_get_version_metadata_returns_immutable_detail() -> None:
 
     detail = service.get_version_metadata(
         caller=_caller("read"),
-        slug="python.lint",
+        slug="python-lint",
         version="1.0.0",
     )
 
-    assert detail.slug == "python.lint"
+    assert detail.slug == "python-lint"
     assert detail.version == "1.0.0"
     assert detail.content.checksum.digest == "content-digest"
     assert not hasattr(detail.metadata, "headers")
@@ -254,7 +254,7 @@ def test_get_content_returns_bundle_document() -> None:
 
     document = service.get_content(
         caller=_caller("read"),
-        slug="python.lint",
+        slug="python-lint",
         version="1.0.0",
     )
 
@@ -263,7 +263,7 @@ def test_get_content_returns_bundle_document() -> None:
     assert document.media_type == SKILL_ARTIFACT_MEDIA_TYPE
     assert document.size_bytes == len(build_skill_bundle("# Python Lint\n"))
     assert audit_recorder.events == ["skill.version_content_read"]
-    assert repository.install_calls == [("python.lint", "1.0.0")]
+    assert repository.install_calls == [("python-lint", "1.0.0")]
 
 
 @pytest.mark.unit
@@ -277,7 +277,7 @@ def test_get_version_metadata_raises_not_found_for_unknown_coordinate() -> None:
     with pytest.raises(SkillVersionNotFoundError):
         service.get_version_metadata(
             caller=_caller("read"),
-            slug="python.missing",
+            slug="python-missing",
             version="9.9.9",
         )
 
@@ -295,7 +295,7 @@ def test_get_content_applies_exact_read_policy() -> None:
     with pytest.raises(PolicyViolation):
         service.get_content(
             caller=_caller("read"),
-            slug="python.lint",
+            slug="python-lint",
             version="1.0.0",
         )
 
@@ -321,9 +321,9 @@ def test_list_versions_returns_visible_versions_with_current_default_first() -> 
         governance_policy=_governance_policy(),
     )
 
-    result = service.list_versions(caller=_caller("read"), slug="python.lint")
+    result = service.list_versions(caller=_caller("read"), slug="python-lint")
 
-    assert result.slug == "python.lint"
+    assert result.slug == "python-lint"
     assert [item.version for item in result.versions] == ["2.0.0", "1.0.0"]
     assert result.versions[0].is_current_default is True
     assert result.versions[1].is_current_default is False
@@ -341,7 +341,7 @@ def test_list_versions_hides_fully_invisible_skills() -> None:
     )
 
     with pytest.raises(SkillNotFoundError):
-        service.list_versions(caller=_caller("read"), slug="python.lint")
+        service.list_versions(caller=_caller("read"), slug="python-lint")
 
 
 @pytest.mark.unit
@@ -361,7 +361,7 @@ def test_list_versions_includes_archived_versions_for_admin_without_marking_defa
         governance_policy=_governance_policy(),
     )
 
-    result = service.list_versions(caller=_caller("admin"), slug="python.lint")
+    result = service.list_versions(caller=_caller("admin"), slug="python-lint")
 
     assert [item.version for item in result.versions] == ["1.0.0", "2.0.0"]
     assert result.versions[0].is_current_default is True
@@ -390,7 +390,7 @@ def test_list_versions_uses_version_as_final_tie_break_for_current_default() -> 
         governance_policy=_governance_policy(),
     )
 
-    result = service.list_versions(caller=_caller("read"), slug="python.lint")
+    result = service.list_versions(caller=_caller("read"), slug="python-lint")
 
     assert [item.version for item in result.versions] == ["1.0.0", "2.0.0"]
     assert result.versions[0].is_current_default is True
@@ -402,9 +402,9 @@ def test_list_top_installed_returns_visible_versions_with_limit() -> None:
     service = SkillFetchService(
         repository=FakeCatalogRepository(
             top_versions=(
-                _top_version("python.first", install_count=10),
-                _top_version("python.hidden", install_count=9, lifecycle_status="archived"),
-                _top_version("python.second", install_count=8),
+                _top_version("python-first", install_count=10),
+                _top_version("python-hidden", install_count=9, lifecycle_status="archived"),
+                _top_version("python-second", install_count=8),
             )
         ),
         audit_recorder=FakeAuditRecorder(),
@@ -413,7 +413,7 @@ def test_list_top_installed_returns_visible_versions_with_limit() -> None:
 
     result = service.list_top_installed(caller=_caller("read"), limit=2)
 
-    assert [item.slug for item in result] == ["python.first", "python.second"]
+    assert [item.slug for item in result] == ["python-first", "python-second"]
 
 
 @pytest.mark.unit
@@ -421,10 +421,10 @@ def test_list_catalog_skills_returns_all_visible_versions_ordered_by_installs() 
     service = SkillFetchService(
         repository=FakeCatalogRepository(
             top_versions=(
-                _top_version("python.first", install_count=10),
-                _top_version("python.hidden", install_count=9, lifecycle_status="archived"),
-                _top_version("python.second", install_count=8),
-                _top_version("python.third", install_count=7),
+                _top_version("python-first", install_count=10),
+                _top_version("python-hidden", install_count=9, lifecycle_status="archived"),
+                _top_version("python-second", install_count=8),
+                _top_version("python-third", install_count=7),
             )
         ),
         audit_recorder=FakeAuditRecorder(),
@@ -434,9 +434,9 @@ def test_list_catalog_skills_returns_all_visible_versions_ordered_by_installs() 
     result = service.list_catalog_skills(caller=_caller("read"))
 
     assert [item.slug for item in result] == [
-        "python.first",
-        "python.second",
-        "python.third",
+        "python-first",
+        "python-second",
+        "python-third",
     ]
 
 
@@ -445,22 +445,22 @@ def test_list_skill_graph_returns_visible_nodes_and_authored_safe_edges() -> Non
     service = SkillFetchService(
         repository=FakeCatalogRepository(
             top_versions=(
-                _top_version("python.first", install_count=10),
-                _top_version("python.hidden", install_count=9, lifecycle_status="archived"),
-                _top_version("python.second", install_count=8),
-                _top_version("python.third", install_count=7),
+                _top_version("python-first", install_count=10),
+                _top_version("python-hidden", install_count=9, lifecycle_status="archived"),
+                _top_version("python-second", install_count=8),
+                _top_version("python-third", install_count=7),
             ),
             graph_edges=(
                 SkillGraphEdge(
-                    source_slug="python.first",
+                    source_slug="python-first",
                     source_version="1.0.0",
-                    target_slug="python.second",
+                    target_slug="python-second",
                     edge_type="depends_on",
                 ),
                 SkillGraphEdge(
-                    source_slug="python.first",
+                    source_slug="python-first",
                     source_version="1.0.0",
-                    target_slug="python.third",
+                    target_slug="python-third",
                     edge_type="extends",
                 ),
                 SkillGraphEdge(
@@ -470,9 +470,9 @@ def test_list_skill_graph_returns_visible_nodes_and_authored_safe_edges() -> Non
                     edge_type="conflicts_with",
                 ),
                 SkillGraphEdge(
-                    source_slug="python.second",
+                    source_slug="python-second",
                     source_version="1.0.0",
-                    target_slug="python.hidden",
+                    target_slug="python-hidden",
                     edge_type="overlaps_with",
                 ),
             ),
@@ -484,13 +484,13 @@ def test_list_skill_graph_returns_visible_nodes_and_authored_safe_edges() -> Non
     graph = service.list_skill_graph(caller=_caller("read"), limit=3)
 
     assert [node.slug for node in graph.nodes] == [
-        "python.first",
-        "python.second",
-        "python.third",
+        "python-first",
+        "python-second",
+        "python-third",
     ]
     assert [(edge.source_slug, edge.target_slug, edge.edge_type) for edge in graph.edges] == [
-        ("python.first", "python.second", "depends_on"),
-        ("python.first", "python.third", "extends"),
+        ("python-first", "python-second", "depends_on"),
+        ("python-first", "python-third", "extends"),
     ]
 
 
@@ -499,22 +499,22 @@ def test_search_catalog_returns_current_default_metadata_in_discovery_order() ->
     service = SkillFetchService(
         repository=FakeCatalogRepository(
             versions=(
-                _stored_version_summary("1.0.0", slug="python.second"),
-                _stored_version_summary("1.0.0", slug="python.first"),
+                _stored_version_summary("1.0.0", slug="python-second"),
+                _stored_version_summary("1.0.0", slug="python-first"),
                 _stored_version_summary(
                     "2.0.0",
-                    slug="python.first",
+                    slug="python-first",
                     published_at=datetime(2026, 3, 14, 9, 0, tzinfo=UTC),
                 ),
             ),
             details=(
-                _stored_version(slug="python.first", version="2.0.0"),
-                _stored_version(slug="python.second", version="1.0.0"),
+                _stored_version(slug="python-first", version="2.0.0"),
+                _stored_version(slug="python-second", version="1.0.0"),
             ),
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        discovery_service=FakeDiscoveryService(("python.first", "python.second")),
+        discovery_service=FakeDiscoveryService(("python-first", "python-second")),
     )
 
     result = service.search_catalog(
@@ -524,8 +524,8 @@ def test_search_catalog_returns_current_default_metadata_in_discovery_order() ->
     )
 
     assert [(item.slug, item.version) for item in result] == [
-        ("python.first", "2.0.0"),
-        ("python.second", "1.0.0"),
+        ("python-first", "2.0.0"),
+        ("python-second", "1.0.0"),
     ]
 
 
@@ -536,23 +536,23 @@ def test_search_catalog_filters_non_visible_candidates() -> None:
             versions=(
                 _stored_version_summary(
                     "1.0.0",
-                    slug="python.hidden",
+                    slug="python-hidden",
                     lifecycle_status="archived",
                 ),
-                _stored_version_summary("1.0.0", slug="python.visible"),
+                _stored_version_summary("1.0.0", slug="python-visible"),
             ),
             details=(
                 _stored_version(
-                    slug="python.hidden",
+                    slug="python-hidden",
                     version="1.0.0",
                     lifecycle_status="archived",
                 ),
-                _stored_version(slug="python.visible", version="1.0.0"),
+                _stored_version(slug="python-visible", version="1.0.0"),
             ),
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        discovery_service=FakeDiscoveryService(("python.hidden", "python.visible")),
+        discovery_service=FakeDiscoveryService(("python-hidden", "python-visible")),
     )
 
     result = service.search_catalog(
@@ -561,7 +561,7 @@ def test_search_catalog_filters_non_visible_candidates() -> None:
         limit=20,
     )
 
-    assert [item.slug for item in result] == ["python.visible"]
+    assert [item.slug for item in result] == ["python-visible"]
 
 
 @pytest.mark.unit
@@ -569,17 +569,17 @@ def test_search_catalog_respects_limit() -> None:
     service = SkillFetchService(
         repository=FakeCatalogRepository(
             versions=(
-                _stored_version_summary("1.0.0", slug="python.first"),
-                _stored_version_summary("1.0.0", slug="python.second"),
+                _stored_version_summary("1.0.0", slug="python-first"),
+                _stored_version_summary("1.0.0", slug="python-second"),
             ),
             details=(
-                _stored_version(slug="python.first", version="1.0.0"),
-                _stored_version(slug="python.second", version="1.0.0"),
+                _stored_version(slug="python-first", version="1.0.0"),
+                _stored_version(slug="python-second", version="1.0.0"),
             ),
         ),
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
-        discovery_service=FakeDiscoveryService(("python.first", "python.second")),
+        discovery_service=FakeDiscoveryService(("python-first", "python-second")),
     )
 
     result = service.search_catalog(
@@ -588,4 +588,4 @@ def test_search_catalog_respects_limit() -> None:
         limit=1,
     )
 
-    assert [item.slug for item in result] == ["python.first"]
+    assert [item.slug for item in result] == ["python-first"]

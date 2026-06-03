@@ -161,14 +161,14 @@ def _query(*, context_skills: tuple[str, ...] = ()) -> SkillSearchQuery:
 @pytest.mark.unit
 def test_semantic_discovery_off_keeps_lexical_only_path() -> None:
     provider = _EmbeddingProvider()
-    repository = _Repository(lexical=(_candidate("python.lint"),))
+    repository = _Repository(lexical=(_candidate("python-lint"),))
 
     results = _service(repository, embedding_provider=provider).search(
         caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
         query=_query(),
     )
 
-    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-lint",)
     assert provider.calls == []
     assert repository.semantic_requests == []
 
@@ -177,8 +177,8 @@ def test_semantic_discovery_off_keeps_lexical_only_path() -> None:
 def test_shadow_mode_does_not_change_lexical_response() -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(
-        lexical=(_candidate("python.lint"),),
-        semantic=(_candidate("python.semantic"),),
+        lexical=(_candidate("python-lint"),),
+        semantic=(_candidate("python-semantic"),),
     )
 
     results = _service(
@@ -190,7 +190,7 @@ def test_shadow_mode_does_not_change_lexical_response() -> None:
         query=_query(),
     )
 
-    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-lint",)
     assert provider.calls == ["python lint"]
     assert len(repository.semantic_requests) == 1
 
@@ -199,8 +199,8 @@ def test_shadow_mode_does_not_change_lexical_response() -> None:
 def test_discovery_semantic_query_uses_description_and_tags_not_required_name() -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(
-        lexical=(_candidate("python.lint"),),
-        semantic=(_candidate("python.static-analysis"),),
+        lexical=(_candidate("python-lint"),),
+        semantic=(_candidate("python-static-analysis"),),
     )
 
     results = _discovery_service(
@@ -216,7 +216,7 @@ def test_discovery_semantic_query_uses_description_and_tags_not_required_name() 
         ),
     )
 
-    assert results == ("python.lint",)
+    assert results == ("python-lint",)
     assert provider.calls == ["static checks for python services python quality"]
     assert repository.semantic_requests[0].embedding_model == DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
 
@@ -224,7 +224,7 @@ def test_discovery_semantic_query_uses_description_and_tags_not_required_name() 
 @pytest.mark.unit
 def test_discovery_uses_name_for_semantic_query_when_only_name_is_present() -> None:
     provider = _EmbeddingProvider()
-    repository = _Repository(lexical=(_candidate("python.lint"),))
+    repository = _Repository(lexical=(_candidate("python-lint"),))
 
     results = _discovery_service(
         repository,
@@ -235,7 +235,7 @@ def test_discovery_uses_name_for_semantic_query_when_only_name_is_present() -> N
         request=SkillDiscoveryRequest(name="Python Lint", description=None, tags=()),
     )
 
-    assert results == ("python.lint",)
+    assert results == ("python-lint",)
     assert provider.calls == ["python lint"]
     assert len(repository.semantic_requests) == 1
 
@@ -263,7 +263,7 @@ def test_search_sends_identity_and_full_text_queries_to_repository() -> None:
 
 @pytest.mark.unit
 def test_hybrid_mode_degrades_to_lexical_when_embedding_provider_fails() -> None:
-    repository = _Repository(lexical=(_candidate("python.lint"),))
+    repository = _Repository(lexical=(_candidate("python-lint"),))
 
     results = _service(
         repository,
@@ -274,7 +274,7 @@ def test_hybrid_mode_degrades_to_lexical_when_embedding_provider_fails() -> None
         query=_query(),
     )
 
-    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-lint",)
     assert repository.semantic_requests == []
 
 
@@ -282,7 +282,7 @@ def test_hybrid_mode_degrades_to_lexical_when_embedding_provider_fails() -> None
 def test_hybrid_mode_degrades_to_lexical_when_semantic_sql_fails() -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(
-        lexical=(_candidate("python.lint"),),
+        lexical=(_candidate("python-lint"),),
         semantic_should_fail=True,
     )
 
@@ -297,7 +297,7 @@ def test_hybrid_mode_degrades_to_lexical_when_semantic_sql_fails() -> None:
 
     assert provider.calls == ["python lint"]
     assert len(repository.semantic_requests) == 1
-    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-lint",)
 
 
 @pytest.mark.unit
@@ -306,7 +306,7 @@ def test_hybrid_mode_records_semantic_failure_signal_when_semantic_sql_fails(
 ) -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(
-        lexical=(_candidate("python.lint"),),
+        lexical=(_candidate("python-lint"),),
         semantic_should_fail=True,
     )
     log_extras: list[dict[str, object]] = []
@@ -324,15 +324,15 @@ def test_hybrid_mode_records_semantic_failure_signal_when_semantic_sql_fails(
         query=_query(),
     )
 
-    assert tuple(item.slug for item in results) == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-lint",)
     assert log_extras[0]["event_type"] == "semantic.discovery.failed"
 
 
 @pytest.mark.unit
 def test_hybrid_mode_adds_semantic_candidates_after_lexical_candidates() -> None:
     repository = _Repository(
-        lexical=(_candidate("python.lint", lexical_score=0.8),),
-        semantic=(_candidate("python.static-analysis"),),
+        lexical=(_candidate("python-lint", lexical_score=0.8),),
+        semantic=(_candidate("python-static-analysis"),),
     )
 
     results = _service(
@@ -344,36 +344,36 @@ def test_hybrid_mode_adds_semantic_candidates_after_lexical_candidates() -> None
         query=_query(),
     )
 
-    assert tuple(item.slug for item in results) == ("python.lint", "python.static-analysis")
+    assert tuple(item.slug for item in results) == ("python-lint", "python-static-analysis")
 
 
 @pytest.mark.unit
 def test_co_usage_boosts_require_context_skills() -> None:
     repository = _Repository(
-        lexical=(_candidate("python.docs", lexical_score=0.3), _candidate("python.pytest")),
-        boosts={"python.pytest": 100.0},
+        lexical=(_candidate("python-docs", lexical_score=0.3), _candidate("python-pytest")),
+        boosts={"python-pytest": 100.0},
     )
 
     results = _service(repository, co_usage_enabled=True).search(
         caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
-        query=_query(context_skills=("python.lint",)),
+        query=_query(context_skills=("python-lint",)),
     )
 
-    assert tuple(item.slug for item in results) == ("python.pytest", "python.docs")
-    assert repository.co_usage_requests[0].context_skill_slugs == ("python.lint",)
+    assert tuple(item.slug for item in results) == ("python-pytest", "python-docs")
+    assert repository.co_usage_requests[0].context_skill_slugs == ("python-lint",)
 
 
 @pytest.mark.unit
 def test_co_usage_boosts_are_not_requested_when_ranking_disabled_even_with_context() -> None:
     repository = _Repository(
-        lexical=(_candidate("python.docs", lexical_score=0.3), _candidate("python.pytest")),
-        boosts={"python.pytest": 0.05},
+        lexical=(_candidate("python-docs", lexical_score=0.3), _candidate("python-pytest")),
+        boosts={"python-pytest": 0.05},
     )
 
     results = _service(repository, co_usage_enabled=False).search(
         caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
-        query=_query(context_skills=("python.lint",)),
+        query=_query(context_skills=("python-lint",)),
     )
 
-    assert tuple(item.slug for item in results) == ("python.docs", "python.pytest")
+    assert tuple(item.slug for item in results) == ("python-docs", "python-pytest")
     assert repository.co_usage_requests == []

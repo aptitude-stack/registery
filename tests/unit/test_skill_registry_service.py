@@ -204,10 +204,10 @@ def test_publish_version_returns_checksum_and_records_audit() -> None:
 
     response = service.publish_version(
         caller=_publish_caller(),
-        command=_command(slug="python.lint", version="1.0.0"),
+        command=_command(slug="python-lint", version="1.0.0"),
     )
 
-    assert response.slug == "python.lint"
+    assert response.slug == "python-lint"
     assert response.version == "1.0.0"
     assert response.version_checksum.algorithm == "sha256"
     assert response.content.media_type == SKILL_ARTIFACT_MEDIA_TYPE
@@ -227,7 +227,7 @@ def test_publish_version_uses_stable_checksum_for_same_immutable_payload() -> No
         audit_recorder=FakeAuditRecorder(),
         governance_policy=_governance_policy(),
     )
-    command = _command(slug="python.lint", version="1.0.0")
+    command = _command(slug="python-lint", version="1.0.0")
 
     first = first_service.publish_version(caller=_publish_caller(), command=command)
     second = second_service.publish_version(caller=_publish_caller(), command=command)
@@ -247,12 +247,12 @@ def test_publish_version_distinguishes_version_checksum_from_content_checksum() 
 
     first = service.publish_version(
         caller=_publish_caller(),
-        command=_command(slug="python.lint", version="1.0.0"),
+        command=_command(slug="python-lint", version="1.0.0"),
     )
     second = service.publish_version(
         caller=_publish_caller(),
         command=CreateSkillVersionCommand(
-            slug="python.lint",
+            slug="python-lint",
             intent="publish_version",
             version="2.0.0",
             content=SkillContentInput(
@@ -282,13 +282,13 @@ def test_publish_version_rejects_duplicates() -> None:
     )
     service.publish_version(
         caller=_publish_caller(),
-        command=_command(slug="python.lint", version="1.0.0"),
+        command=_command(slug="python-lint", version="1.0.0"),
     )
 
     with pytest.raises(DuplicateSkillVersionError):
         service.publish_version(
             caller=_publish_caller(),
-            command=_command(slug="python.lint", version="1.0.0", intent="publish_version"),
+            command=_command(slug="python-lint", version="1.0.0", intent="publish_version"),
         )
 
 
@@ -302,13 +302,13 @@ def test_create_skill_intent_rejects_existing_slug() -> None:
     )
     service.publish_version(
         caller=_publish_caller(),
-        command=_command(slug="python.lint", version="1.0.0", intent="create_skill"),
+        command=_command(slug="python-lint", version="1.0.0", intent="create_skill"),
     )
 
     with pytest.raises(SkillAlreadyExistsError):
         service.publish_version(
             caller=_publish_caller(),
-            command=_command(slug="python.lint", version="2.0.0", intent="create_skill"),
+            command=_command(slug="python-lint", version="2.0.0", intent="create_skill"),
         )
 
 
@@ -324,7 +324,7 @@ def test_publish_version_intent_rejects_missing_slug() -> None:
     with pytest.raises(SkillNotFoundError):
         service.publish_version(
             caller=_publish_caller(),
-            command=_command(slug="python.lint", version="1.0.0", intent="publish_version"),
+            command=_command(slug="python-lint", version="1.0.0", intent="publish_version"),
         )
 
 
@@ -342,7 +342,7 @@ def test_publish_version_denied_by_policy_records_audit_event() -> None:
         service.publish_version(
             caller=_publish_caller(),
             command=CreateSkillVersionCommand(
-                slug="python.lint",
+                slug="python-lint",
                 intent="create_skill",
                 version="1.0.0",
                 content=SkillContentInput(
@@ -380,7 +380,7 @@ def test_publish_version_maps_slug_uniqueness_race_to_skill_already_exists() -> 
     with pytest.raises(SkillAlreadyExistsError):
         service.publish_version(
             caller=_publish_caller(),
-            command=_command(slug="python.race", version="1.0.0"),
+            command=_command(slug="python-race", version="1.0.0"),
         )
 
 
@@ -395,7 +395,7 @@ def test_update_version_status_raises_for_missing_version() -> None:
     with pytest.raises(SkillVersionNotFoundError):
         service.update_version_status(
             caller=CallerIdentity(token_id="admin", scopes=frozenset({"admin"})),
-            slug="python.lint",
+            slug="python-lint",
             version="1.0.0",
             lifecycle_status="deprecated",
         )

@@ -79,7 +79,7 @@ def test_content_fetch_increments_aggregate_install_count(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.install-count.{uuid4().hex}"
+    slug = f"python-install-count-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         published = _publish(client, slug, _request("1.0.0", intent="create_skill"))
@@ -123,11 +123,11 @@ def test_exact_fetch_returns_not_found_for_missing_coordinates(
 
     with TestClient(create_app()) as client:
         metadata = client.get(
-            "/skills/python.missing/9.9.9",
+            "/skills/python-missing/9.9.9",
             headers=_headers("reader-token"),
         )
         content = client.get(
-            "/skills/python.missing/9.9.9/content",
+            "/skills/python-missing/9.9.9/content",
             headers=_headers("reader-token"),
         )
 
@@ -143,7 +143,7 @@ def test_top_installed_skills_returns_visible_current_defaults_in_rank_order(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.top.{uuid4().hex}"
+    prefix = f"python-top-{uuid4().hex}"
     alpha = f"{prefix}.alpha"
     beta = f"{prefix}.beta"
     hidden = f"{prefix}.hidden"
@@ -221,7 +221,7 @@ def test_catalog_skills_returns_all_visible_current_defaults_ordered_by_installs
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.catalog-all.{uuid4().hex}"
+    prefix = f"python-catalog-all-{uuid4().hex}"
     alpha = f"{prefix}.alpha"
     beta = f"{prefix}.beta"
     gamma = f"{prefix}.gamma"
@@ -275,7 +275,7 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.skill-graph.{uuid4().hex}"
+    prefix = f"python-skill-graph-{uuid4().hex}"
     source = f"{prefix}.source"
     target = f"{prefix}.target"
     overlap = f"{prefix}.overlap"
@@ -357,15 +357,13 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
         {"source_slug": source, "target_slug": overlap, "edge_type": "extends"},
     ]
     assert invalid.status_code == 422
-
-
 @pytest.mark.integration
 def test_catalog_search_returns_visible_current_default_metadata_in_discovery_order(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    prefix = f"python.catalog-search.{uuid4().hex}"
+    prefix = f"python-catalog-search-{uuid4().hex}"
     alpha = f"{prefix}.alpha"
     beta = f"{prefix}.beta"
     hidden = f"{prefix}.hidden"

@@ -20,22 +20,22 @@ PUBLISH_REQUEST_EXAMPLE = {
         "provenance": {
             "repo_url": "https://github.com/example/skills",
             "commit_sha": "aabbccddeeff00112233445566778899aabbccdd",
-            "tree_path": "skills/python.lint",
+            "tree_path": "skills/python-lint",
             "publisher_identity": "ci/acme-release",
         },
     },
     "relationships": {
         "depends_on": [
             {
-                "slug": "python.base",
+                "slug": "python-base",
                 "version_constraint": ">=1.0.0,<2.0.0",
                 "optional": True,
                 "markers": ["linux", "gpu"],
             }
         ],
-        "extends": [{"slug": "python.base", "version": "1.0.0"}],
+        "extends": [{"slug": "python-base", "version": "1.0.0"}],
         "conflicts_with": [],
-        "overlaps_with": [{"slug": "python.format", "version": "1.0.0"}],
+        "overlaps_with": [{"slug": "python-format", "version": "1.0.0"}],
     },
 }
 
@@ -45,7 +45,7 @@ CHECKSUM_EXAMPLE = {
 }
 
 SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
-    "slug": "python.lint",
+    "slug": "python-lint",
     "version": "1.2.3",
     "install_count": 0,
     "star_count": 0,
@@ -75,7 +75,7 @@ SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
     "provenance": {
         "repo_url": "https://github.com/example/skills",
         "commit_sha": "aabbccddeeff00112233445566778899aabbccdd",
-        "tree_path": "skills/python.lint",
+        "tree_path": "skills/python-lint",
         "publisher_identity": "ci/acme-release",
         "trust_context": {
             "trust_tier": "internal",
@@ -86,7 +86,7 @@ SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
 }
 
 SKILL_VERSION_LIST_RESPONSE_EXAMPLE = {
-    "slug": "python.lint",
+    "slug": "python-lint",
     "versions": [
         {
             "version": "2.0.0",
@@ -119,22 +119,22 @@ DISCOVERY_REQUEST_EXAMPLE = {
     "name": "Python Lint",
     "description": "Lint Python files consistently",
     "tags": ["python", "lint"],
-    "context_skills": ["python.format"],
+    "context_skills": ["python-format"],
 }
 
 DISCOVERY_RESPONSE_EXAMPLE = {
     "candidates": [
-        "python.lint",
-        "python.format",
+        "python-lint",
+        "python-format",
     ]
 }
 
 RESOLUTION_RESPONSE_EXAMPLE = {
-    "slug": "python.lint",
+    "slug": "python-lint",
     "version": "1.2.3",
     "depends_on": [
         {
-            "slug": "python.base",
+            "slug": "python-base",
             "version_constraint": ">=1.0.0,<2.0.0",
             "optional": True,
             "markers": ["linux", "gpu"],
@@ -162,32 +162,32 @@ INVALID_REQUEST_ERROR_EXAMPLE = {
 DUPLICATE_SKILL_VERSION_ERROR_EXAMPLE = {
     "error": {
         "code": "DUPLICATE_SKILL_VERSION",
-        "message": "Skill version already exists: python.lint@1.2.3",
-        "details": {"slug": "python.lint", "version": "1.2.3"},
+        "message": "Skill version already exists: python-lint@1.2.3",
+        "details": {"slug": "python-lint", "version": "1.2.3"},
     }
 }
 
 SKILL_ALREADY_EXISTS_ERROR_EXAMPLE = {
     "error": {
         "code": "SKILL_ALREADY_EXISTS",
-        "message": "Skill already exists: python.lint",
-        "details": {"slug": "python.lint"},
+        "message": "Skill already exists: python-lint",
+        "details": {"slug": "python-lint"},
     }
 }
 
 SKILL_NOT_FOUND_ERROR_EXAMPLE = {
     "error": {
         "code": "SKILL_NOT_FOUND",
-        "message": "Skill not found: python.lint",
-        "details": {"slug": "python.lint"},
+        "message": "Skill not found: python-lint",
+        "details": {"slug": "python-lint"},
     }
 }
 
 SKILL_VERSION_NOT_FOUND_ERROR_EXAMPLE = {
     "error": {
         "code": "SKILL_VERSION_NOT_FOUND",
-        "message": "Skill version not found: python.lint@9.9.9",
-        "details": {"slug": "python.lint", "version": "9.9.9"},
+        "message": "Skill version not found: python-lint@9.9.9",
+        "details": {"slug": "python-lint", "version": "9.9.9"},
     }
 }
 
@@ -199,7 +199,7 @@ CONTENT_STORAGE_FAILURE_ERROR_EXAMPLE = {
 }
 
 SKILL_VERSION_STATUS_RESPONSE_EXAMPLE = {
-    "slug": "python.lint",
+    "slug": "python-lint",
     "version": "1.2.3",
     "status": "deprecated",
     "trust_tier": "internal",
@@ -210,23 +210,23 @@ SKILL_VERSION_STATUS_RESPONSE_EXAMPLE = {
 STAR_EVENT_BATCH_REQUEST_EXAMPLE = {
     "user_subject": "test1@example.com",
     "events": [
-        {"slug": "python.lint", "action": "star"},
-        {"slug": "python.test", "action": "unstar"},
+        {"slug": "python-lint", "action": "star"},
+        {"slug": "python-test", "action": "unstar"},
     ],
 }
 
 STAR_EVENT_BATCH_RESPONSE_EXAMPLE = {
     "accepted": 2,
     "counts": [
-        {"slug": "python.lint", "star_count": 13},
-        {"slug": "python.test", "star_count": 4},
+        {"slug": "python-lint", "star_count": 13},
+        {"slug": "python-test", "star_count": 4},
     ],
 }
 
 UNKNOWN_SKILL_SLUG_ERROR_EXAMPLE = {
     "error": {
         "code": "STAR_EVENT_UNKNOWN_SKILL",
-        "message": "Star event batch references unknown skill slugs: python.lint",
-        "details": {"slugs": ["python.lint"]},
+        "message": "Star event batch references unknown skill slugs: python-lint",
+        "details": {"slugs": ["python-lint"]},
     }
 }

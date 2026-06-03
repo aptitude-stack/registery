@@ -357,7 +357,7 @@ The API then returns:
 
 ```json
 {
-  "candidates": ["python.lint", "python.format"]
+  "candidates": ["python-lint", "python-format"]
 }
 ```
 
@@ -407,7 +407,7 @@ The server will:
 7. keep the top version per slug
 8. return ordered slug candidates
 
-If one row has an exact slug match on `python.lint`, it outranks rows that only
+If one row has an exact slug match on `python-lint`, it outranks rows that only
 match through text or tags.
 
 ## Code References

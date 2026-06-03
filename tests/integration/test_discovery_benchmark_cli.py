@@ -16,7 +16,7 @@ def test_discovery_benchmark_cli_reports_recall_latency_and_cleans_up(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,
 ) -> None:
-    prefix = "benchmark.semantic.integration."
+    prefix = "benchmark-semantic-integration-"
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "off")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

@@ -73,7 +73,7 @@ Publish and exact metadata fetch return the same structured response shape:
 
 ```json
 {
-  "slug": "python.lint",
+  "slug": "python-lint",
   "version": "1.2.3",
   "install_count": 42,
   "star_count": 13,
@@ -111,7 +111,7 @@ count.
 {
   "skills": [
     {
-      "slug": "python.lint",
+      "slug": "python-lint",
       "version": "1.2.3",
       "install_count": 42,
       "metadata": {
@@ -145,7 +145,7 @@ nodes.
 {
   "nodes": [
     {
-      "slug": "python.lint",
+      "slug": "python-lint",
       "version": "1.2.3",
       "name": "Python Lint",
       "install_count": 42,
@@ -155,8 +155,8 @@ nodes.
   ],
   "edges": [
     {
-      "source_slug": "python.lint",
-      "target_slug": "python.test",
+      "source_slug": "python-lint",
+      "target_slug": "python-test",
       "edge_type": "extends"
     }
   ]
@@ -199,7 +199,7 @@ Response shape:
 {
   "skills": [
     {
-      "slug": "python.lint",
+      "slug": "python-lint",
       "version": "1.2.3",
       "install_count": 42,
       "metadata": {
@@ -261,8 +261,8 @@ Request:
 {
   "user_subject": "test1@example.com",
   "events": [
-    {"slug": "python.lint", "action": "star"},
-    {"slug": "python.test", "action": "unstar"}
+    {"slug": "python-lint", "action": "star"},
+    {"slug": "python-test", "action": "unstar"}
   ]
 }
 ```
@@ -273,8 +273,8 @@ Response:
 {
   "accepted": 2,
   "counts": [
-    {"slug": "python.lint", "star_count": 13},
-    {"slug": "python.test", "star_count": 4}
+    {"slug": "python-lint", "star_count": 13},
+    {"slug": "python-test", "star_count": 4}
   ]
 }
 ```
@@ -301,7 +301,7 @@ Response:
 
 ```json
 {
-  "starred_slugs": ["python.lint", "python.test"]
+  "starred_slugs": ["python-lint", "python-test"]
 }
 ```
 

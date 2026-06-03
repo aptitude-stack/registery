@@ -32,10 +32,10 @@ def test_publish_request_accepts_all_relationship_families() -> None:
         {
             **_request(),
             "relationships": {
-                "depends_on": [{"slug": "core.base", "version": "1.0.0"}],
-                "extends": [{"slug": "python.base", "version": "2.0.0"}],
-                "conflicts_with": [{"slug": "ruby.lint", "version": "1.0.0"}],
-                "overlaps_with": [{"slug": "python.format", "version": "1.0.0"}],
+                "depends_on": [{"slug": "core-base", "version": "1.0.0"}],
+                "extends": [{"slug": "python-base", "version": "2.0.0"}],
+                "conflicts_with": [{"slug": "ruby-lint", "version": "1.0.0"}],
+                "overlaps_with": [{"slug": "python-format", "version": "1.0.0"}],
             },
         }
     )
@@ -43,7 +43,7 @@ def test_publish_request_accepts_all_relationship_families() -> None:
     assert request.intent == "create_skill"
     assert request.version == "1.2.3"
     assert request.relationships.depends_on[0].version == "1.0.0"
-    assert request.relationships.conflicts_with[0].slug == "ruby.lint"
+    assert request.relationships.conflicts_with[0].slug == "ruby-lint"
 
 
 @pytest.mark.unit
@@ -54,7 +54,7 @@ def test_publish_request_accepts_dependency_constraints_and_markers() -> None:
             "relationships": {
                 "depends_on": [
                     {
-                        "slug": "core.base",
+                        "slug": "core-base",
                         "version_constraint": ">=1.0.0,<2.0.0",
                         "optional": True,
                         "markers": ["linux", "gpu"],
@@ -123,7 +123,7 @@ def test_publish_request_rejects_ambiguous_dependency_version_selectors() -> Non
                 "relationships": {
                     "depends_on": [
                         {
-                            "slug": "core.base",
+                            "slug": "core-base",
                             "version": "1.0.0",
                             "version_constraint": ">=1.0.0,<2.0.0",
                         }
@@ -140,7 +140,7 @@ def test_publish_request_rejects_invalid_dependency_constraint_syntax() -> None:
             {
                 **_request(),
                 "relationships": {
-                    "depends_on": [{"slug": "core.base", "version_constraint": "latest"}]
+                    "depends_on": [{"slug": "core-base", "version_constraint": "latest"}]
                 },
             }
         )
@@ -185,14 +185,14 @@ def test_discovery_request_trims_name_and_deduplicates_tags() -> None:
             "name": "  Python Lint  ",
             "description": "  Lint Python files  ",
             "tags": ["python", " lint ", "python"],
-            "context_skills": [" Python.Format ", "python.format", "python.test"],
+            "context_skills": [" Python-Format ", "python-format", "python-test"],
         }
     )
 
     assert request.name == "Python Lint"
     assert request.description == "Lint Python files"
     assert request.tags == ["python", "lint"]
-    assert request.context_skills == ["python.format", "python.test"]
+    assert request.context_skills == ["python-format", "python-test"]
 
 
 @pytest.mark.unit

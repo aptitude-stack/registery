@@ -27,7 +27,7 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("SEMANTIC_EMBEDDING_INDEX_KEY", DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY)
-    slug = f"python.semantic.indexing.{uuid4().hex}"
+    slug = f"python-semantic-indexing-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -59,7 +59,7 @@ def test_embedding_indexer_claims_indexes_and_ignores_old_index_keys(
         assert len(work_items) == 1
         work_item = work_items[0]
         assert work_item.source_text == "static checks for python services python quality"
-        assert "python.semantic.indexing" not in work_item.source_text
+        assert "python-semantic-indexing" not in work_item.source_text
         assert work_item.embedding_model == DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
 
         repository.index_skill_embedding(
@@ -116,7 +116,7 @@ def test_embedding_indexer_reclaims_stale_processing_rows_and_records_failures(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("SEMANTIC_EMBEDDING_INDEX_KEY", DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY)
-    slug = f"python.semantic.failure.{uuid4().hex}"
+    slug = f"python-semantic-failure-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         _publish(
