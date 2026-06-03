@@ -60,6 +60,13 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         co_usage_columns = {
             column["name"] for column in inspector.get_columns("skill_co_usage_pairs")
         }
+        graph_edge_columns = {
+            column["name"] for column in inspector.get_columns("skill_graph_edges")
+        }
+        graph_edge_checks = {
+            constraint["name"]: constraint["sqltext"]
+            for constraint in inspector.get_check_constraints("skill_graph_edges")
+        }
 
         assert {
             "slug",
@@ -121,6 +128,22 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
             "pmi_score",
             "window_days",
         } <= co_usage_columns
+        assert {
+            "source_skill_fk",
+            "source_skill_version_fk",
+            "target_skill_fk",
+            "target_slug",
+            "edge_type",
+            "provenance",
+            "active",
+            "confidence",
+            "evidence",
+            "created_at",
+            "updated_at",
+        } <= graph_edge_columns
+        assert "relates_to" in graph_edge_checks["ck_skill_graph_edges_edge_type"]
+        assert "co_usage" in graph_edge_checks["ck_skill_graph_edges_provenance"]
+        assert "authored" in graph_edge_checks["ck_skill_graph_edges_provenance"]
     finally:
         upgraded_engine.dispose()
 
@@ -145,5 +168,6 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_usage_observation_runs" not in inspector.get_table_names()
         assert "skill_usage_observations" not in inspector.get_table_names()
         assert "skill_co_usage_pairs" not in inspector.get_table_names()
+        assert "skill_graph_edges" not in inspector.get_table_names()
     finally:
         downgraded_engine.dispose()

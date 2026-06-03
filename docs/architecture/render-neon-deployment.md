@@ -156,11 +156,11 @@ SEMANTIC_QUERY_TIMEOUT_MS=150
 SEMANTIC_HNSW_EF_SEARCH=100
 ```
 
-Set `SEMANTIC_DISCOVERY_MODE=off` for lexical-only startup without
-`OPENAI_API_KEY`. Use `shadow` when semantic retrieval should be observed
-without changing discovery ordering. Hybrid can degrade to lexical-only on
-provider or semantic SQL failures, but production deployments should still
-configure the provider and indexing job so `indexed` rows exist.
+Set `SEMANTIC_DISCOVERY_MODE=off` for explicit lexical-only startup. Missing or
+invalid `OPENAI_API_KEY` values also degrade to lexical-only discovery with a
+warning. Use `shadow` when semantic retrieval should be observed without
+changing discovery ordering. Production deployments should still configure the
+provider and indexing job so `indexed` rows exist.
 
 Keep the Render `onrender.com` host in `ALLOWED_HOSTS_JSON` until custom-domain
 verification and health checks are stable. After that, either keep it for
@@ -233,9 +233,10 @@ owns the Cron trigger and preserves the
 `semantic-indexing-managed-outside-blueprint` marker as intentional drift
 documentation, not a missing service definition.
 
-Configure `DATABASE_URL`, `OPENAI_API_KEY`, `RENDER_API_KEY`, and the semantic
-settings above for the indexing path. The local CLI remains the stable
-fallback.
+Configure `DATABASE_URL`, `RENDER_API_KEY`, and the semantic settings above for
+the indexing path. Add `OPENAI_API_KEY` to enable indexing; if it is missing,
+the workflow skips semantic indexing and exits successfully. The local CLI
+remains the stable fallback.
 
 Enable the query-statistics extension once on the production database for
 observability:

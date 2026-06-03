@@ -7,10 +7,24 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Request, status
 from fastapi.responses import JSONResponse
 
-from app.core.skills.models import SkillNotFoundError, SkillRegistryError, SkillVersionNotFoundError
-from app.interface.api.dependencies import AdminCallerDep, ReviewCallerDep, SkillRegistryServiceDep
+from app.core.ports import CoUsageObservationImportRecord
+from app.core.skills.models import (
+    CoUsageRelatesToPolicy,
+    SkillNotFoundError,
+    SkillRegistryError,
+    SkillVersionNotFoundError,
+    UnknownCoUsageSkillError,
+)
+from app.interface.api.dependencies import (
+    AdminCallerDep,
+    ReviewCallerDep,
+    SettingsDep,
+    SkillRegistryServiceDep,
+)
 from app.interface.api.errors import error_response
 from app.interface.dto.enterprise import (
+    CoUsageObservationImportRequest,
+    CoUsageObservationImportResponse,
     NamespaceCreateRequest,
     NamespaceResponse,
     OrganizationCreateRequest,
@@ -215,6 +229,53 @@ def add_skill_version_trust_evidence(
         digest=created.digest,
         uri=created.uri,
         created_at=created.created_at,
+    )
+
+
+@router.post(
+    "/co-usage/observation-runs",
+    operation_id="importCoUsageObservationRun",
+    response_model=CoUsageObservationImportResponse,
+)
+def import_co_usage_observation_run(
+    http_request: Request,
+    request: CoUsageObservationImportRequest,
+    registry_service: SkillRegistryServiceDep,
+    caller: AdminCallerDep,
+    settings: SettingsDep,
+) -> CoUsageObservationImportResponse | JSONResponse:
+    """Import one trusted resolver co-usage observation run."""
+    try:
+        result = registry_service.import_co_usage_observation_run(
+            caller=caller,
+            record=CoUsageObservationImportRecord(
+                source=request.source,
+                source_digest=request.source_digest,
+                observed_at=request.observed_at,
+                skill_slugs=tuple(request.skill_slugs),
+            ),
+            policy=CoUsageRelatesToPolicy(
+                min_runs=settings.co_usage_relates_to_min_runs,
+                min_rate=settings.co_usage_relates_to_min_rate,
+                min_lift=settings.co_usage_relates_to_min_lift,
+                window_days=settings.co_usage_relates_to_window_days,
+            ),
+        )
+    except UnknownCoUsageSkillError as exc:
+        return error_response(
+            request=http_request,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code="UNKNOWN_CO_USAGE_SKILL",
+            message=str(exc),
+            details={"slugs": list(exc.slugs)},
+        )
+    return CoUsageObservationImportResponse(
+        imported=result.imported,
+        observations_accepted=result.observations_accepted,
+        pairs_rebuilt=result.pairs_rebuilt,
+        edges_activated=result.edges_activated,
+        edges_deactivated=result.edges_deactivated,
+        duplicate=result.duplicate,
     )
 
 

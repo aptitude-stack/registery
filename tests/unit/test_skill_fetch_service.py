@@ -456,24 +456,29 @@ def test_list_skill_graph_returns_visible_nodes_and_authored_safe_edges() -> Non
                     source_version="1.0.0",
                     target_slug="python-second",
                     edge_type="depends_on",
+                    provenance="authored",
                 ),
                 SkillGraphEdge(
                     source_slug="python-first",
                     source_version="1.0.0",
                     target_slug="python-third",
                     edge_type="extends",
-                ),
-                SkillGraphEdge(
-                    source_slug="python.first",
-                    source_version="1.0.0",
-                    target_slug="python.second",
-                    edge_type="conflicts_with",
+                    provenance="authored",
                 ),
                 SkillGraphEdge(
                     source_slug="python-second",
                     source_version="1.0.0",
                     target_slug="python-hidden",
                     edge_type="overlaps_with",
+                    provenance="authored",
+                ),
+                SkillGraphEdge(
+                    source_slug="python-second",
+                    source_version="1.0.0",
+                    target_slug="python-third",
+                    edge_type="relates_to",
+                    provenance="co_usage",
+                    confidence=0.72,
                 ),
             ),
         ),
@@ -488,9 +493,13 @@ def test_list_skill_graph_returns_visible_nodes_and_authored_safe_edges() -> Non
         "python-second",
         "python-third",
     ]
-    assert [(edge.source_slug, edge.target_slug, edge.edge_type) for edge in graph.edges] == [
-        ("python-first", "python-second", "depends_on"),
-        ("python-first", "python-third", "extends"),
+    assert [
+        (edge.source_slug, edge.target_slug, edge.edge_type, edge.provenance, edge.confidence)
+        for edge in graph.edges
+    ] == [
+        ("python-first", "python-second", "depends_on", "authored", None),
+        ("python-first", "python-third", "extends", "authored", None),
+        ("python-second", "python-third", "relates_to", "co_usage", 0.72),
     ]
 
 

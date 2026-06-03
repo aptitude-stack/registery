@@ -65,6 +65,10 @@ def test_settings_load_valid_environment(
     assert settings.semantic_hnsw_ef_search == DEFAULT_SEMANTIC_HNSW_EF_SEARCH
     assert settings.co_usage_ranking_enabled is False
     assert settings.co_usage_boost_cap == 0.05
+    assert settings.co_usage_relates_to_min_runs == 3
+    assert settings.co_usage_relates_to_min_rate == 0.20
+    assert settings.co_usage_relates_to_min_lift == 1.0
+    assert settings.co_usage_relates_to_window_days == 90
 
 
 @pytest.mark.unit
@@ -118,6 +122,10 @@ def test_settings_validate_semantic_discovery_controls(monkeypatch: pytest.Monke
     monkeypatch.setenv("SEMANTIC_QUERY_TIMEOUT_MS", "75")
     monkeypatch.setenv("CO_USAGE_RANKING_ENABLED", "true")
     monkeypatch.setenv("CO_USAGE_BOOST_CAP", "0.03")
+    monkeypatch.setenv("CO_USAGE_RELATES_TO_MIN_RUNS", "5")
+    monkeypatch.setenv("CO_USAGE_RELATES_TO_MIN_RATE", "0.3")
+    monkeypatch.setenv("CO_USAGE_RELATES_TO_MIN_LIFT", "1.5")
+    monkeypatch.setenv("CO_USAGE_RELATES_TO_WINDOW_DAYS", "30")
 
     settings = Settings(_env_file=None)
 
@@ -131,10 +139,14 @@ def test_settings_validate_semantic_discovery_controls(monkeypatch: pytest.Monke
     assert settings.semantic_query_timeout_ms == 75
     assert settings.co_usage_ranking_enabled is True
     assert settings.co_usage_boost_cap == 0.03
+    assert settings.co_usage_relates_to_min_runs == 5
+    assert settings.co_usage_relates_to_min_rate == 0.3
+    assert settings.co_usage_relates_to_min_lift == 1.5
+    assert settings.co_usage_relates_to_window_days == 30
 
 
 @pytest.mark.unit
-def test_settings_require_openai_key_when_semantic_mode_uses_provider(
+def test_settings_allow_semantic_mode_without_openai_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -144,8 +156,10 @@ def test_settings_require_openai_key_when_semantic_mode_uses_provider(
     monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "shadow")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    with pytest.raises(ValidationError, match="OPENAI_API_KEY"):
-        Settings(_env_file=None)
+    settings = Settings(_env_file=None)
+
+    assert settings.semantic_discovery_mode == "shadow"
+    assert settings.openai_api_key is None
 
 
 @pytest.mark.unit

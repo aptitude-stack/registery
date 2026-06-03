@@ -25,6 +25,7 @@ from app.core.governance import (
 from app.core.ports import (
     AuditPort,
     ContentRecordInput,
+    CoUsageObservationImportRecord,
     CreateSkillVersionRecord,
     DuplicateSkillSlugPersistenceError,
     DuplicateSkillVersionPersistenceError,
@@ -38,6 +39,8 @@ from app.core.ports import (
 
 from .models import (
     SHA256_ALGORITHM,
+    CoUsageObservationImportResult,
+    CoUsageRelatesToPolicy,
     CreateSkillVersionCommand,
     DuplicateSkillVersionError,
     NamespaceRecord,
@@ -60,10 +63,13 @@ from .models import (
     SkillVersionNotFoundError,
     SkillVersionStatusUpdate,
     TrustEvidenceRecord,
+    UnknownCoUsageSkillError,
 )
 
 __all__ = [
     "SHA256_ALGORITHM",
+    "CoUsageObservationImportResult",
+    "CoUsageRelatesToPolicy",
     "CreateSkillVersionCommand",
     "DuplicateSkillVersionError",
     "PublishIntent",
@@ -82,6 +88,7 @@ __all__ = [
     "SkillNotFoundError",
     "SkillVersionNotFoundError",
     "SkillVersionStatusUpdate",
+    "UnknownCoUsageSkillError",
 ]
 
 
@@ -519,6 +526,17 @@ class SkillRegistryService:
         if created is None:
             raise SkillVersionNotFoundError(slug=slug, version=version)
         return created
+
+    def import_co_usage_observation_run(
+        self,
+        *,
+        caller: CallerIdentity,
+        record: CoUsageObservationImportRecord,
+        policy: CoUsageRelatesToPolicy,
+    ) -> CoUsageObservationImportResult:
+        """Import trusted resolver co-usage evidence and sync graph edges."""
+        del caller
+        return self._repository.import_observation_run(record=record, policy=policy)
 
 
 def _to_relationship_record_inputs(

@@ -83,6 +83,8 @@ def to_skill_graph_response(graph: SkillGraph) -> SkillGraphResponse:
                 source_slug=edge.source_slug,
                 target_slug=edge.target_slug,
                 edge_type=edge.edge_type,
+                provenance=edge.provenance,
+                confidence=edge.confidence,
             )
             for edge in graph.edges
         ],

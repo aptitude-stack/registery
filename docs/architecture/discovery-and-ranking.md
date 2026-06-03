@@ -304,16 +304,15 @@ with the description/tag source contract.
 If `CO_USAGE_RANKING_ENABLED=true` and `context_skills` are supplied, co-usage
 can apply a capped "commonly used together" boost. Co-usage is derived from
 resolver lock/selection outcomes, not clicks, page views, or discovery requests,
-and it never becomes dependency truth.
+and it never becomes dependency truth. Qualifying co-usage pairs may also
+activate advisory `relates_to` graph edges with `provenance=co_usage`.
 
 ## Co-Usage Ranking Status
 
-Co-usage ranking is schema-backed but disabled by default through
-`CO_USAGE_RANKING_ENABLED=false`. The registry may read `skill_co_usage_pairs`
-only when a trusted producer has populated resolver observation aggregates.
-Until `CoUsageObservationImportPort.import_observation_run` has a production
-implementation, `context_skills` remains accepted request context but must not
-imply a populated co-usage signal.
+Co-usage ranking is disabled by default through `CO_USAGE_RANKING_ENABLED=false`.
+Trusted resolver observation imports populate `skill_co_usage_pairs` and sync
+derived graph edges. `context_skills` remains request context for ranking only
+and is not a dependency declaration.
 
 ### `ts_rank_cd`
 
