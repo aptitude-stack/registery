@@ -369,6 +369,8 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
         },
     ]
     assert invalid.status_code == 422
+
+
 @pytest.mark.integration
 def test_co_usage_import_creates_and_deactivates_relates_to_graph_edges(
     monkeypatch: pytest.MonkeyPatch,
