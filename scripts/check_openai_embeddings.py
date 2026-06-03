@@ -15,6 +15,8 @@ from app.core.settings import Settings, get_settings, reset_settings_cache  # no
 from app.integrations.openai_embeddings import OpenAIEmbeddingProvider  # noqa: E402
 
 CHECK_TEXT = "aptitude registry semantic deployment check"
+CHECK_ATTEMPTS = 3
+CHECK_TIMEOUT_MS = 5_000
 
 
 class EmbeddingProvider(Protocol):
@@ -52,22 +54,29 @@ def run_check(
             message="OpenAI embedding check failed: OPENAI_API_KEY is not configured.",
         )
 
-    try:
-        provider = provider_factory(api_key=settings.openai_api_key)
-        vector = provider.embed_query(
-            text=CHECK_TEXT,
-            model=settings.semantic_embedding_model,
-            dimensions=settings.semantic_embedding_dimensions,
-            timeout_ms=settings.semantic_query_timeout_ms,
-        )
-    except Exception as exc:  # noqa: BLE001 - deploy check should report provider failures clearly.
+    timeout_ms = max(settings.semantic_query_timeout_ms, CHECK_TIMEOUT_MS)
+    provider = provider_factory(api_key=settings.openai_api_key)
+    last_error: Exception | None = None
+    for _attempt in range(CHECK_ATTEMPTS):
+        try:
+            vector = provider.embed_query(
+                text=CHECK_TEXT,
+                model=settings.semantic_embedding_model,
+                dimensions=settings.semantic_embedding_dimensions,
+                timeout_ms=timeout_ms,
+            )
+            break
+        except Exception as exc:  # noqa: BLE001 - deploy check should report provider failures clearly.
+            last_error = exc
+    else:
+        assert last_error is not None
         return CheckResult(
             exit_code=1,
             message=(
                 "OpenAI embedding check failed: provider check failed "
                 f"for model={settings.semantic_embedding_model!r}, "
                 f"dimensions={settings.semantic_embedding_dimensions}: "
-                f"{type(exc).__name__}: {exc}"
+                f"{type(last_error).__name__}: {last_error}"
             ),
         )
 
