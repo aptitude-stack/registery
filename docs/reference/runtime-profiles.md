@@ -96,9 +96,9 @@ Tests and CI are execution environments, not runtime profiles.
 - `ACTIVE_POLICY_PROFILE`: selects which policy profile is active at runtime; defaults to `default`
 - `LOG_LEVEL`, `LOG_FORMAT`: logging configuration
 - `OTEL_ENABLED` plus standard `OTEL_EXPORTER_OTLP_*` env vars: OpenTelemetry/Grafana Cloud configuration (see `observability-grafana-cloud.md`)
-- `OPENAI_API_KEY`: required for default hybrid semantic discovery, `shadow`,
-  and indexing calls that use OpenAI; not required when
-  `SEMANTIC_DISCOVERY_MODE=off`
+- `OPENAI_API_KEY`: enables OpenAI-backed semantic discovery and indexing.
+  When it is absent or invalid, discovery warns and falls back to lexical-only
+  results.
 - `SEMANTIC_DISCOVERY_MODE`: `off`, `shadow`, or `hybrid`; defaults to `hybrid`
 - `SEMANTIC_EMBEDDING_PROVIDER`: embedding provider, currently `openai`
 - `SEMANTIC_EMBEDDING_MODEL`: provider model sent to OpenAI, currently `text-embedding-3-small`
@@ -155,7 +155,8 @@ create new `APP_ENV` values.
 ## Semantic Indexing
 
 Semantic discovery is hybrid by default. The app can boot without
-`OPENAI_API_KEY` only when `SEMANTIC_DISCOVERY_MODE=off` is set explicitly.
+`OPENAI_API_KEY`; discovery logs a warning and falls back to lexical-only
+results until a valid key is configured.
 
 Use the local indexer for development backfills and emergency production
 fallbacks:
