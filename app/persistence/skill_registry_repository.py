@@ -400,11 +400,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     target_slug=str(row["target_slug"]),
                     edge_type=cast(SkillGraphEdgeType, row["edge_type"]),
                     provenance=cast(SkillGraphEdgeProvenance, row["provenance"]),
-                    confidence=(
-                        None
-                        if row["confidence"] is None
-                        else float(row["confidence"])
-                    ),
+                    confidence=(None if row["confidence"] is None else float(row["confidence"])),
                 )
                 for row in rows
             ]
@@ -1619,9 +1615,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 "window_days": policy.window_days,
             },
         )
-        return int(
-            session.execute(text("SELECT COUNT(*) FROM skill_co_usage_pairs")).scalar_one()
-        )
+        return int(session.execute(text("SELECT COUNT(*) FROM skill_co_usage_pairs")).scalar_one())
 
     @staticmethod
     def _sync_co_usage_graph_edges(
