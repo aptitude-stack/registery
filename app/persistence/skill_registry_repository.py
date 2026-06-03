@@ -36,9 +36,9 @@ from app.core.governance import (
 from app.core.ports import (
     AuditEventRecord,
     CoUsageBoostRequest,
+    CoUsageObservationImportRecord,
     CreateSkillVersionRecord,
     MetadataRecordInput,
-    RelationshipEdgeType,
     SearchCandidatesRequest,
     SearchSemanticCandidatesRequest,
     SkillCatalogRepository,
@@ -52,11 +52,14 @@ from app.core.semantic_defaults import (
     DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
 )
 from app.core.skills.models import (
+    CoUsageObservationImportResult,
+    CoUsageRelatesToPolicy,
     NamespaceRecord,
     OrganizationRecord,
     PolicyPackRecord,
     SkillContentRecord,
     SkillGraphEdge,
+    SkillGraphEdgeProvenance,
     SkillGraphEdgeType,
     SkillOwnershipUpdate,
     SkillRelationshipSource,
@@ -67,6 +70,7 @@ from app.core.skills.models import (
     SkillVersionStatusUpdate,
     StarEvent,
     TrustEvidenceRecord,
+    UnknownCoUsageSkillError,
     UnknownStarEventSkillsError,
 )
 from app.core.skills.version_ordering import select_current_default_version
@@ -82,6 +86,7 @@ from app.persistence.models.organization import Organization
 from app.persistence.models.policy_pack import PolicyPack
 from app.persistence.models.skill import Skill
 from app.persistence.models.skill_content import SkillContent
+from app.persistence.models.skill_graph_edge import SkillGraphEdge as SkillGraphEdgeModel
 from app.persistence.models.skill_metadata import SkillMetadata
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.models.skill_search_document import SkillSearchDocument
@@ -89,7 +94,7 @@ from app.persistence.models.skill_user_star import SkillUserStar
 from app.persistence.models.skill_version import SkillVersion
 from app.persistence.models.trust_evidence import TrustEvidence
 from app.persistence.skill_registry_repository_support import (
-    RELATIONSHIP_EDGE_ORDER,
+    GRAPH_EDGE_ORDER,
     SEARCH_CANDIDATES_SQL,
     build_contains_pattern,
     build_search_document,
@@ -224,6 +229,12 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 ]
                 session.add_all(selector_rows)
                 session.flush()
+                self._add_authored_graph_edges(
+                    session=session,
+                    skill=skill,
+                    skill_version=skill_version,
+                    selector_rows=selector_rows,
+                )
                 session.add(
                     build_search_document(
                         skill_version_id=skill_version.id,
@@ -362,32 +373,54 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         if not sources:
             return ()
 
-        allowed_edge_types = set(edge_types)
-        edges: list[SkillGraphEdge] = []
+        source_versions = dict(sources)
+        source_slugs = tuple(source_versions)
+        edge_type_set = set(edge_types)
         with self._session_factory() as session:
-            for slug, version in sources:
-                entity = self._get_version_entity(session=session, slug=slug, version=version)
-                if entity is None:
-                    continue
-                selectors = sorted(
-                    entity.relationship_selectors,
-                    key=lambda item: (
-                        RELATIONSHIP_EDGE_ORDER[cast(RelationshipEdgeType, item.edge_type)],
-                        item.ordinal,
-                        item.target_slug,
+            rows = session.execute(
+                select(
+                    Skill.slug.label("source_slug"),
+                    SkillGraphEdgeModel.target_slug,
+                    SkillGraphEdgeModel.edge_type,
+                    SkillGraphEdgeModel.provenance,
+                    SkillGraphEdgeModel.confidence,
+                    SkillGraphEdgeModel.evidence,
+                )
+                .join(Skill, Skill.id == SkillGraphEdgeModel.source_skill_fk)
+                .where(
+                    SkillGraphEdgeModel.active.is_(True),
+                    Skill.slug.in_(source_slugs),
+                    SkillGraphEdgeModel.edge_type.in_(tuple(edge_type_set)),
+                )
+            ).mappings()
+            edges = [
+                SkillGraphEdge(
+                    source_slug=str(row["source_slug"]),
+                    source_version=source_versions[str(row["source_slug"])],
+                    target_slug=str(row["target_slug"]),
+                    edge_type=cast(SkillGraphEdgeType, row["edge_type"]),
+                    provenance=cast(SkillGraphEdgeProvenance, row["provenance"]),
+                    confidence=(
+                        None
+                        if row["confidence"] is None
+                        else float(row["confidence"])
                     ),
                 )
-                edges.extend(
-                    SkillGraphEdge(
-                        source_slug=entity.skill.slug,
-                        source_version=entity.version,
-                        target_slug=selector.target_slug,
-                        edge_type=cast(SkillGraphEdgeType, selector.edge_type),
-                    )
-                    for selector in selectors
-                    if selector.edge_type in allowed_edge_types
-                )
-        return tuple(edges)
+                for row in rows
+            ]
+        return tuple(
+            sorted(
+                edges,
+                key=lambda edge: (
+                    source_slugs.index(edge.source_slug),
+                    GRAPH_EDGE_ORDER[edge.edge_type],
+                    999
+                    if edge.provenance != "authored"
+                    else int((edge.confidence is not None) or 0),
+                    edge.target_slug,
+                ),
+            )
+        )
 
     def search_candidates(
         self,
@@ -844,6 +877,91 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 },
             ).mappings()
             return {str(row["slug"]): float(row["boost"]) for row in rows}
+
+    def import_observation_run(
+        self,
+        *,
+        record: CoUsageObservationImportRecord,
+        policy: CoUsageRelatesToPolicy,
+    ) -> CoUsageObservationImportResult:
+        with self._session_factory() as session:
+            existing_run = session.execute(
+                text(
+                    """
+                    SELECT id
+                    FROM skill_usage_observation_runs
+                    WHERE source = :source
+                      AND source_digest = :source_digest
+                    LIMIT 1
+                    """
+                ),
+                {"source": record.source, "source_digest": record.source_digest},
+            ).scalar_one_or_none()
+            if existing_run is not None:
+                return CoUsageObservationImportResult(
+                    imported=False,
+                    observations_accepted=0,
+                    pairs_rebuilt=0,
+                    edges_activated=0,
+                    edges_deactivated=0,
+                    duplicate=True,
+                )
+
+            skill_rows = session.execute(
+                select(Skill.slug, Skill.id).where(Skill.slug.in_(record.skill_slugs))
+            ).all()
+            skill_ids = {str(slug): int(skill_id) for slug, skill_id in skill_rows}
+            missing_slugs = tuple(slug for slug in record.skill_slugs if slug not in skill_ids)
+            if missing_slugs:
+                raise UnknownCoUsageSkillError(slugs=missing_slugs)
+
+            run_id = session.execute(
+                text(
+                    """
+                    INSERT INTO skill_usage_observation_runs (
+                        source,
+                        source_digest,
+                        observed_at
+                    )
+                    VALUES (:source, :source_digest, :observed_at)
+                    RETURNING id
+                    """
+                ),
+                {
+                    "source": record.source,
+                    "source_digest": record.source_digest,
+                    "observed_at": record.observed_at,
+                },
+            ).scalar_one()
+            session.execute(
+                text(
+                    """
+                    INSERT INTO skill_usage_observations (run_fk, skill_fk, skill_slug)
+                    VALUES (:run_fk, :skill_fk, :skill_slug)
+                    """
+                ),
+                [
+                    {
+                        "run_fk": run_id,
+                        "skill_fk": skill_ids[slug],
+                        "skill_slug": slug,
+                    }
+                    for slug in record.skill_slugs
+                ],
+            )
+            pairs_rebuilt = self._rebuild_co_usage_pairs(session=session, policy=policy)
+            edges_activated, edges_deactivated = self._sync_co_usage_graph_edges(
+                session=session,
+                policy=policy,
+            )
+            session.commit()
+            return CoUsageObservationImportResult(
+                imported=True,
+                observations_accepted=len(record.skill_slugs),
+                pairs_rebuilt=pairs_rebuilt,
+                edges_activated=edges_activated,
+                edges_deactivated=edges_deactivated,
+            )
 
     def record_install(self, *, slug: str, version: str) -> None:
         with self._session_factory() as session:
@@ -1364,6 +1482,258 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         if policy_pack is None:
             raise SkillRegistryPersistenceError(f"Policy pack not found: {slug}")
         return policy_pack.id
+
+    @staticmethod
+    def _add_authored_graph_edges(
+        *,
+        session: Session,
+        skill: Skill,
+        skill_version: SkillVersion,
+        selector_rows: list[SkillRelationshipSelector],
+    ) -> None:
+        graph_selectors = [
+            selector
+            for selector in selector_rows
+            if selector.edge_type in {"depends_on", "extends", "overlaps_with"}
+        ]
+        if not graph_selectors:
+            return
+        target_slugs = tuple(dict.fromkeys(selector.target_slug for selector in graph_selectors))
+        target_rows = session.execute(
+            select(Skill.slug, Skill.id).where(Skill.slug.in_(target_slugs))
+        ).all()
+        target_ids = {str(slug): int(skill_id) for slug, skill_id in target_rows}
+        deduped_selectors: dict[tuple[str, str], SkillRelationshipSelector] = {}
+        for selector in graph_selectors:
+            deduped_selectors.setdefault((selector.target_slug, selector.edge_type), selector)
+        session.add_all(
+            SkillGraphEdgeModel(
+                source_skill_fk=skill.id,
+                source_skill_version_fk=skill_version.id,
+                target_skill_fk=target_ids.get(selector.target_slug),
+                target_slug=selector.target_slug,
+                edge_type=selector.edge_type,
+                provenance="authored",
+                active=True,
+                confidence=None,
+                evidence={"ordinal": selector.ordinal},
+            )
+            for selector in deduped_selectors.values()
+        )
+
+    @staticmethod
+    def _rebuild_co_usage_pairs(
+        *,
+        session: Session,
+        policy: CoUsageRelatesToPolicy,
+    ) -> int:
+        max_observed_at = session.execute(
+            text("SELECT MAX(observed_at) FROM skill_usage_observation_runs")
+        ).scalar_one_or_none()
+        session.execute(text("DELETE FROM skill_co_usage_pairs"))
+        if max_observed_at is None:
+            return 0
+        cutoff = max_observed_at - timedelta(days=policy.window_days)
+        session.execute(
+            text(
+                """
+                WITH window_runs AS (
+                    SELECT id, observed_at
+                    FROM skill_usage_observation_runs
+                    WHERE observed_at >= :cutoff
+                      AND observed_at <= :max_observed_at
+                ),
+                total_runs AS (
+                    SELECT COUNT(*)::numeric AS run_count
+                    FROM window_runs
+                ),
+                skill_counts AS (
+                    SELECT
+                        observation.skill_fk,
+                        COUNT(DISTINCT observation.run_fk)::numeric AS run_count
+                    FROM skill_usage_observations AS observation
+                    JOIN window_runs AS run
+                        ON run.id = observation.run_fk
+                    GROUP BY observation.skill_fk
+                ),
+                ordered_pairs AS (
+                    SELECT
+                        anchor.skill_fk AS anchor_skill_fk,
+                        related.skill_fk AS related_skill_fk,
+                        COUNT(DISTINCT anchor.run_fk)::numeric AS run_count,
+                        MAX(run.observed_at) AS last_observed_at
+                    FROM skill_usage_observations AS anchor
+                    JOIN skill_usage_observations AS related
+                        ON related.run_fk = anchor.run_fk
+                       AND related.skill_fk <> anchor.skill_fk
+                    JOIN window_runs AS run
+                        ON run.id = anchor.run_fk
+                    GROUP BY anchor.skill_fk, related.skill_fk
+                ),
+                scored_pairs AS (
+                    SELECT
+                        pair.anchor_skill_fk,
+                        pair.related_skill_fk,
+                        pair.run_count,
+                        pair.last_observed_at,
+                        pair.run_count / anchor_count.run_count AS co_usage_rate,
+                        (
+                            pair.run_count * total_runs.run_count
+                        ) / (
+                            anchor_count.run_count * related_count.run_count
+                        ) AS lift_score
+                    FROM ordered_pairs AS pair
+                    JOIN skill_counts AS anchor_count
+                        ON anchor_count.skill_fk = pair.anchor_skill_fk
+                    JOIN skill_counts AS related_count
+                        ON related_count.skill_fk = pair.related_skill_fk
+                    CROSS JOIN total_runs
+                )
+                INSERT INTO skill_co_usage_pairs (
+                    anchor_skill_fk,
+                    related_skill_fk,
+                    observation_count,
+                    distinct_run_count,
+                    co_usage_rate,
+                    lift_score,
+                    pmi_score,
+                    last_observed_at,
+                    window_days
+                )
+                SELECT
+                    anchor_skill_fk,
+                    related_skill_fk,
+                    run_count::bigint,
+                    run_count::bigint,
+                    ROUND(co_usage_rate, 6),
+                    ROUND(lift_score, 6),
+                    ROUND(LN(GREATEST(lift_score, 0.000001)), 6),
+                    last_observed_at,
+                    :window_days
+                FROM scored_pairs
+                """
+            ),
+            {
+                "cutoff": cutoff,
+                "max_observed_at": max_observed_at,
+                "window_days": policy.window_days,
+            },
+        )
+        return int(
+            session.execute(text("SELECT COUNT(*) FROM skill_co_usage_pairs")).scalar_one()
+        )
+
+    @staticmethod
+    def _sync_co_usage_graph_edges(
+        *,
+        session: Session,
+        policy: CoUsageRelatesToPolicy,
+    ) -> tuple[int, int]:
+        eligible_pairs_sql = """
+            SELECT
+                LEAST(anchor_skill_fk, related_skill_fk) AS source_skill_fk,
+                GREATEST(anchor_skill_fk, related_skill_fk) AS target_skill_fk,
+                MAX(observation_count) AS observation_count,
+                MAX(distinct_run_count) AS distinct_run_count,
+                MAX(co_usage_rate) AS co_usage_rate,
+                MAX(lift_score) AS lift_score,
+                MAX(pmi_score) AS pmi_score,
+                MAX(last_observed_at) AS last_observed_at,
+                MAX(window_days) AS window_days
+            FROM skill_co_usage_pairs
+            WHERE distinct_run_count >= :min_runs
+              AND co_usage_rate >= :min_rate
+              AND lift_score > :min_lift
+            GROUP BY
+                LEAST(anchor_skill_fk, related_skill_fk),
+                GREATEST(anchor_skill_fk, related_skill_fk)
+        """
+        parameters = {
+            "min_runs": policy.min_runs,
+            "min_rate": policy.min_rate,
+            "min_lift": policy.min_lift,
+        }
+        deactivated = session.execute(
+            text(
+                f"""
+                WITH eligible_pairs AS ({eligible_pairs_sql}),
+                deactivated AS (
+                    UPDATE skill_graph_edges AS edge
+                    SET active = FALSE,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE edge.provenance = 'co_usage'
+                      AND edge.active IS TRUE
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM eligible_pairs AS pair
+                          WHERE pair.source_skill_fk = edge.source_skill_fk
+                            AND pair.target_skill_fk = edge.target_skill_fk
+                      )
+                    RETURNING edge.id
+                )
+                SELECT COUNT(*) FROM deactivated
+                """
+            ),
+            parameters,
+        ).scalar_one()
+        activated = session.execute(
+            text(
+                f"""
+                WITH eligible_pairs AS ({eligible_pairs_sql}),
+                upserted AS (
+                    INSERT INTO skill_graph_edges (
+                        source_skill_fk,
+                        source_skill_version_fk,
+                        target_skill_fk,
+                        target_slug,
+                        edge_type,
+                        provenance,
+                        active,
+                        confidence,
+                        evidence
+                    )
+                    SELECT
+                        pair.source_skill_fk,
+                        NULL,
+                        pair.target_skill_fk,
+                        target.slug,
+                        'relates_to',
+                        'co_usage',
+                        TRUE,
+                        LEAST(1.0, pair.co_usage_rate)::numeric(10, 6),
+                        jsonb_build_object(
+                            'observation_count', pair.observation_count,
+                            'distinct_run_count', pair.distinct_run_count,
+                            'co_usage_rate', pair.co_usage_rate,
+                            'lift_score', pair.lift_score,
+                            'pmi_score', pair.pmi_score,
+                            'window_days', pair.window_days,
+                            'last_observed_at', pair.last_observed_at
+                        )
+                    FROM eligible_pairs AS pair
+                    JOIN skills AS target
+                        ON target.id = pair.target_skill_fk
+                    ON CONFLICT (
+                        source_skill_fk,
+                        target_skill_fk,
+                        edge_type,
+                        provenance
+                    )
+                    WHERE provenance = 'co_usage'
+                    DO UPDATE SET
+                        active = TRUE,
+                        confidence = EXCLUDED.confidence,
+                        evidence = EXCLUDED.evidence,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE skill_graph_edges.active IS DISTINCT FROM TRUE
+                    RETURNING id
+                )
+                SELECT COUNT(*) FROM upserted
+                """
+            ),
+            parameters,
+        ).scalar_one()
+        return int(activated), int(deactivated)
 
     def _add_pending_search_embedding(
         self,

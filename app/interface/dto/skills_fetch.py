@@ -84,11 +84,13 @@ class SkillGraphNodeResponse(BaseModel):
 
 
 class SkillGraphEdgeResponse(BaseModel):
-    """Authored safe relation between two graph nodes."""
+    """Safe relation between two graph nodes with provenance."""
 
     source_slug: str
     target_slug: str
-    edge_type: Literal["depends_on", "extends", "overlaps_with"]
+    edge_type: Literal["depends_on", "extends", "overlaps_with", "relates_to"]
+    provenance: Literal["authored", "co_usage"]
+    confidence: float | None = None
 
 
 class SkillGraphResponse(BaseModel):

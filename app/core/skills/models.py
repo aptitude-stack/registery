@@ -19,7 +19,8 @@ from app.core.governance import (
 
 SHA256_ALGORITHM = "sha256"
 PublishIntent = Literal["create_skill", "publish_version"]
-SkillGraphEdgeType = Literal["depends_on", "extends", "overlaps_with"]
+SkillGraphEdgeType = Literal["depends_on", "extends", "overlaps_with", "relates_to"]
+SkillGraphEdgeProvenance = Literal["authored", "co_usage"]
 StarEventAction = Literal["star", "unstar"]
 
 
@@ -216,12 +217,14 @@ class SkillGraphNode:
 
 @dataclass(frozen=True, slots=True)
 class SkillGraphEdge:
-    """Authored relation between two catalog graph nodes."""
+    """Relation between two catalog graph nodes with provenance."""
 
     source_slug: str
     source_version: str
     target_slug: str
     edge_type: SkillGraphEdgeType
+    provenance: SkillGraphEdgeProvenance
+    confidence: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,6 +233,28 @@ class SkillGraph:
 
     nodes: tuple[SkillGraphNode, ...]
     edges: tuple[SkillGraphEdge, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CoUsageRelatesToPolicy:
+    """Threshold controls for promoting co-usage into advisory graph edges."""
+
+    min_runs: int
+    min_rate: float
+    min_lift: float
+    window_days: int
+
+
+@dataclass(frozen=True, slots=True)
+class CoUsageObservationImportResult:
+    """Summary returned after importing trusted resolver co-usage evidence."""
+
+    imported: bool
+    observations_accepted: int
+    pairs_rebuilt: int
+    edges_activated: int
+    edges_deactivated: int
+    duplicate: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -326,6 +351,15 @@ class TrustEvidenceRecord:
 
 class SkillRegistryError(RuntimeError):
     """Base domain error for immutable skill catalog operations."""
+
+
+class UnknownCoUsageSkillError(SkillRegistryError):
+    """Raised when a co-usage observation references unknown skill slugs."""
+
+    def __init__(self, *, slugs: tuple[str, ...]) -> None:
+        self.slugs = slugs
+        joined = ", ".join(slugs)
+        super().__init__(f"Co-usage observation references unknown skill slugs: {joined}.")
 
 
 class DuplicateSkillVersionError(SkillRegistryError):

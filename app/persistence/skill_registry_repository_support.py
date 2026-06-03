@@ -63,6 +63,12 @@ RELATIONSHIP_EDGE_ORDER: dict[RelationshipEdgeType, int] = {
     "conflicts_with": 2,
     "overlaps_with": 3,
 }
+GRAPH_EDGE_ORDER: dict[str, int] = {
+    "depends_on": 0,
+    "extends": 1,
+    "overlaps_with": 2,
+    "relates_to": 3,
+}
 
 SEARCH_CANDIDATES_SQL = text(
     """

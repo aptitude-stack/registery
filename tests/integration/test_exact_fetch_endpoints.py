@@ -353,10 +353,154 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
         (overlap, "1.0.0"),
     ]
     assert body["edges"] == [
-        {"source_slug": source, "target_slug": target, "edge_type": "depends_on"},
-        {"source_slug": source, "target_slug": overlap, "edge_type": "extends"},
+        {
+            "source_slug": source,
+            "target_slug": target,
+            "edge_type": "depends_on",
+            "provenance": "authored",
+            "confidence": None,
+        },
+        {
+            "source_slug": source,
+            "target_slug": overlap,
+            "edge_type": "extends",
+            "provenance": "authored",
+            "confidence": None,
+        },
     ]
     assert invalid.status_code == 422
+
+
+@pytest.mark.integration
+def test_co_usage_import_creates_and_deactivates_relates_to_graph_edges(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    monkeypatch.setenv("CO_USAGE_RELATES_TO_WINDOW_DAYS", "90")
+    prefix = f"python.co-usage-graph.{uuid4().hex}"
+    source = f"{prefix}.source"
+    target = f"{prefix}.target"
+    other = f"{prefix}.other"
+
+    with TestClient(create_app()) as client:
+        _publish(client, source, _request("1.0.0", intent="create_skill", name="Source"))
+        _publish(client, target, _request("1.0.0", intent="create_skill", name="Target"))
+        _publish(client, other, _request("1.0.0", intent="create_skill", name="Other"))
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=source,
+            install_count=30,
+            published_at="2026-03-14T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=target,
+            install_count=20,
+            published_at="2026-03-13T09:00:00+00:00",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=other,
+            install_count=1,
+            published_at="2026-03-12T09:00:00+00:00",
+        )
+
+        summaries = [
+            client.post(
+                "/admin/co-usage/observation-runs",
+                json={
+                    "source": "resolver",
+                    "source_digest": f"{index:064x}",
+                    "observed_at": f"2026-03-{index + 1:02d}T12:00:00Z",
+                    "skill_slugs": [source, target],
+                },
+                headers=_headers("admin-token"),
+            )
+            for index in range(3)
+        ]
+        background = client.post(
+            "/admin/co-usage/observation-runs",
+            json={
+                "source": "resolver",
+                "source_digest": f"{10:064x}",
+                "observed_at": "2026-03-04T12:00:00Z",
+                "skill_slugs": [other],
+            },
+            headers=_headers("admin-token"),
+        )
+        duplicate = client.post(
+            "/admin/co-usage/observation-runs",
+            json={
+                "source": "resolver",
+                "source_digest": f"{2:064x}",
+                "observed_at": "2026-03-03T12:00:00Z",
+                "skill_slugs": [source, target],
+            },
+            headers=_headers("admin-token"),
+        )
+        graph = client.get("/catalog/skill-graph?limit=2", headers=_headers("reader-token"))
+
+        stale = client.post(
+            "/admin/co-usage/observation-runs",
+            json={
+                "source": "resolver",
+                "source_digest": f"{99:064x}",
+                "observed_at": "2026-07-01T12:00:00Z",
+                "skill_slugs": [source],
+            },
+            headers=_headers("admin-token"),
+        )
+        degraded_graph = client.get(
+            "/catalog/skill-graph?limit=2",
+            headers=_headers("reader-token"),
+        )
+
+    assert [response.status_code for response in summaries] == [200, 200, 200]
+    assert background.status_code == 200
+    assert background.json()["edges_activated"] == 1
+    assert duplicate.status_code == 200
+    assert duplicate.json()["imported"] is False
+    assert duplicate.json()["duplicate"] is True
+    assert graph.status_code == 200
+    assert graph.json()["edges"] == [
+        {
+            "source_slug": source,
+            "target_slug": target,
+            "edge_type": "relates_to",
+            "provenance": "co_usage",
+            "confidence": 1.0,
+        }
+    ]
+    assert stale.status_code == 200
+    assert stale.json()["edges_deactivated"] == 1
+    assert degraded_graph.status_code == 200
+    assert degraded_graph.json()["edges"] == []
+
+
+@pytest.mark.integration
+def test_co_usage_import_rejects_unknown_observed_skill(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python.co-usage-unknown.{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        _publish(client, slug, _request("1.0.0", intent="create_skill"))
+        response = client.post(
+            "/admin/co-usage/observation-runs",
+            json={
+                "source": "resolver",
+                "source_digest": f"{1:064x}",
+                "observed_at": "2026-03-01T12:00:00Z",
+                "skill_slugs": [slug, f"{slug}.missing"],
+            },
+            headers=_headers("admin-token"),
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "UNKNOWN_CO_USAGE_SKILL"
 
 
 @pytest.mark.integration

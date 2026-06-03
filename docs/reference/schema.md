@@ -236,6 +236,29 @@ Authored relationship selectors preserved exactly as published.
 | `markers` | `text[]` | `NOT NULL` | Authored environment/runtime markers. |
 | `created_at` | `timestamptz` | `NOT NULL`, server default | Selector insertion timestamp. |
 
+### `skill_graph_edges`
+
+Unified graph-edge projection for catalog graph reads.
+
+| Column | Type | Constraints | Purpose |
+| --- | --- | --- | --- |
+| `source_skill_fk` | `bigint` | `NOT NULL`, FK -> `skills.id` | Source skill identity. |
+| `source_skill_version_fk` | `bigint` | nullable, FK -> `skill_versions.id` | Source immutable version for authored edges. |
+| `target_skill_fk` | `bigint` | nullable, FK -> `skills.id` | Target skill identity when known. |
+| `target_slug` | `text` | `NOT NULL` | Public target identity used by graph responses. |
+| `edge_type` | `text` | `NOT NULL` | `depends_on`, `extends`, `overlaps_with`, `relates_to`. |
+| `provenance` | `text` | `NOT NULL` | `authored` or `co_usage`. |
+| `active` | `boolean` | `NOT NULL` | Soft-deactivation flag for derived edge decay. |
+| `confidence` | `numeric(10,6)` | nullable, `[0, 1]` | Advisory confidence for derived edges. |
+| `evidence` | `jsonb` | `NOT NULL` | Internal evidence summary for debugging. |
+
+Rules:
+
+- authored graph edges are projections from `skill_relationship_selectors`
+- co-usage graph edges use `edge_type=relates_to` and `provenance=co_usage`
+- co-usage `relates_to` pairs are canonicalized so A-B and B-A do not duplicate
+- graph edges are advisory and do not change exact resolution
+
 ### `skill_search_documents`
 
 Derived read model for fast advisory search.
@@ -303,18 +326,23 @@ Index:
 
 ### `skill_usage_observation_runs`, `skill_usage_observations`, `skill_co_usage_pairs`
 
-Derived co-usage signal tables for "commonly used together" ranking boosts.
+Derived co-usage signal tables for "commonly used together" ranking boosts and
+advisory `relates_to` graph edges.
 
 Rules:
 
 - observations come from explicit resolver lock/selection outcomes
 - co-usage is not dependency truth
 - boosts require caller context and are capped inside discovery ranking
+- qualifying co-usage pairs activate `relates_to` graph edges with
+  `provenance=co_usage`
+- co-usage graph edges soft-deactivate when the rolling window no longer passes
+  the configured threshold
 - aggregates are rebuildable
 
-The co-usage tables are derived, dormant infrastructure until trusted resolver
-observation import is implemented. They are not dependency truth and do not
-change `GET /resolution/{slug}/{version}`.
+The co-usage tables are derived infrastructure populated by trusted resolver
+observation imports. They are not dependency truth and do not change
+`GET /resolution/{slug}/{version}`.
 
 ### `trust_evidence`
 
