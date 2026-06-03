@@ -303,13 +303,32 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
                 ],
             ),
         )
+        _publish(
+            client,
+            source,
+            _request(
+                "1.1.0",
+                intent="publish_version",
+                name="Source",
+                depends_on=[{"slug": target, "version_constraint": ">=1.0.0"}],
+                extends=[{"slug": overlap, "version": "1.0.0"}],
+            ),
+        )
         _update_status(client, slug=hidden, version="1.0.0", status="archived")
 
         _set_rank_fixture(
             migrated_registry_database,
             slug=source,
             install_count=30,
+            published_at="2026-03-13T09:00:00+00:00",
+            version="1.0.0",
+        )
+        _set_rank_fixture(
+            migrated_registry_database,
+            slug=source,
+            install_count=30,
             published_at="2026-03-14T09:00:00+00:00",
+            version="1.1.0",
         )
         _set_rank_fixture(
             migrated_registry_database,
@@ -348,7 +367,7 @@ def test_skill_graph_returns_visible_current_defaults_and_safe_authored_edges(
     assert response.status_code == 200
     body = response.json()
     assert [(item["slug"], item["version"]) for item in body["nodes"]] == [
-        (source, "1.0.0"),
+        (source, "1.1.0"),
         (target, "1.0.0"),
         (overlap, "1.0.0"),
     ]
