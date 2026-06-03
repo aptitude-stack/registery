@@ -124,7 +124,7 @@ def _detail_for(
 
 def test_demo_seed_runner_is_idempotent_and_preserves_unrelated_versions() -> None:
     store: dict[tuple[str, str], _StoredVersion] = {
-        ("python.custom.local", "9.9.9"): _StoredVersion(
+        ("python-custom-local", "9.9.9"): _StoredVersion(
             lifecycle_status="published",
             trust_tier="untrusted",
             published_at=datetime.now(UTC),
@@ -153,11 +153,11 @@ def test_demo_seed_runner_is_idempotent_and_preserves_unrelated_versions() -> No
     assert second.skipped_existing_count == len(catalog)
     assert second.status_updated_count == 0
 
-    assert store[("python.custom.local", "9.9.9")].lifecycle_status == "published"
+    assert store[("python-custom-local", "9.9.9")].lifecycle_status == "published"
     assert len(store) == len(catalog) + 1
-    assert store[("python.lint", "1.0.0")].lifecycle_status == "deprecated"
-    assert store[("python.format", "1.0.0")].lifecycle_status == "archived"
-    assert store[("python.legacy.audit", "0.9.0")].lifecycle_status == "deprecated"
+    assert store[("python-lint", "1.0.0")].lifecycle_status == "deprecated"
+    assert store[("python-format", "1.0.0")].lifecycle_status == "archived"
+    assert store[("python-legacy-audit", "0.9.0")].lifecycle_status == "deprecated"
 
 
 def test_demo_seed_treats_existing_skill_slug_as_already_seeded() -> None:

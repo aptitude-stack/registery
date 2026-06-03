@@ -199,7 +199,7 @@ def test_restricted_policy_pack_blocks_unlisted_reader_across_read_surfaces(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("AUTH_SERVICE_TOKENS_JSON", json.dumps(token_records))
     suffix = uuid4().hex
-    slug = f"python.restricted.policy.{suffix}"
+    slug = f"python-restricted-policy-{suffix}"
     private_headers = {"Authorization": f"Bearer private-reader.{private_reader_secret}"}
 
     with TestClient(create_app()) as client:
@@ -437,8 +437,8 @@ def _index_first_embedding(
 @pytest.mark.parametrize(
     ("semantic_mode", "expected_order"),
     [
-        ("shadow", ("python.lexical.",)),
-        ("hybrid", ("python.semantic.", "python.lexical.")),
+        ("shadow", ("python-lexical-",)),
+        ("hybrid", ("python-semantic-", "python-lexical-")),
     ],
 )
 def test_semantic_discovery_api_modes_use_container_provider_and_repository_path(
@@ -458,8 +458,8 @@ def test_semantic_discovery_api_modes_use_container_provider_and_repository_path
     monkeypatch.setattr("app.service_container.OpenAIEmbeddingProvider", lambda **_: provider)
 
     suffix = uuid4().hex
-    lexical_slug = f"python.lexical.{suffix}"
-    semantic_slug = f"python.semantic.{suffix}"
+    lexical_slug = f"python-lexical-{suffix}"
+    semantic_slug = f"python-semantic-{suffix}"
 
     with TestClient(create_app()) as client:
         _publish(
@@ -778,7 +778,7 @@ def test_0006_downgrade_marks_processing_embeddings_stale_before_restoring_const
                     """
                     INSERT INTO skills (slug, namespace_fk)
                     VALUES (
-                        'python.processing-downgrade',
+                        'python-processing-downgrade',
                         (SELECT id FROM namespaces WHERE slug = 'public')
                     )
                     """
@@ -843,7 +843,7 @@ def test_0006_downgrade_marks_processing_embeddings_stale_before_restoring_const
                         )
                         RETURNING id
                     ) AS skill_metadata
-                    WHERE skills.slug = 'python.processing-downgrade'
+                    WHERE skills.slug = 'python-processing-downgrade'
                     """
                 )
             )
@@ -956,7 +956,7 @@ def test_enterprise_admin_missing_resource_errors_are_mapped(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.enterprise.error.{uuid4().hex}"
+    slug = f"python-enterprise-error-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         missing_org = client.post(

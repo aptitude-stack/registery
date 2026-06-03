@@ -46,13 +46,13 @@ runtime:
         if (resetFlowStarts.has(requestName) || !runId) {
           runId = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
           bru.setVar('runId', runId);
-          bru.setVar('sanity_dependency_slug', `postman.dep.${runId}`);
-          bru.setVar('sanity_extension_slug', `postman.ext.${runId}`);
-          bru.setVar('sanity_overlap_slug', `postman.overlap.${runId}`);
-          bru.setVar('sanity_primary_slug', `postman.primary.${runId}`);
-          bru.setVar('negative_invalid_slug', `postman.invalid.${runId}`);
-          bru.setVar('negative_duplicate_slug', `postman.duplicate.${runId}`);
-          bru.setVar('negative_missing_slug', `postman.missing.${runId}`);
+          bru.setVar('sanity_dependency_slug', `postman-dep-${runId}`);
+          bru.setVar('sanity_extension_slug', `postman-ext-${runId}`);
+          bru.setVar('sanity_overlap_slug', `postman-overlap-${runId}`);
+          bru.setVar('sanity_primary_slug', `postman-primary-${runId}`);
+          bru.setVar('negative_invalid_slug', `postman-invalid-${runId}`);
+          bru.setVar('negative_duplicate_slug', `postman-duplicate-${runId}`);
+          bru.setVar('negative_missing_slug', `postman-missing-${runId}`);
           bru.setVar('sanity_primary_content_digest', '');
         }
     - type: tests

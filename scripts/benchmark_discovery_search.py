@@ -47,7 +47,7 @@ from app.persistence.db import (  # noqa: E402
 )
 from app.persistence.skill_registry_repository import SQLAlchemySkillCatalogRepository  # noqa: E402
 
-BENCHMARK_PREFIX_BASE = "benchmark.semantic"
+BENCHMARK_PREFIX_BASE = "benchmark-semantic"
 DEFAULT_SKILL_COUNT = 1000
 DEFAULT_QUERY_COUNT = 20
 DEFAULT_LIMIT = 10
@@ -683,7 +683,7 @@ def format_summary(result: dict[str, Any]) -> str:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
-    slug_prefix = args.prefix or f"{BENCHMARK_PREFIX_BASE}.{args.seed}."
+    slug_prefix = args.prefix or f"{BENCHMARK_PREFIX_BASE}-{args.seed}-"
     _validate_benchmark_prefix(slug_prefix)
     ef_search_values = tuple(dict.fromkeys(args.ef_search))
     if any(value < args.limit for value in ef_search_values):
@@ -943,10 +943,10 @@ def _digest(value: str) -> str:
 
 
 def _validate_benchmark_prefix(slug_prefix: str) -> None:
-    if not slug_prefix.startswith(f"{BENCHMARK_PREFIX_BASE}."):
-        raise ValueError(f"Benchmark prefix must start with {BENCHMARK_PREFIX_BASE!r}.")
-    if not slug_prefix.endswith("."):
-        raise ValueError("Benchmark prefix must end with '.'.")
+    if not slug_prefix.startswith(f"{BENCHMARK_PREFIX_BASE}-"):
+        raise ValueError(f"Benchmark prefix must start with {BENCHMARK_PREFIX_BASE!r}-.")
+    if not slug_prefix.endswith("-"):
+        raise ValueError("Benchmark prefix must end with '-'.")
 
 
 if __name__ == "__main__":

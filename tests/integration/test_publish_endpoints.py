@@ -32,7 +32,7 @@ def test_publish_rejects_rendered_summary_field(
         payload = _request("1.0.0")
         payload["content"] = {"raw_markdown": "# Python Lint\n"}
 
-        response = _publish_response(client, "python.legacy-summary", payload)
+        response = _publish_response(client, "python-legacy-summary", payload)
 
     assert response.status_code == 422, response.text
 
@@ -48,7 +48,7 @@ def test_publish_rejects_metadata_headers_field(
         payload = _request("1.0.0")
         payload["metadata"]["headers"] = {"runtime": "python"}
 
-        response = _publish_response(client, "python.legacy-headers", payload)
+        response = _publish_response(client, "python-legacy-headers", payload)
 
     assert response.status_code == 422, response.text
 
@@ -59,7 +59,7 @@ def test_publish_reuses_digest_backed_content_rows_for_identical_content(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.dedup.{uuid4().hex}"
+    slug = f"python-dedup-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         first = _publish(
@@ -102,7 +102,7 @@ def test_publish_distinct_content_creates_distinct_rows_and_exact_fetch_returns_
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.distinct.{uuid4().hex}"
+    slug = f"python-distinct-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         first = _publish(
@@ -148,7 +148,7 @@ def test_authentication_and_scope_failures_are_enforced(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.auth.{uuid4().hex}"
+    slug = f"python-auth-{uuid4().hex}"
     payload = _request("1.0.0", intent="create_skill")
 
     with TestClient(create_app()) as client:
@@ -189,12 +189,12 @@ def test_publish_enforces_trust_tier_policy(
     with TestClient(create_app()) as client:
         internal_without_provenance = _publish_response(
             client,
-            f"python.internal.{suffix}",
+            f"python-internal-{suffix}",
             _request("1.0.0", trust_tier="internal"),
         )
         verified_without_admin = _publish_response(
             client,
-            f"python.verified.{suffix}",
+            f"python-verified-{suffix}",
             _request(
                 "1.0.0",
                 intent="create_skill",
@@ -202,13 +202,13 @@ def test_publish_enforces_trust_tier_policy(
                 provenance={
                     "repo_url": "https://github.com/example/skills",
                     "commit_sha": "aabbccddeeff00112233445566778899aabbccdd",
-                    "tree_path": "skills/python.verified",
+                    "tree_path": "skills/python-verified",
                 },
             ),
         )
         verified_with_admin = _publish_response(
             client,
-            f"python.verified-admin.{suffix}",
+            f"python-verified-admin-{suffix}",
             _request(
                 "1.0.0",
                 intent="create_skill",
@@ -216,7 +216,7 @@ def test_publish_enforces_trust_tier_policy(
                 provenance={
                     "repo_url": "https://github.com/example/skills",
                     "commit_sha": "bbccddeeff00112233445566778899aabbccdde0",
-                    "tree_path": "skills/python.verified-admin",
+                    "tree_path": "skills/python-verified-admin",
                 },
             ),
             token="admin-token",
@@ -236,7 +236,7 @@ def test_publish_rejects_invalid_dependency_constraint(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.invalid.{uuid4().hex}"
+    slug = f"python-invalid-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         response = _publish_response(
@@ -245,7 +245,7 @@ def test_publish_rejects_invalid_dependency_constraint(
             _request(
                 "1.0.0",
                 intent="create_skill",
-                depends_on=[{"slug": "python.base", "version_constraint": "latest"}],
+                depends_on=[{"slug": "python-base", "version_constraint": "latest"}],
             ),
         )
 
@@ -258,7 +258,7 @@ def test_publish_rejects_invalid_bundle_structure(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.invalid.bundle.{uuid4().hex}"
+    slug = f"python-invalid-bundle-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         payload = _request("1.0.0", intent="create_skill")
@@ -282,7 +282,7 @@ def test_publish_rejects_oversized_bundle_before_persisting(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.oversized.bundle.{uuid4().hex}"
+    slug = f"python-oversized-bundle-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         payload = _request("1.0.0", intent="create_skill")
@@ -321,7 +321,7 @@ def test_publish_backfills_normalized_search_documents_with_governance(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.searchdoc.{uuid4().hex}"
+    slug = f"python-searchdoc-{uuid4().hex}"
     raw_markdown = "# Search Doc\n"
 
     with TestClient(create_app()) as client:
@@ -378,7 +378,7 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.intent.{uuid4().hex}"
+    slug = f"python-intent-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         create_skill = _publish_response(client, slug, _request("1.0.0", intent="create_skill"))
@@ -387,7 +387,7 @@ def test_publish_intent_requires_existing_or_missing_slug_as_declared(
             client, slug, _request("2.0.0", intent="publish_version")
         )
         publish_missing = _publish_response(
-            client, f"{slug}.missing", _request("1.0.0", intent="publish_version")
+            client, f"{slug}-missing", _request("1.0.0", intent="publish_version")
         )
 
     assert create_skill.status_code == 201

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.skills.normalization import normalize_search_text
 from app.interface.dto.skills_shared import normalize_unique_tags
+from app.interface.validation import SLUG_PATTERN
 
 
 class SkillDiscoveryRequest(BaseModel):
@@ -42,11 +45,14 @@ class SkillDiscoveryRequest(BaseModel):
     @field_validator("context_skills")
     @classmethod
     def normalize_context_skills(cls, value: list[str]) -> list[str]:
-        normalized = [
-            normalized_value
-            for item in value
-            if (normalized_value := normalize_search_text(item)) is not None
-        ]
+        normalized = []
+        for item in value:
+            normalized_value = normalize_search_text(item)
+            if normalized_value is None:
+                continue
+            if re.fullmatch(SLUG_PATTERN, normalized_value) is None:
+                raise ValueError("context_skills must contain hyphenated skill slugs.")
+            normalized.append(normalized_value)
         return list(dict.fromkeys(normalized))
 
 

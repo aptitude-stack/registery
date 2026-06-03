@@ -32,12 +32,12 @@ def _query_seeded_catalog_state(database_url: str) -> dict[str, object]:
                             WHERE skill_versions.lifecycle_status = 'deprecated'
                         ) AS deprecated_count,
                         COUNT(*) FILTER (
-                            WHERE skills.slug = 'python.format'
+                            WHERE skills.slug = 'python-format'
                             AND skill_versions.version = '1.0.0'
                             AND skill_versions.lifecycle_status = 'archived'
                         ) AS archived_format_count,
                         COUNT(*) FILTER (
-                            WHERE skills.slug = 'python.lint'
+                            WHERE skills.slug = 'python-lint'
                             AND skill_versions.version = '1.0.0'
                             AND skill_versions.lifecycle_status = 'deprecated'
                         ) AS deprecated_lint_count
@@ -84,15 +84,15 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
 
     with TestClient(create_app()) as client:
         archived_reader = client.get(
-            "/skills/python.format/1.0.0",
+            "/skills/python-format/1.0.0",
             headers=_headers("reader-token"),
         )
         archived_admin = client.get(
-            "/skills/python.format/1.0.0",
+            "/skills/python-format/1.0.0",
             headers=_headers("admin-token"),
         )
         resolution = client.get(
-            "/resolution/python.test/1.0.0",
+            "/resolution/python-test/1.0.0",
             headers=_headers("reader-token"),
         )
         discovery = client.post(
@@ -118,14 +118,14 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
     assert resolution.status_code == 200
     assert resolution.json()["depends_on"] == [
         {
-            "slug": "python.base",
+            "slug": "python-base",
             "version": "1.1.0",
             "version_constraint": None,
             "optional": None,
             "markers": [],
         },
         {
-            "slug": "python.lint",
+            "slug": "python-lint",
             "version": None,
             "version_constraint": ">=2.0.0,<3.0.0",
             "optional": True,
@@ -134,6 +134,6 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
     ]
 
     assert discovery.status_code == 200
-    assert "python.bundle.code-quality" in discovery.json()["candidates"]
+    assert "python-bundle-code-quality" in discovery.json()["candidates"]
     assert docs_discovery.status_code == 200
     assert "documentation-writing" in docs_discovery.json()["candidates"]

@@ -52,7 +52,7 @@ The correct question is whether the feature belongs on the data side or the deci
 
 | Layer | Question | Example |
 | --- | --- | --- |
-| Registry fact | What immutable record or policy-gated read should exist? | Publish `python.lint@1.2.3`, fetch its bundle, or read its authored `depends_on`. |
+| Registry fact | What immutable record or policy-gated read should exist? | Publish `python-lint@1.2.3`, fetch its bundle, or read its authored `depends_on`. |
 | Resolver decision | What should happen for this caller right now? | Choose between several candidates, solve the full graph, or produce a lockfile. |
 
 This is why the registry has a public `resolution` route but does not return solved bundles. Reading direct authored selectors is a fact. Solving them is a decision.

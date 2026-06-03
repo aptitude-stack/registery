@@ -266,11 +266,11 @@ Recommended first-version request:
       "resolver_session_id": "resolver-session-01HXAMPLE",
       "lockfile_digest": "sha256:0f1e...",
       "skill_coordinates": [
-        {"slug": "python.lint", "version": "1.2.3"}
+        {"slug": "python-lint", "version": "1.2.3"}
       ],
       "skills_used": [
         {
-          "slug": "python.lint",
+          "slug": "python-lint",
           "version": "1.2.3",
           "usage": "read"
         }
@@ -375,7 +375,7 @@ Minimum useful grouped output:
 
 ```json
 {
-  "group_key": "python.lint@1.2.3",
+  "group_key": "python-lint@1.2.3",
   "attribution": "attributed",
   "summary_count": 18,
   "success_count": 11,

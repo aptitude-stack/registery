@@ -29,7 +29,7 @@ def test_status_transitions_recompute_current_default(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.lifecycle.{uuid4().hex}"
+    slug = f"python-lifecycle-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         _publish(client, slug, _request("1.0.0", intent="create_skill"))
@@ -57,7 +57,7 @@ def test_version_list_and_status_update_use_same_default_ordering(
     migrated_registry_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
-    slug = f"python.default-ordering.{uuid4().hex}"
+    slug = f"python-default-ordering-{uuid4().hex}"
 
     with TestClient(create_app()) as client:
         _publish(client, slug, _request("1.0.0", intent="create_skill"))
@@ -114,7 +114,7 @@ def test_enterprise_namespace_review_promotion_and_trust_evidence_workflow(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("AUTH_SERVICE_TOKENS_JSON", json.dumps(token_records))
     suffix = uuid4().hex
-    slug = f"python.imported.{suffix}"
+    slug = f"python-imported-{suffix}"
     private_headers = {"Authorization": f"Bearer private-reader.{private_reader_secret}"}
 
     with TestClient(create_app()) as client:
@@ -219,8 +219,8 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
     migrated_integration_database: str,
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_integration_database)
-    slug = "test.python.audit-fixture"
-    denied_slug = f"{slug}.policy"
+    slug = "test-python-audit-fixture"
+    denied_slug = f"{slug}-policy"
 
     with TestClient(create_app()) as client:
         publish_response = _publish_response(

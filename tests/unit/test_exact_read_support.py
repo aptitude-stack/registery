@@ -32,7 +32,7 @@ def _caller(*scopes: str) -> CallerIdentity:
 
 def _audit_info(*, lifecycle_status: str = "published") -> ExactReadAuditInfo:
     return ExactReadAuditInfo(
-        slug="python.lint",
+        slug="python-lint",
         version="1.0.0",
         lifecycle_status=lifecycle_status,
         trust_tier="internal",

@@ -60,7 +60,7 @@ def test_latency_summary_reports_named_percentiles() -> None:
 
 @pytest.mark.unit
 def test_benchmark_dataset_is_deterministic_and_clustered() -> None:
-    prefix = f"{BENCHMARK_PREFIX_BASE}.unit."
+    prefix = f"{BENCHMARK_PREFIX_BASE}-unit-"
     first_skills, first_queries = build_benchmark_dataset(
         skill_count=6,
         query_count=3,
@@ -93,5 +93,5 @@ def test_benchmark_dataset_rejects_unsupported_dimensions() -> None:
             query_count=1,
             dimensions=3,
             seed=42,
-            slug_prefix=f"{BENCHMARK_PREFIX_BASE}.bad.",
+            slug_prefix=f"{BENCHMARK_PREFIX_BASE}-bad-",
         )
