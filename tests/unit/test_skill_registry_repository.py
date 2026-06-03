@@ -96,6 +96,17 @@ def test_search_sql_uses_identity_query_separately_from_full_text_query() -> Non
     assert "doc.normalized_name = :identity_query_text" in sql
 
 
+def test_search_sql_does_not_apply_required_tags_to_exact_identity_matches() -> None:
+    sql = " ".join(str(SEARCH_CANDIDATES_SQL).split())
+
+    assert (
+        ":required_tag_count = 0 "
+        "OR doc.normalized_slug = :identity_query_text "
+        "OR doc.normalized_name = :identity_query_text "
+        "OR doc.normalized_tags @> :required_tags"
+    ) in sql
+
+
 def test_classify_integrity_error_returns_typed_duplicate_version_error() -> None:
     version_conflict = IntegrityError(
         statement="INSERT INTO skill_versions ...",

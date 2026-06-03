@@ -614,6 +614,46 @@ def test_catalog_search_returns_visible_current_default_metadata_in_discovery_or
 
 
 @pytest.mark.integration
+def test_exact_slug_discovery_and_catalog_search_ignore_mismatched_required_tags(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python-patterns-{uuid4().hex}"
+    request_body = {"name": slug, "tags": [slug]}
+
+    with TestClient(create_app()) as client:
+        _publish(
+            client,
+            slug,
+            _request(
+                "0.1.0",
+                intent="create_skill",
+                raw_markdown="# Python Patterns\n\nIdiomatic Python development patterns.\n",
+                name=slug,
+                description="Pythonic idioms and refactoring guidance.",
+                tags=["python", "patterns", "refactoring"],
+            ),
+        )
+
+        discovery = client.post(
+            "/discovery",
+            json=request_body,
+            headers=_headers("reader-token"),
+        )
+        catalog_search = client.post(
+            "/catalog/search",
+            json=request_body,
+            headers=_headers("reader-token"),
+        )
+
+    assert discovery.status_code == 200
+    assert discovery.json()["candidates"][0] == slug
+    assert catalog_search.status_code == 200
+    assert catalog_search.json()["skills"][0]["slug"] == slug
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize("query_word", ["docs", "documentation", "writing"])
 def test_catalog_search_word_queries_return_expected_documentation_card(
     monkeypatch: pytest.MonkeyPatch,
