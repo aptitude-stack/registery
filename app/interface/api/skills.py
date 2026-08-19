@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, Path, Request, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, Form, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from app.core.skills.registry import (
@@ -14,6 +15,7 @@ from app.core.skills.registry import (
     SkillRegistryError,
     SkillVersionNotFoundError,
 )
+from app.integrations.render_workflow import start_semantic_embedding_workflow
 from app.interface.api.dependencies import (
     AdminCallerDep,
     PublishCallerDep,
@@ -48,6 +50,7 @@ from app.interface.dto.skills_lifecycle import (
 from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
 
 router = APIRouter(tags=["publish"])
+logger = logging.getLogger(__name__)
 
 REQUEST_VALIDATION_ERROR_RESPONSE: ApiResponses = invalid_request_response(
     description="The request body, path parameters, or query parameters are invalid."
@@ -154,6 +157,7 @@ STATUS_RESPONSES: ApiResponses = {
 )
 def create_skill_version(
     http_request: Request,
+    background_tasks: BackgroundTasks,
     slug: Annotated[
         str,
         Path(pattern=SLUG_PATTERN, description="Stable public slug for the skill identity."),
@@ -188,6 +192,7 @@ def create_skill_version(
                 bundle_media_type=bundle_media_type,
             ),
         )
+        background_tasks.add_task(_start_semantic_embedding_workflow)
         return to_metadata_response(stored)
     except DuplicateSkillVersionError as exc:
         return error_response(
@@ -219,6 +224,17 @@ def create_skill_version(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             code="CONTENT_STORAGE_FAILURE",
             message=str(exc),
+        )
+
+
+def _start_semantic_embedding_workflow() -> None:
+    """Start indexing without changing the already-persisted publish response."""
+    try:
+        start_semantic_embedding_workflow()
+    except Exception:
+        logger.exception(
+            "failed to start semantic embedding workflow",
+            extra={"event_type": "semantic.embedding.workflow_start_failed"},
         )
 
 

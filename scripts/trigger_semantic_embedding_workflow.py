@@ -6,29 +6,29 @@ import argparse
 import json
 import os
 
-from render_sdk import Render
-
 from app.core.semantic_defaults import (
     DEFAULT_SEMANTIC_INDEX_BATCH_SIZE,
     DEFAULT_SEMANTIC_INDEX_MAX_BATCHES,
     DEFAULT_SEMANTIC_RECLAIM_AFTER_SECONDS,
 )
-
-DEFAULT_TASK_SLUG = "aptitude-registry-semantic-indexing/index_semantic_embeddings"
+from app.integrations.render_workflow import (
+    DEFAULT_SEMANTIC_INDEX_WORKFLOW_TASK,
+    start_semantic_embedding_workflow,
+)
 
 
 def main() -> None:
     args = _parse_args()
     task_slug = args.task_slug or os.getenv(
         "RENDER_SEMANTIC_INDEX_WORKFLOW_TASK",
-        DEFAULT_TASK_SLUG,
+        DEFAULT_SEMANTIC_INDEX_WORKFLOW_TASK,
     )
-    payload = {
-        "batch_size": args.batch_size,
-        "max_batches": args.max_batches,
-        "reclaim_after_seconds": args.reclaim_after_seconds,
-    }
-    result = Render().workflows.run_task(task_slug, payload)
+    result = start_semantic_embedding_workflow(
+        task_slug=task_slug,
+        batch_size=args.batch_size,
+        max_batches=args.max_batches,
+        reclaim_after_seconds=args.reclaim_after_seconds,
+    )
     print(
         json.dumps(
             {

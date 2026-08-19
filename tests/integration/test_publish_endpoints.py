@@ -22,6 +22,56 @@ from tests.integration.skill_endpoint_helpers import (
 
 
 @pytest.mark.integration
+def test_publish_starts_embedding_workflow_after_storage(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    started: list[None] = []
+    monkeypatch.setattr(
+        "app.interface.api.skills.start_semantic_embedding_workflow",
+        lambda: started.append(None),
+    )
+    slug = f"python-embedding-trigger-{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        response = _publish_response(client, slug, _request("1.0.0"))
+
+    assert response.status_code == 201
+    assert started == [None]
+    assert _query_storage_counts(migrated_registry_database, slug=slug)["version_count"] == 1
+
+
+@pytest.mark.integration
+def test_publish_returns_created_when_embedding_workflow_start_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+
+    def fail_to_start() -> None:
+        raise RuntimeError("Render unavailable")
+
+    monkeypatch.setattr(
+        "app.interface.api.skills.start_semantic_embedding_workflow",
+        fail_to_start,
+    )
+    logged: list[str] = []
+    monkeypatch.setattr(
+        "app.interface.api.skills.logger.exception",
+        lambda message, **_kwargs: logged.append(message),
+    )
+    slug = f"python-embedding-trigger-failure-{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        response = _publish_response(client, slug, _request("1.0.0"))
+
+    assert response.status_code == 201
+    assert logged == ["failed to start semantic embedding workflow"]
+    assert _query_storage_counts(migrated_registry_database, slug=slug)["version_count"] == 1
+
+
+@pytest.mark.integration
 def test_publish_rejects_rendered_summary_field(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,
