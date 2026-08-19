@@ -6,7 +6,7 @@ services:
     branch: master
     region: virginia
     plan: starter
-    buildCommand: uv sync --frozen --no-dev
+    buildCommand: uv sync --frozen --no-dev --extra workflow
     startCommand: uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /healthz
     autoDeployTrigger: off
@@ -50,6 +50,8 @@ services:
       - key: MIGRATION_DATABASE_URL
         sync: false
       - key: OPENAI_API_KEY
+        sync: false
+      - key: RENDER_API_KEY
         sync: false
       - key: AUTH_SERVICE_TOKENS_JSON
         sync: false

@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_render_blueprint_keeps_otel_dormant_by_default() -> None:
     document = (REPO_ROOT / "render.yaml").read_text()
 
-    assert "buildCommand: uv sync --frozen --no-dev\n" in document
+    assert "buildCommand: uv sync --frozen --no-dev --extra workflow\n" in document
     assert "--extra otel" not in document
     assert '      - key: OTEL_ENABLED\n        value: "false"\n' in document
     assert '      - key: OTEL_SDK_DISABLED\n        value: "true"\n' in document
