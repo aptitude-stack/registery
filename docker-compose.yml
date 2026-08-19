@@ -11,7 +11,11 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-aptitude}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-aptitude}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -54,7 +58,7 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/aptitude
-      AUTH_SERVICE_TOKENS_JSON: '[{"token_id":"reader-token","secret_digest":"5f2a948f1a0f51d636721e4381eaf64fc8032a03b540a12da0645e0edc564084","scopes":["read"],"namespace_grants":[{"namespace":"public","roles":["read"],"promotion_channels":["prod"]}],"active":true},{"token_id":"publisher-token","secret_digest":"99e880bea53395534bf471d5d086ac2b2f6d45c6fe7c6c9ac7f6225cbe19c559","scopes":["read","publish"],"namespace_grants":[{"namespace":"public","roles":["read","publish"],"promotion_channels":["prod"]}],"active":true},{"token_id":"admin-token","secret_digest":"f0f642b692ba908c91a9afe3c53878700b32e66c8132fc071109b4af48625d46","scopes":["read","publish","review","admin"],"namespace_grants":[{"namespace":"*","roles":["read","publish","review","admin"],"promotion_channels":["*"]}],"active":true}]'
+      AUTH_SERVICE_TOKENS_JSON: '[{"token_id":"reader-token","secret_digest":"5f2a948f1a0f51d636721e4381eaf64fc8032a03b540a12da0645e0edc564084","scopes":["read"],"namespace_grants":[{"namespace":"public","roles":["read"],"promotion_channels":["prod"]}],"active":true},{"token_id":"telemetry-token","secret_digest":"79f9daa140a430ffbc750b5c30281c29650adeac5dd50c880feaa9327de512f0","scopes":["telemetry"],"namespace_grants":[],"active":true},{"token_id":"publisher-token","secret_digest":"99e880bea53395534bf471d5d086ac2b2f6d45c6fe7c6c9ac7f6225cbe19c559","scopes":["read","publish"],"namespace_grants":[{"namespace":"public","roles":["read","publish"],"promotion_channels":["prod"]}],"active":true},{"token_id":"admin-token","secret_digest":"f0f642b692ba908c91a9afe3c53878700b32e66c8132fc071109b4af48625d46","scopes":["read","publish","review","admin"],"namespace_grants":[{"namespace":"*","roles":["read","publish","review","admin"],"promotion_channels":["*"]}],"active":true}]'
       ALLOWED_HOSTS_JSON: '["127.0.0.1","localhost","server"]'
       APP_ENV: ${APP_ENV:-prod}
       LOG_LEVEL: INFO
@@ -66,7 +70,11 @@ services:
     ports:
       - "${APP_PORT:-8000}:8000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/readyz').read()\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "from urllib.request import urlopen; urlopen(''http://127.0.0.1:8000/readyz'').read()"',
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
