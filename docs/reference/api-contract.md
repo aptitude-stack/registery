@@ -188,10 +188,11 @@ Request:
 
 ```json
 {
-  "name": "python lint",
-  "description": "lint FastAPI services",
+  "query": "python lint",
   "tags": ["python"],
-  "context_skills": []
+  "context_skills": [
+    {"slug": "python-base", "version": "1.2.3"}
+  ]
 }
 ```
 
@@ -220,6 +221,11 @@ Response shape:
 Rules:
 
 - `limit` must be between `1` and `20`; default is `20`.
+- `query` is required; `name` and `description` are not accepted discovery fields.
+- `tags` is optional and remains a structured filter.
+- `context_skills` is an optional list of at most `50` exact `{slug, version}`
+  coordinates. Slugs and versions are normalized and duplicate coordinates are
+  removed in first-seen order before ranking.
 - Ordering matches discovery candidate order.
 - Visibility follows the same governance filters as version listing and
   top-skills.
@@ -405,11 +411,11 @@ Visibility is enforced consistently for discovery, catalog search, version listi
 Discovery is hybrid by default, with lexical-primary identity signals and
 internal semantic expansion. Semantic expansion and co-usage signals are
 internal ranking inputs inside `POST /discovery`; they do not add routes or
-response fields. The semantic index embeds description and tags only; short
-runtime queries may use the required discovery `name` as semantic query text
-when description and tags are absent. The request may include `context_skills`
-to identify already selected/installed skill slugs for bounded co-usage boosts,
-but those values are not dependency declarations.
+response fields. The semantic index embeds description and tags only; the
+required discovery `query` is used for both lexical and semantic retrieval.
+The request may include `context_skills` exact coordinates to identify already
+selected/installed skill slugs for bounded co-usage boosts, but versions are not
+used for ranking and those values are not dependency declarations.
 
 Trust evidence is append-only. Evidence response payloads expose evidence type, subject, digest, URI, and creation time, but not the raw evidence payload.
 

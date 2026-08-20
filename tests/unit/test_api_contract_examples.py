@@ -47,8 +47,12 @@ def test_publish_request_example_matches_request_contract() -> None:
 def test_discovery_request_example_matches_request_contract() -> None:
     request = SkillDiscoveryRequest.model_validate(DISCOVERY_REQUEST_EXAMPLE)
 
-    assert request.name == "Python Lint"
+    assert request.query == "Python Lint"
     assert request.tags == ["python", "lint"]
+    assert request.context_skills[0].model_dump() == {
+        "slug": "python-format",
+        "version": "1.0.0",
+    }
 
 
 @pytest.mark.unit

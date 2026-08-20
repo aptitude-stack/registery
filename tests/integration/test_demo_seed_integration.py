@@ -98,15 +98,14 @@ def test_demo_seed_populates_registry_idempotently_and_exposes_seeded_behaviors(
         discovery = client.post(
             "/discovery",
             json={
-                "name": "Python Code Quality Bundle",
-                "description": "lint format test bundle",
+                "query": "Python Code Quality Bundle",
                 "tags": ["python", "quality", "bundle"],
             },
             headers=_headers("reader-token"),
         )
         docs_discovery = client.post(
             "/discovery",
-            json={"name": "docs"},
+            json={"query": "docs"},
             headers=_headers("reader-token"),
         )
 

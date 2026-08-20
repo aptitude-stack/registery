@@ -1,5 +1,5 @@
 info:
-  name: Discover Without Name
+  name: Discover Without Query
   type: http
   seq: 6000
 http:
@@ -18,7 +18,7 @@ http:
 runtime:
   scripts:
   - type: before-request
-    code: "const requestName = 'Discover Without Name';\nconst resetFlowStarts = new\
+    code: "const requestName = 'Discover Without Query';\nconst resetFlowStarts = new\
       \ Set(['Healthz', 'Publish Invalid Request']);\n\nconst setDefault = (name,\
       \ value) => {\n  const current = bru.getVar(name);\n  if (typeof current ===\
       \ 'undefined' || current === null || current === '') {\n    bru.setVar(name,\
@@ -39,10 +39,10 @@ runtime:
       \ '');\n}"
   - type: tests
     code: "const json = res.getBody();\n\ntest('Status is 422', function () {\n  expect(res.getStatus()).to.equal(422);\n\
-      });\n\ntest('Missing discovery name returns the normalized API error envelope',\
+      });\n\ntest('Missing discovery query returns the normalized API error envelope',\
       \ function () {\n  expect(json.error.code).to.eql('INVALID_REQUEST');\n  expect(\n\
       \    json.error.details.errors.some(\n      (item) =>\n        Array.isArray(item.loc)\
-      \ &&\n        item.loc.includes('body') &&\n        item.loc.includes('name'),\n\
+      \ &&\n        item.loc.includes('body') &&\n        item.loc.includes('query'),\n\
       \    ),\n  ).to.eql(true);\n});\n\nbru.runner.setNextRequest(res.getStatus()\
       \ === 422 ? 'Resolve Invalid Version' : null);"
 settings:

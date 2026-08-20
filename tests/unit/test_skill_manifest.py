@@ -179,20 +179,25 @@ def test_publish_request_rejects_unknown_intent() -> None:
 
 
 @pytest.mark.unit
-def test_discovery_request_trims_name_and_deduplicates_tags() -> None:
+def test_discovery_request_trims_query_and_deduplicates_tags_and_coordinates() -> None:
     request = SkillDiscoveryRequest.model_validate(
         {
-            "name": "  Python Lint  ",
-            "description": "  Lint Python files  ",
+            "query": "  Python Lint  ",
             "tags": ["python", " lint ", "python"],
-            "context_skills": [" Python-Format ", "python-format", "python-test"],
+            "context_skills": [
+                {"slug": " Python-Format ", "version": " 1.2.3 "},
+                {"slug": "python-format", "version": "1.2.3"},
+                {"slug": "python-test", "version": "2.0.0"},
+            ],
         }
     )
 
-    assert request.name == "Python Lint"
-    assert request.description == "Lint Python files"
+    assert request.query == "Python Lint"
     assert request.tags == ["python", "lint"]
-    assert request.context_skills == ["python-format", "python-test"]
+    assert [item.model_dump() for item in request.context_skills] == [
+        {"slug": "python-format", "version": "1.2.3"},
+        {"slug": "python-test", "version": "2.0.0"},
+    ]
 
 
 @pytest.mark.unit
@@ -203,5 +208,17 @@ def test_discovery_request_rejects_unknown_fields() -> None:
                 "name": "Python Lint",
                 "tags": ["python"],
                 "edge_types": ["depends_on"],
+            }
+        )
+
+
+@pytest.mark.unit
+def test_discovery_request_rejects_legacy_name_and_description_fields() -> None:
+    with pytest.raises(ValidationError):
+        SkillDiscoveryRequest.model_validate(
+            {
+                "query": "Python Lint",
+                "name": "Python Lint",
+                "description": "Legacy field",
             }
         )

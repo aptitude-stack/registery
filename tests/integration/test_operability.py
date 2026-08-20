@@ -91,7 +91,7 @@ def test_request_id_is_echoed_on_success_and_error_responses(
         success = client.get("/healthz", headers={"X-Request-ID": "req-health"})
         error = client.post(
             "/discovery",
-            json={"name": "Python Lint"},
+            json={"query": "Python Lint"},
             headers={"X-Request-ID": "req-error"},
         )
 
@@ -179,7 +179,7 @@ def test_structured_request_logs_capture_surface_outcome_and_error_code(
     with TestClient(create_app()) as client:
         response = client.post(
             "/discovery",
-            json={"name": "Python Lint"},
+            json={"query": "Python Lint"},
             headers={"X-Request-ID": "req-log-shape"},
         )
 

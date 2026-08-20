@@ -152,7 +152,7 @@ def test_enterprise_namespace_review_promotion_and_trust_evidence_workflow(
         )
         hidden_discovery = client.post(
             "/discovery",
-            json={"name": "Imported Review Candidate"},
+            json={"query": "Imported Review Candidate"},
             headers=private_headers,
         )
         hidden_metadata = client.get(f"/skills/{slug}/1.0.0", headers=private_headers)
@@ -178,7 +178,7 @@ def test_enterprise_namespace_review_promotion_and_trust_evidence_workflow(
         )
         visible_discovery = client.post(
             "/discovery",
-            json={"name": "Imported Review Candidate"},
+            json={"query": "Imported Review Candidate"},
             headers=private_headers,
         )
         metadata = client.get(f"/skills/{slug}/1.0.0", headers=private_headers)
@@ -246,7 +246,7 @@ def test_audit_events_cover_publish_discovery_exact_reads_and_lifecycle(
         )
         discovery = client.post(
             "/discovery",
-            json={"name": "Python Lint"},
+            json={"query": "Python Lint"},
             headers=_headers("reader-token"),
         )
         resolution = client.get(

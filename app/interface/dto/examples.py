@@ -116,10 +116,9 @@ SKILL_VERSION_LIST_RESPONSE_EXAMPLE = {
 }
 
 DISCOVERY_REQUEST_EXAMPLE = {
-    "name": "Python Lint",
-    "description": "Lint Python files consistently",
+    "query": "Python Lint",
     "tags": ["python", "lint"],
-    "context_skills": ["python-format"],
+    "context_skills": [{"slug": "python-format", "version": "1.0.0"}],
 }
 
 DISCOVERY_RESPONSE_EXAMPLE = {

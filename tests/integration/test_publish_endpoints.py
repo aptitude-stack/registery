@@ -213,7 +213,7 @@ def test_authentication_and_scope_failures_are_enforced(
         insufficient = _publish_response(client, slug, payload, token="reader-token")
         discovery_missing = client.post(
             "/discovery",
-            json={"name": "Python Lint"},
+            json={"query": "Python Lint"},
         )
 
     assert missing.status_code == 401

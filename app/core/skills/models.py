@@ -25,6 +25,14 @@ StarEventAction = Literal["star", "unstar"]
 
 
 @dataclass(frozen=True, slots=True)
+class SkillCoordinate:
+    """Exact immutable coordinate used as discovery context."""
+
+    slug: str
+    version: str
+
+
+@dataclass(frozen=True, slots=True)
 class SkillRelationshipSelector:
     """Authored relationship selector preserved exactly as published."""
 

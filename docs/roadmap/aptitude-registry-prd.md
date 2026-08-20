@@ -38,7 +38,7 @@
   - Publishing an existing `(slug, version)` returns a conflict and does not mutate stored metadata or artifacts.
   - `intent=create_skill` rejects existing slugs and `intent=publish_version` rejects missing slugs.
   - Published versions persist direct dependency declarations exactly as authored; the server does not compute resolved dependency closures.
-  - The discovery capability accepts `name`, optional `description`, and optional `tags`, and returns ordered candidate slugs only.
+  - The discovery capability accepts required `query`, optional `tags`, and optional `context_skills` exact coordinates (`{slug, version}`), and returns ordered candidate slugs only.
   - Discovery ordering remains deterministic, but explanation fields and final candidate choice stay outside the public server contract.
   - `GET /skills/{slug}/{version}` returns immutable exact-coordinate metadata including checksums, lifecycle status, trust tier, and optional advisory provenance.
   - `GET /skills/{slug}/{version}/content` returns the immutable stored `application/zstd` artifact with `ETag`, `Cache-Control: public, immutable`, and `Content-Length`.

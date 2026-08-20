@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.governance import CallerIdentity
-from app.intelligence.discovery_signals import build_semantic_query_source
 
+from .models import SkillCoordinate
 from .search import SkillSearchQuery, SkillSearchService
 
 
@@ -14,10 +14,9 @@ from .search import SkillSearchQuery, SkillSearchService
 class SkillDiscoveryRequest:
     """Body-based discovery request for candidate slug lookup."""
 
-    name: str
-    description: str | None
+    query: str
     tags: tuple[str, ...]
-    context_skills: tuple[str, ...] = ()
+    context_skills: tuple[SkillCoordinate, ...] = ()
 
 
 class SkillDiscoveryService(SkillSearchService):
@@ -33,30 +32,17 @@ class SkillDiscoveryService(SkillSearchService):
         results = self.search(
             caller=caller,
             query=SkillSearchQuery(
-                q=_query_text(request),
+                q=request.query,
                 tags=request.tags,
                 language=None,
                 fresh_within_days=None,
                 max_footprint_bytes=None,
                 limit=20,
-                context_skills=request.context_skills,
-                semantic_text=_semantic_query_text(request),
+                context_skills=tuple(
+                    dict.fromkeys(coordinate.slug for coordinate in request.context_skills)
+                ),
+                semantic_text=request.query,
                 semantic_text_is_explicit=True,
             ),
         )
         return tuple(item.slug for item in results)
-
-
-def _query_text(request: SkillDiscoveryRequest) -> str:
-    parts = [request.name]
-    if request.description:
-        parts.append(request.description)
-    return " ".join(parts)
-
-
-def _semantic_query_text(request: SkillDiscoveryRequest) -> str:
-    source = build_semantic_query_source(
-        description=request.description,
-        tags=request.tags,
-    )
-    return source or request.name
