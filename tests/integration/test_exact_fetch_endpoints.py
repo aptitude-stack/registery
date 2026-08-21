@@ -532,7 +532,7 @@ def test_catalog_search_returns_visible_current_default_metadata_in_discovery_or
     alpha = f"{prefix}-alpha"
     beta = f"{prefix}-beta"
     hidden = f"{prefix}-hidden"
-    request_body = {"name": "Catalog Search", "tags": [prefix]}
+    request_body = {"query": "Catalog Search", "tags": [prefix]}
 
     with TestClient(create_app()) as client:
         _publish(
@@ -639,7 +639,7 @@ def test_exact_slug_discovery_and_catalog_search_ignore_mismatched_required_tags
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     slug = f"python-patterns-{uuid4().hex}"
-    request_body = {"name": slug, "tags": [slug]}
+    request_body = {"query": slug, "tags": [slug]}
 
     with TestClient(create_app()) as client:
         _publish(
@@ -696,7 +696,7 @@ def test_catalog_search_word_queries_return_expected_documentation_card(
         )
         response = client.post(
             "/catalog/search",
-            json={"name": query_word},
+            json={"query": query_word},
             headers=_headers("reader-token"),
         )
 

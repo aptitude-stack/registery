@@ -27,9 +27,9 @@ docs: |-
   execution planning.
   
   Discovery stays on `POST /discovery` with a slug-only response. Lexical search
-  remains primary; when semantic discovery is enabled, the registry embeds
-  description and tags only. The required `name` field remains lexical identity
-  input, not embedding text.
+  remains primary; when semantic discovery is enabled, the registry embeds the
+  required `query` text. Context coordinates are used only for slug-level
+  co-usage ranking.
   
   Canonical references:
   - API contract: `docs/reference/api-contract.md`

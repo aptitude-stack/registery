@@ -16,9 +16,9 @@ Important boundary:
 
 ```mermaid
 flowchart TD
-    A["Discovery request: {name, description, tags, context_skills?}"] --> B["DTO validation and normalization"]
-    B --> C["Build lexical text from name + description"]
-    B --> D["Build semantic text from description + tags"]
+    A["Discovery request: {query, tags, context_skills?}"] --> B["DTO validation and normalization"]
+    B --> C["Use query for lexical search"]
+    B --> D["Use query for semantic search"]
     C --> E["Normalize query, expand bounded aliases, and split identity vs full-text text"]
     D --> E
     E --> F["Resolve governance filters"]
@@ -36,36 +36,25 @@ flowchart TD
 
 Discovery accepts:
 
-- `name`: required
-- `description`: optional
+- `query`: required free-text search input
 - `tags`: optional
-- `context_skills`: optional selected/installed skill slugs used only for
-  bounded co-usage boosts
+- `context_skills`: optional list of up to 50 exact `{slug, version}`
+  coordinates used only for bounded co-usage boosts
 
 The request is normalized before search:
 
-- `name` is trimmed and must not be blank
-- `description` is trimmed and blank values become `null`
+- `query` is trimmed and must not be blank
 - `tags` are normalized, deduplicated, and ordered deterministically
-- `context_skills` are normalized, deduplicated, and never treated as authored
-  dependencies
+- each context coordinate validates and normalizes its slug and version
+- duplicate context coordinates are removed in first-seen order and are never
+  treated as authored dependencies
 
-The discovery service builds one lexical search string by concatenating:
+The discovery service uses the normalized query for lexical search. Tags remain
+structured filters.
 
-- `name`
-- `description`, if present
-
-That combined text becomes the free-text query. Tags remain structured filters.
-
-When semantic discovery is enabled, the semantic query text is built from:
-
-- `description`, if present
-- normalized `tags`
-
-If both description and tags are absent, semantic retrieval falls back to the
-required `name`. This keeps short search-box requests such as `docs` eligible
-for semantic recall while the stored semantic index still excludes slug and
-name. Set `SEMANTIC_DISCOVERY_MODE=off` for explicit lexical-only behavior.
+When semantic discovery is enabled, the same normalized query is embedded for
+semantic retrieval. The stored semantic index still excludes slug and name.
+Set `SEMANTIC_DISCOVERY_MODE=off` for explicit lexical-only behavior.
 
 ## Search Data Model
 
@@ -135,14 +124,12 @@ normalize(description) + " " + normalize(tags...)
 Query semantic source:
 
 ```text
-normalize(request.description) + " " + normalize(request.tags...)
+normalize(request.query)
 ```
 
-If a query has no description or tags, the runtime semantic query source falls
-back to `normalize(request.name)`. Slug and name remain lexical identity signals
-for exact, near-exact, and substring lookup. Tags have two roles: hard
-containment filters when requested, and semantic source text when embeddings are
-generated.
+Slug and name remain lexical identity signals for exact, near-exact, and
+substring lookup. Tags remain hard containment filters when requested; they are
+not appended to the semantic query.
 
 ## Query Normalization
 
@@ -388,8 +375,7 @@ Suppose the client sends:
 
 ```json
 {
-  "name": "Python Lint",
-  "description": "Lint Python files consistently",
+  "query": "Python Lint",
   "tags": ["python", "lint"]
 }
 ```
@@ -397,8 +383,7 @@ Suppose the client sends:
 The server will:
 
 1. normalize the request
-2. build query text:
-   `python lint lint python files consistently`
+2. normalize the query text to `python lint`
 3. search each version document built from slug, name, description, and tags
 4. require both `python` and `lint` tags to be present
 5. compute exact-match flags and a full-text rank
@@ -411,7 +396,7 @@ match through text or tags.
 
 ## Code References
 
-- Request DTO and normalization: `app/interface/dto/skills.py`
+- Request DTO and normalization: `app/interface/dto/skills_discovery.py`
 - Discovery route: `app/interface/api/discovery.py`
 - Discovery service facade: `app/core/skills/discovery.py`
 - Shared search normalization and explanation helpers:

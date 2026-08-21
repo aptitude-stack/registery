@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -135,6 +136,7 @@ def _discovery_service(
     *,
     semantic_mode: str = "off",
     embedding_provider: _EmbeddingProvider | None = None,
+    co_usage_enabled: bool = False,
 ) -> SkillDiscoveryService:
     return SkillDiscoveryService(
         repository=repository,
@@ -143,6 +145,7 @@ def _discovery_service(
         semantic_discovery_mode=semantic_mode,
         embedding_provider=embedding_provider,
         semantic_embedding_index_key=DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY,
+        co_usage_ranking_enabled=co_usage_enabled,
     )
 
 
@@ -196,33 +199,7 @@ def test_shadow_mode_does_not_change_lexical_response() -> None:
 
 
 @pytest.mark.unit
-def test_discovery_semantic_query_uses_description_and_tags_not_required_name() -> None:
-    provider = _EmbeddingProvider()
-    repository = _Repository(
-        lexical=(_candidate("python-lint"),),
-        semantic=(_candidate("python-static-analysis"),),
-    )
-
-    results = _discovery_service(
-        repository,
-        semantic_mode="shadow",
-        embedding_provider=provider,
-    ).discover_candidates(
-        caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
-        request=SkillDiscoveryRequest(
-            name="Python Lint",
-            description="  Static checks for Python services  ",
-            tags=("Quality", "python", "quality"),
-        ),
-    )
-
-    assert results == ("python-lint",)
-    assert provider.calls == ["static checks for python services python quality"]
-    assert repository.semantic_requests[0].embedding_model == DEFAULT_SEMANTIC_EMBEDDING_INDEX_KEY
-
-
-@pytest.mark.unit
-def test_discovery_uses_name_for_semantic_query_when_only_name_is_present() -> None:
+def test_discovery_uses_query_for_lexical_and_semantic_search() -> None:
     provider = _EmbeddingProvider()
     repository = _Repository(lexical=(_candidate("python-lint"),))
 
@@ -232,12 +209,44 @@ def test_discovery_uses_name_for_semantic_query_when_only_name_is_present() -> N
         embedding_provider=provider,
     ).discover_candidates(
         caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
-        request=SkillDiscoveryRequest(name="Python Lint", description=None, tags=()),
+        request=SkillDiscoveryRequest(query="  Python Lint  ", tags=("python",)),
     )
 
     assert results == ("python-lint",)
+    assert repository.search_requests[0].identity_query_text == "python lint"
     assert provider.calls == ["python lint"]
-    assert len(repository.semantic_requests) == 1
+
+
+@pytest.mark.unit
+def test_discovery_projects_context_coordinates_to_unique_slugs_for_co_usage() -> None:
+    @dataclass(frozen=True)
+    class _Coordinate:
+        slug: str
+        version: str
+
+    repository = _Repository(
+        lexical=(_candidate("python-docs", lexical_score=0.3), _candidate("python-pytest")),
+        boosts={"python-pytest": 100.0},
+    )
+
+    results = _discovery_service(repository, co_usage_enabled=True).discover_candidates(
+        caller=CallerIdentity(token_id="reader", scopes=frozenset({"read"})),
+        request=SkillDiscoveryRequest(
+            query="python",
+            tags=(),
+            context_skills=(
+                _Coordinate(slug="python-lint", version="1.0.0"),
+                _Coordinate(slug="python-lint", version="2.0.0"),
+                _Coordinate(slug="python-format", version="1.0.0"),
+            ),
+        ),
+    )
+
+    assert results == ("python-pytest", "python-docs")
+    assert repository.co_usage_requests[0].context_skill_slugs == (
+        "python-lint",
+        "python-format",
+    )
 
 
 @pytest.mark.unit

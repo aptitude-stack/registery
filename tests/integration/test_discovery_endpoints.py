@@ -58,7 +58,7 @@ def test_discovery_queries_search_documents_without_touching_skill_contents(
         try:
             response = client.post(
                 "/discovery",
-                json={"name": "Metadata Only Discovery"},
+                json={"query": "Metadata Only Discovery"},
                 headers=_headers("reader-token"),
             )
         finally:
@@ -94,7 +94,7 @@ def test_discovery_word_queries_return_expected_documentation_skill(
         )
         response = client.post(
             "/discovery",
-            json={"name": query_word},
+            json={"query": query_word},
             headers=_headers("reader-token"),
         )
 

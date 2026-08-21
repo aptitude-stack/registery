@@ -35,13 +35,15 @@ rank, semantic rank, and co-usage signals can only order eligible candidates.
 ### Request Input
 Discovery accepts:
 
-- `name`: required
-- `description`: optional
-- `tags`: optional
-- `context_skills`: optional, used only for bounded co-usage boosts
+- `query`: required free-text search input
+- `tags`: optional, normalized and used as structured filters
+- `context_skills`: optional list of at most 50 exact `{slug, version}`
+  coordinates, used only for bounded co-usage boosts
 
-Current lexical query text is built from `name` plus `description` when present.
-Tags are normalized separately and used as structured filters.
+The request trims and validates `query`, normalizes each context coordinate,
+and removes duplicate coordinates in first-seen order. `name` and `description`
+are not accepted discovery fields. The normalized query is used for lexical and
+semantic retrieval.
 
 ### Lexical Search
 The lexical read model is `skill_search_documents`. It stores one derived row
@@ -92,12 +94,12 @@ normalize(description) + " " + normalize(tags...)
 Query semantic source:
 
 ```text
-normalize(request.description) + " " + normalize(request.tags...)
+normalize(request.query)
 ```
 
-The required discovery `name` is not semantic input. Slug and name stay lexical
-identity signals. If a request has no description and no tags, semantic
-expansion is skipped.
+The stored semantic index remains description/tag-only. Slug and name stay
+lexical identity signals; tags remain structured filters. The request query is
+the runtime semantic input.
 
 ### Vector Store
 Plan 18 keeps vectors in `skill_search_embeddings`, a derived read model keyed
@@ -165,9 +167,9 @@ flowchart TD
     A["POST /discovery request"] --> B["Validate and normalize input"]
     B --> C["Resolve caller and governance filters"]
     C --> D["Lexical candidate query<br/>skill_search_documents"]
-    C --> E{"Semantic mode enabled<br/>and description/tags exist?"}
+    C --> E{"Semantic mode enabled?"}
     E -- "no" --> F["No semantic candidates"]
-    E -- "yes" --> G["Embed description/tags query"]
+    E -- "yes" --> G["Embed query text"]
     G --> H["Semantic candidate query<br/>skill_search_embeddings"]
     D --> I["Lexical rank list"]
     F --> J["Hybrid fusion"]
@@ -215,8 +217,8 @@ When Plan 18 is implemented, promote the stable parts of this review into
 `docs/architecture/discovery-and-ranking.md`:
 
 - lexical search remains slug/name/description/tag full-text search
-- semantic search is description/tag-only expansion
-- tags are both hard filters and semantic source text
+- semantic index sources are description/tag-only, with the request query used at runtime
+- tags remain hard filters
 - hybrid fusion uses rank positions, preferably RRF
 - cross-encoder reranking is not registry request-path behavior
 - discovery remains slug-only candidate generation

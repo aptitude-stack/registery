@@ -8,7 +8,7 @@ from fastapi import APIRouter, Path, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from app.core.skills.discovery import SkillDiscoveryRequest as CoreSkillDiscoveryRequest
-from app.core.skills.models import SkillNotFoundError, SkillVersionNotFoundError
+from app.core.skills.models import SkillCoordinate, SkillNotFoundError, SkillVersionNotFoundError
 from app.interface.api.dependencies import ReadCallerDep, SkillFetchServiceDep
 from app.interface.api.errors import error_response
 from app.interface.api.response_docs import (
@@ -205,10 +205,12 @@ def search_catalog_skills(
     details = fetch_service.search_catalog(
         caller=caller,
         request=CoreSkillDiscoveryRequest(
-            name=request.name,
-            description=request.description,
+            query=request.query,
             tags=tuple(request.tags),
-            context_skills=tuple(request.context_skills),
+            context_skills=tuple(
+                SkillCoordinate(slug=item.slug, version=item.version)
+                for item in request.context_skills
+            ),
         ),
         limit=limit,
     )

@@ -17,10 +17,9 @@ http:
     type: json
     data: |-
       {
-        "name": "Postman Primary Skill",
-        "description": "Static checks for Python services",
+        "query": "Postman Primary Skill",
         "tags": ["python", "quality", "static-analysis"],
-        "context_skills": ["{{sanity_dependency_slug}}"]
+        "context_skills": [{"slug": "{{sanity_dependency_slug}}", "version": "{{sanity_version_1}}"}]
       }
 
 runtime:

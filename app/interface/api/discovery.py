@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, status
 
 from app.core.skills.discovery import SkillDiscoveryRequest as CoreSkillDiscoveryRequest
+from app.core.skills.models import SkillCoordinate
 from app.interface.api.dependencies import ReadCallerDep, SkillDiscoveryServiceDep
 from app.interface.api.response_docs import ApiResponses, invalid_request_response
 from app.interface.dto.examples import (
@@ -49,10 +50,12 @@ def discover_skills(
     candidates = discovery_service.discover_candidates(
         caller=caller,
         request=CoreSkillDiscoveryRequest(
-            name=request.name,
-            description=request.description,
+            query=request.query,
             tags=tuple(request.tags),
-            context_skills=tuple(request.context_skills),
+            context_skills=tuple(
+                SkillCoordinate(slug=item.slug, version=item.version)
+                for item in request.context_skills
+            ),
         ),
     )
     return SkillDiscoveryResponse(candidates=list(candidates))

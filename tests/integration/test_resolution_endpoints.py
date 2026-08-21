@@ -64,8 +64,7 @@ def test_publish_discovery_resolution_and_exact_fetch(
         discovery = client.post(
             "/discovery",
             json={
-                "name": "  Python Hard Cut Source  ",
-                "description": "  Hard cut discovery candidate  ",
+                "query": "  Python Hard Cut Source  ",
                 "tags": ["python", "hard-cut", "python"],
             },
             headers=_headers("reader-token"),
@@ -226,7 +225,7 @@ def test_governance_applies_to_discovery_resolution_and_exact_fetch(
 
         published_discovery = client.post(
             "/discovery",
-            json={"name": "Python Discovery"},
+            json={"query": "Python Discovery"},
             headers=_headers("reader-token"),
         )
         archived_resolution_forbidden = client.get(

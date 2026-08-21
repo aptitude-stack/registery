@@ -528,7 +528,7 @@ def test_search_catalog_returns_current_default_metadata_in_discovery_order() ->
 
     result = service.search_catalog(
         caller=_caller("read"),
-        request=SkillDiscoveryRequest(name="python", description=None, tags=()),
+        request=SkillDiscoveryRequest(query="python", tags=()),
         limit=20,
     )
 
@@ -566,7 +566,7 @@ def test_search_catalog_filters_non_visible_candidates() -> None:
 
     result = service.search_catalog(
         caller=_caller("read"),
-        request=SkillDiscoveryRequest(name="python", description=None, tags=()),
+        request=SkillDiscoveryRequest(query="python", tags=()),
         limit=20,
     )
 
@@ -593,7 +593,7 @@ def test_search_catalog_respects_limit() -> None:
 
     result = service.search_catalog(
         caller=_caller("read"),
-        request=SkillDiscoveryRequest(name="python", description=None, tags=()),
+        request=SkillDiscoveryRequest(query="python", tags=()),
         limit=1,
     )
 
