@@ -138,6 +138,36 @@ def test_exact_fetch_returns_not_found_for_missing_coordinates(
 
 
 @pytest.mark.integration
+def test_publish_and_exact_fetch_return_overall_score_without_search_projection(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python-overall-score-{uuid4().hex}"
+
+    with TestClient(create_app()) as client:
+        published = _publish(
+            client,
+            slug,
+            _request("1.0.0", intent="create_skill", overall_score=0.87),
+        )
+        exact = client.get(f"/skills/{slug}/1.0.0", headers=_headers("reader-token"))
+        search = client.post(
+            "/catalog/search?limit=20",
+            json={"query": "Python Lint"},
+            headers=_headers("reader-token"),
+        )
+
+    assert published["metadata"]["overall_score"] == 0.87
+    assert exact.status_code == 200
+    assert exact.json()["metadata"]["overall_score"] == 0.87
+    assert search.status_code == 200
+    matching = [item for item in search.json()["skills"] if item["slug"] == slug]
+    assert matching
+    assert "overall_score" not in matching[0]["metadata"]
+
+
+@pytest.mark.integration
 def test_top_installed_skills_returns_visible_current_defaults_in_rank_order(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,

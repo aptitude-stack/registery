@@ -29,7 +29,11 @@ from app.interface.dto.skills_shared import (
 )
 
 
-def to_metadata_response(detail: SkillVersionDetail) -> SkillVersionMetadataResponse:
+def to_metadata_response(
+    detail: SkillVersionDetail,
+    *,
+    include_overall_score: bool = True,
+) -> SkillVersionMetadataResponse:
     """Convert a core detail projection into the immutable metadata response schema."""
     return SkillVersionMetadataResponse(
         slug=detail.slug,
@@ -42,7 +46,7 @@ def to_metadata_response(detail: SkillVersionDetail) -> SkillVersionMetadataResp
             media_type=detail.content.media_type,
             size_bytes=detail.content.size_bytes,
         ),
-        metadata=_metadata_response(detail.metadata),
+        metadata=_metadata_response(detail.metadata, include_overall_score=include_overall_score),
         lifecycle_status=detail.lifecycle_status,
         trust_tier=detail.trust_tier,
         namespace=detail.namespace,
@@ -108,8 +112,12 @@ def _content_summary_response(
     )
 
 
-def _metadata_response(metadata: SkillMetadata) -> SkillMetadataResponse:
-    return SkillMetadataResponse(
+def _metadata_response(
+    metadata: SkillMetadata,
+    *,
+    include_overall_score: bool = True,
+) -> SkillMetadataResponse:
+    response = SkillMetadataResponse(
         name=metadata.name,
         description=metadata.description,
         tags=list(metadata.tags),
@@ -119,6 +127,9 @@ def _metadata_response(metadata: SkillMetadata) -> SkillMetadataResponse:
         maturity_score=metadata.maturity_score,
         security_score=metadata.security_score,
     )
+    if include_overall_score:
+        response.overall_score = metadata.overall_score
+    return response
 
 
 def _version_summary_response(summary: SkillVersionSummary) -> SkillVersionSummaryResponse:

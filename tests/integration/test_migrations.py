@@ -4,14 +4,9 @@ from __future__ import annotations
 
 import pytest
 from alembic.config import Config
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
-from app.core.settings import reset_settings_cache
-from app.main import create_app
-from app.persistence.db import dispose_engine
-from tests.integration.skill_endpoint_helpers import _publish, _request
 
 
 @pytest.mark.integration
@@ -49,6 +44,10 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
 
         skill_columns = {column["name"] for column in inspector.get_columns("skills")}
         metadata_columns = {column["name"] for column in inspector.get_columns("skill_metadata")}
+        metadata_checks = {
+            constraint["name"]: constraint["sqltext"]
+            for constraint in inspector.get_check_constraints("skill_metadata")
+        }
         version_columns = {column["name"] for column in inspector.get_columns("skill_versions")}
         content_columns = {column["name"] for column in inspector.get_columns("skill_contents")}
         trust_columns = {column["name"] for column in inspector.get_columns("trust_evidence")}
@@ -100,6 +99,8 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         } <= version_columns
         assert "rendered_summary" not in content_columns
         assert "headers" not in metadata_columns
+        assert "overall_score" in metadata_columns
+        assert "overall_score IS NULL" in metadata_checks["ck_skill_metadata_overall_score_range"]
 
         assert {"evidence_type", "subject", "digest", "uri", "payload"} <= trust_columns
 
@@ -180,7 +181,6 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
 
 @pytest.mark.integration
 def test_graph_projection_cleanup_migration_deactivates_stale_and_missing_edges(
-    monkeypatch: pytest.MonkeyPatch,
     clean_integration_database: str,
 ) -> None:
     config = Config("alembic.ini")
@@ -188,44 +188,16 @@ def test_graph_projection_cleanup_migration_deactivates_stale_and_missing_edges(
     config.set_main_option("sqlalchemy.url", clean_integration_database)
     command.upgrade(config, "0009_skill_graph_edges")
 
-    monkeypatch.setenv("DATABASE_URL", clean_integration_database)
     prefix = "migration-graph-cleanup"
     source = f"{prefix}-source"
     target = f"{prefix}-target"
     missing = f"{prefix}-missing"
-    reset_settings_cache()
-    dispose_engine()
-    with TestClient(create_app()) as client:
-        _publish(
-            client,
-            source,
-            _request(
-                "0.1.0",
-                intent="create_skill",
-                name="Cleanup Source",
-                overlaps_with=[{"slug": target, "version": "0.1.0"}],
-            ),
-        )
-        _publish(
-            client,
-            source,
-            _request(
-                "0.1.1",
-                intent="publish_version",
-                name="Cleanup Source",
-                overlaps_with=[
-                    {"slug": target, "version": "0.1.0"},
-                    {"slug": missing, "version": "0.1.0"},
-                ],
-            ),
-        )
-        _publish(
-            client,
-            target,
-            _request("0.1.0", intent="create_skill", name="Cleanup Target"),
-        )
-    reset_settings_cache()
-    dispose_engine()
+    _seed_graph_cleanup_rows(
+        clean_integration_database,
+        source=source,
+        target=target,
+        missing=missing,
+    )
 
     command.upgrade(config, "head")
 
@@ -271,3 +243,139 @@ def test_graph_projection_cleanup_migration_deactivates_stale_and_missing_edges(
         ("0.1.1", missing, False, False),
         ("0.1.1", target, True, True),
     ]
+
+
+def _seed_graph_cleanup_rows(
+    database_url: str,
+    *,
+    source: str,
+    target: str,
+    missing: str,
+) -> None:
+    """Seed the pre-0010 graph projection without using the current ORM schema."""
+    engine = create_engine(database_url)
+    try:
+        with engine.begin() as connection:
+            namespace_id = connection.execute(
+                text("SELECT id FROM namespaces WHERE slug = 'public'")
+            ).scalar_one()
+
+            skill_ids: dict[str, int] = {}
+            for slug in (source, target):
+                skill_ids[slug] = int(
+                    connection.execute(
+                        text(
+                            """
+                            INSERT INTO skills (slug, namespace_fk)
+                            VALUES (:slug, :namespace_id)
+                            RETURNING id
+                            """
+                        ),
+                        {"slug": slug, "namespace_id": namespace_id},
+                    ).scalar_one()
+                )
+
+            version_ids: dict[tuple[str, str], int] = {}
+            for slug, version, published_at in (
+                (source, "0.1.0", "2026-01-01T09:00:00+00:00"),
+                (source, "0.1.1", "2026-01-02T09:00:00+00:00"),
+                (target, "0.1.0", "2026-01-01T09:00:00+00:00"),
+            ):
+                payload = f"legacy-{slug}-{version}".encode()
+                content_id = connection.execute(
+                    text(
+                        """
+                        INSERT INTO skill_contents (
+                            payload,
+                            media_type,
+                            storage_size_bytes,
+                            checksum_digest
+                        )
+                        VALUES (:payload, 'application/zstd', :size_bytes, :checksum)
+                        RETURNING id
+                        """
+                    ),
+                    {
+                        "payload": payload,
+                        "size_bytes": len(payload),
+                        "checksum": f"{len(version_ids) + 1:064d}",
+                    },
+                ).scalar_one()
+                metadata_id = connection.execute(
+                    text(
+                        """
+                        INSERT INTO skill_metadata (name, description, tags)
+                        VALUES (:name, :description, ARRAY['fixture']::text[])
+                        RETURNING id
+                        """
+                    ),
+                    {"name": slug, "description": "migration fixture"},
+                ).scalar_one()
+                version_ids[(slug, version)] = int(
+                    connection.execute(
+                        text(
+                            """
+                            INSERT INTO skill_versions (
+                                skill_fk,
+                                version,
+                                content_fk,
+                                metadata_fk,
+                                checksum_digest,
+                                published_at
+                            )
+                            VALUES (
+                                :skill_id,
+                                :version,
+                                :content_id,
+                                :metadata_id,
+                                :checksum,
+                                :published_at
+                            )
+                            RETURNING id
+                            """
+                        ),
+                        {
+                            "skill_id": skill_ids[slug],
+                            "version": version,
+                            "content_id": content_id,
+                            "metadata_id": metadata_id,
+                            "checksum": f"{len(version_ids) + 1:064d}",
+                            "published_at": published_at,
+                        },
+                    ).scalar_one()
+                )
+
+            for version, target_slug in (
+                ("0.1.0", target),
+                ("0.1.1", target),
+                ("0.1.1", missing),
+            ):
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO skill_graph_edges (
+                            source_skill_fk,
+                            source_skill_version_fk,
+                            target_slug,
+                            edge_type,
+                            provenance,
+                            active
+                        )
+                        VALUES (
+                            :source_skill_id,
+                            :source_version_id,
+                            :target_slug,
+                            'overlaps_with',
+                            'authored',
+                            TRUE
+                        )
+                        """
+                    ),
+                    {
+                        "source_skill_id": skill_ids[source],
+                        "source_version_id": version_ids[(source, version)],
+                        "target_slug": target_slug,
+                    },
+                )
+    finally:
+        engine.dispose()

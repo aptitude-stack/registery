@@ -162,6 +162,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     token_estimate=record.metadata.token_estimate,
                     maturity_score=record.metadata.maturity_score,
                     security_score=record.metadata.security_score,
+                    overall_score=record.metadata.overall_score,
                 )
                 session.add(metadata)
                 session.flush()

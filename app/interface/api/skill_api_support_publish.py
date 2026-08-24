@@ -115,6 +115,7 @@ def to_create_command(
             token_estimate=request.metadata.token_estimate,
             maturity_score=request.metadata.maturity_score,
             security_score=request.metadata.security_score,
+            overall_score=request.metadata.overall_score,
         ),
         governance=_governance_input(request.governance),
         relationships=SkillRelationshipsInput(

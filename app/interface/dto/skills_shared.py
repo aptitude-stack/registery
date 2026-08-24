@@ -77,6 +77,7 @@ class SkillMetadataResponse(BaseModel):
     token_estimate: int | None = None
     maturity_score: float | None = None
     security_score: float | None = None
+    overall_score: float | None = None
 
 
 class TrustContextResponse(BaseModel):

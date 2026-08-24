@@ -265,6 +265,7 @@ def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
             token_estimate=entity.metadata_row.token_estimate,
             maturity_score=entity.metadata_row.maturity_score,
             security_score=entity.metadata_row.security_score,
+            overall_score=entity.metadata_row.overall_score,
         ),
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),

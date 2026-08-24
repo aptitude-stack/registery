@@ -63,6 +63,7 @@ class SkillMetadataInput:
     token_estimate: int | None = None
     maturity_score: float | None = None
     security_score: float | None = None
+    overall_score: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +147,7 @@ class SkillMetadata:
     token_estimate: int | None
     maturity_score: float | None
     security_score: float | None
+    overall_score: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -166,6 +166,7 @@ def _command(
     version: str,
     *,
     intent: str = "create_skill",
+    overall_score: float | None = None,
 ) -> CreateSkillVersionCommand:
     return CreateSkillVersionCommand(
         slug=slug,
@@ -179,6 +180,7 @@ def _command(
             name="Python Lint",
             description="Linting skill",
             tags=("python", "lint"),
+            overall_score=overall_score,
         ),
         relationships=SkillRelationshipsInput(),
     )
@@ -269,6 +271,31 @@ def test_publish_version_distinguishes_version_checksum_from_content_checksum() 
     )
 
     assert first.content.checksum.digest == second.content.checksum.digest
+    assert first.version_checksum.digest != second.version_checksum.digest
+
+
+@pytest.mark.unit
+def test_publish_version_checksum_includes_overall_score() -> None:
+    first_service = SkillRegistryService(
+        repository=FakeCatalogRepository(),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+    )
+    second_service = SkillRegistryService(
+        repository=FakeCatalogRepository(),
+        audit_recorder=FakeAuditRecorder(),
+        governance_policy=_governance_policy(),
+    )
+
+    first = first_service.publish_version(
+        caller=_publish_caller(),
+        command=_command(slug="python-lint", version="1.0.0", overall_score=0.8),
+    )
+    second = second_service.publish_version(
+        caller=_publish_caller(),
+        command=_command(slug="python-lint", version="1.0.0", overall_score=0.9),
+    )
+
     assert first.version_checksum.digest != second.version_checksum.digest
 
 

@@ -14,6 +14,7 @@ PUBLISH_REQUEST_EXAMPLE = {
         "token_estimate": 128,
         "maturity_score": 0.9,
         "security_score": 0.95,
+        "overall_score": 0.93,
     },
     "governance": {
         "trust_tier": "internal",
@@ -64,6 +65,7 @@ SKILL_VERSION_METADATA_RESPONSE_EXAMPLE = {
         "token_estimate": 128,
         "maturity_score": 0.9,
         "security_score": 0.95,
+        "overall_score": 0.93,
     },
     "lifecycle_status": "published",
     "trust_tier": "internal",

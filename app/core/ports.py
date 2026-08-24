@@ -87,6 +87,7 @@ class MetadataRecordInput:
     token_estimate: int | None
     maturity_score: float | None
     security_score: float | None
+    overall_score: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
