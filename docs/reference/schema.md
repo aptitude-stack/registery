@@ -192,7 +192,7 @@ Storage notes:
 
 ### `skill_metadata`
 
-Structured, queryable metadata for discovery and ranking.
+Structured, queryable metadata for discovery and exact reads.
 
 | Column | Type | Constraints | Purpose |
 | --- | --- | --- | --- |
@@ -205,6 +205,7 @@ Structured, queryable metadata for discovery and ranking.
 | `token_estimate` | `integer` | nullable | Approximate token footprint. |
 | `maturity_score` | `float` | nullable | Quality or stability ranking input. |
 | `security_score` | `float` | nullable | Security or trust ranking input. |
+| `overall_score` | `float` | nullable, check `0 <= overall_score <= 1` when present | Optional normalized overall score returned by exact metadata reads; not a discovery/search ranking input. |
 
 ### `policy_packs`
 
@@ -406,6 +407,13 @@ Enterprise governance is captured by [`alembic/versions/0004_enterprise_governan
 4. add `artifact_origin`, `review_state`, `promotion_channel`, and `policy_pack_fk` to `skill_versions`
 5. project namespace/workflow fields into `skill_search_documents`
 6. add B-tree indexes for equality filters used by visibility checks
+
+The optional exact-read overall score is captured by
+[`alembic/versions/0011_skill_metadata_overall_score.py`](../../alembic/versions/0011_skill_metadata_overall_score.py):
+
+1. add nullable `skill_metadata.overall_score`
+2. enforce the normalized `[0, 1]` range when a score is present
+3. leave existing metadata rows as `NULL`
 
 Semantic discovery signals are captured by
 [`alembic/versions/0005_semantic_discovery_signals.py`](../../alembic/versions/0005_semantic_discovery_signals.py)

@@ -154,6 +154,7 @@ class SkillRegistryService:
             token_estimate=command.metadata.token_estimate,
             maturity_score=command.metadata.maturity_score,
             security_score=command.metadata.security_score,
+            overall_score=command.metadata.overall_score,
         )
         governance_record = GovernanceRecordInput(
             trust_tier=normalized_governance.trust_tier,
@@ -593,6 +594,7 @@ def _version_checksum_digest(
             "token_estimate": metadata.token_estimate,
             "maturity_score": metadata.maturity_score,
             "security_score": metadata.security_score,
+            "overall_score": metadata.overall_score,
         },
         "governance": {
             "trust_tier": governance.trust_tier,

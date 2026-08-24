@@ -97,6 +97,30 @@ def test_publish_request_accepts_governance_block_with_provenance() -> None:
 
 
 @pytest.mark.unit
+def test_publish_request_accepts_normalized_overall_score() -> None:
+    request = SkillVersionCreateRequest.model_validate(
+        {
+            **_request(),
+            "metadata": {**_request()["metadata"], "overall_score": 0.87},
+        }
+    )
+
+    assert request.metadata.overall_score == 0.87
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("overall_score", [-0.01, 1.01])
+def test_publish_request_rejects_out_of_range_overall_score(overall_score: float) -> None:
+    with pytest.raises(ValidationError):
+        SkillVersionCreateRequest.model_validate(
+            {
+                **_request(),
+                "metadata": {**_request()["metadata"], "overall_score": overall_score},
+            }
+        )
+
+
+@pytest.mark.unit
 def test_publish_request_rejects_blank_trimmed_publisher_identity() -> None:
     with pytest.raises(ValidationError):
         SkillVersionCreateRequest.model_validate(

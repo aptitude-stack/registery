@@ -86,7 +86,8 @@ Publish and exact metadata fetch return the same structured response shape:
   "metadata": {
     "name": "Python Lint",
     "description": "Linting skill",
-    "tags": ["python", "lint"]
+    "tags": ["python", "lint"],
+    "overall_score": 0.93
   },
   "lifecycle_status": "published",
   "trust_tier": "internal",
@@ -234,6 +235,7 @@ Checksum semantics:
 
 - `content.checksum.digest` is the persisted `sha256` digest of the exact stored artifact bytes.
 - `version_checksum.digest` is the persisted `sha256` digest of the canonical version payload, which includes the content digest plus metadata, publish-time trust/provenance inputs, and authored relationships.
+- `metadata.overall_score` is an optional normalized author/publisher score in the range `[0, 1]`; it is returned by exact metadata reads and does not participate in discovery ordering.
 - Mutable enterprise workflow state does not rewrite artifact bytes or recompute `version_checksum.digest`; audit rows are the authoritative history for post-publish review, promotion, trust-tier, policy-pack, ownership, and trust-evidence changes.
 
 ## Exact Content

@@ -123,6 +123,12 @@ class SkillVersionMetadataRequest(BaseModel):
         le=1,
         description="Normalized security score in the range [0, 1].",
     )
+    overall_score: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Normalized overall score in the range [0, 1].",
+    )
 
     model_config = ConfigDict(extra="forbid")
 

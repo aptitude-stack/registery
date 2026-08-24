@@ -52,7 +52,8 @@ The request has two required parts:
     "outputs_schema": {"type": "object"},
     "token_estimate": 128,
     "maturity_score": 0.9,
-    "security_score": 0.95
+    "security_score": 0.95,
+    "overall_score": 0.93
   },
   "governance": {
     "trust_tier": "internal",
@@ -119,6 +120,7 @@ The uploaded `bundle` part must:
 | `token_estimate` | No | `integer \| null` | `null` | Must be `>= 0`. |
 | `maturity_score` | No | `number \| null` | `null` | Must be in `[0, 1]`. |
 | `security_score` | No | `number \| null` | `null` | Must be in `[0, 1]`. |
+| `overall_score` | No | `number \| null` | `null` | Normalized overall score; must be in `[0, 1]`. It is returned by exact metadata reads but does not affect discovery ordering or search projections. |
 
 ### `metadata.governance`
 

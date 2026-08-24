@@ -127,7 +127,9 @@ def list_catalog_skills(
 ) -> TopSkillsResponse:
     """Return all visible current-default skill versions in install-count order."""
     details = fetch_service.list_catalog_skills(caller=caller)
-    return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
+    return TopSkillsResponse(
+        skills=[to_metadata_response(detail, include_overall_score=False) for detail in details]
+    )
 
 
 @router.get(
@@ -149,7 +151,9 @@ def list_top_installed_skills(
 ) -> TopSkillsResponse:
     """Return top installed visible current-default skill versions."""
     details = fetch_service.list_top_installed(caller=caller, limit=limit)
-    return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
+    return TopSkillsResponse(
+        skills=[to_metadata_response(detail, include_overall_score=False) for detail in details]
+    )
 
 
 @router.get(
@@ -214,7 +218,9 @@ def search_catalog_skills(
         ),
         limit=limit,
     )
-    return TopSkillsResponse(skills=[to_metadata_response(detail) for detail in details])
+    return TopSkillsResponse(
+        skills=[to_metadata_response(detail, include_overall_score=False) for detail in details]
+    )
 
 
 @router.get(

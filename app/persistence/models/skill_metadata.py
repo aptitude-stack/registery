@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import BigInteger, Float, Integer, Text, text
+from sqlalchemy import BigInteger, CheckConstraint, Float, Integer, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,6 +15,12 @@ class SkillMetadata(Base):
     """Stores queryable metadata separately from bundle content."""
 
     __tablename__ = "skill_metadata"
+    __table_args__ = (
+        CheckConstraint(
+            "overall_score IS NULL OR (overall_score >= 0 AND overall_score <= 1)",
+            name="ck_skill_metadata_overall_score_range",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -30,3 +36,4 @@ class SkillMetadata(Base):
     token_estimate: Mapped[int | None] = mapped_column(Integer, nullable=True)
     maturity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     security_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
