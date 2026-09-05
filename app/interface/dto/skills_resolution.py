@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN
+from app.interface.validation import SEMVER_PATTERN, SLUG_PATTERN, VERSION_CONSTRAINT_PATTERN
 
 
 class DependencySelectorResponse(BaseModel):
@@ -25,6 +25,7 @@ class DependencySelectorResponse(BaseModel):
         default=None,
         min_length=1,
         max_length=200,
+        pattern=VERSION_CONSTRAINT_PATTERN.pattern,
         description="Comma-separated semver comparators.",
     )
     optional: bool | None = Field(default=None)

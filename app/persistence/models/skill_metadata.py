@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from sqlalchemy import BigInteger, CheckConstraint, Float, Integer, Text, text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.persistence.models.base import Base
@@ -31,8 +29,6 @@ class SkillMetadata(Base):
         server_default=text("'{}'::text[]"),
         default=list,
     )
-    inputs_schema: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    outputs_schema: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     token_estimate: Mapped[int | None] = mapped_column(Integer, nullable=True)
     maturity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     security_score: Mapped[float | None] = mapped_column(Float, nullable=True)

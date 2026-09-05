@@ -24,12 +24,6 @@ http:
               "name": "Postman Overlap Skill",
               "description": "Overlap seed for relationship coverage",
               "tags": ["postman", "sanity", "overlap"],
-              "inputs_schema": {
-                "type": "object"
-              },
-              "outputs_schema": {
-                "type": "object"
-              },
               "token_estimate": 130,
               "maturity_score": 0.83,
               "security_score": 0.92

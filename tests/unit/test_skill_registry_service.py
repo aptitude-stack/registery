@@ -84,8 +84,6 @@ class FakeCatalogRepository:
                 name=record.metadata.name,
                 description=record.metadata.description,
                 tags=record.metadata.tags,
-                inputs_schema=record.metadata.inputs_schema,
-                outputs_schema=record.metadata.outputs_schema,
                 token_estimate=record.metadata.token_estimate,
                 maturity_score=record.metadata.maturity_score,
                 security_score=record.metadata.security_score,

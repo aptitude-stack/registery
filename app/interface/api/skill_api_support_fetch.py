@@ -121,8 +121,6 @@ def _metadata_response(
         name=metadata.name,
         description=metadata.description,
         tags=list(metadata.tags),
-        inputs_schema=metadata.inputs_schema,
-        outputs_schema=metadata.outputs_schema,
         token_estimate=metadata.token_estimate,
         maturity_score=metadata.maturity_score,
         security_score=metadata.security_score,

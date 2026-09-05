@@ -110,8 +110,6 @@ def to_create_command(
             name=request.metadata.name,
             description=request.metadata.description,
             tags=tuple(request.metadata.tags),
-            inputs_schema=request.metadata.inputs_schema,
-            outputs_schema=request.metadata.outputs_schema,
             token_estimate=request.metadata.token_estimate,
             maturity_score=request.metadata.maturity_score,
             security_score=request.metadata.security_score,

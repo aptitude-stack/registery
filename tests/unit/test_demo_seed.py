@@ -109,8 +109,6 @@ def _detail_for(
             name=slug,
             description=f"{slug} description",
             tags=("python", "demo"),
-            inputs_schema={"type": "object"},
-            outputs_schema={"type": "object"},
             token_estimate=256,
             maturity_score=0.9,
             security_score=0.95,

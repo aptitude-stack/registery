@@ -99,16 +99,21 @@ def test_test_runs_full_suite_with_managed_test_database() -> None:
     assert "python -m pytest" in result.stdout
     assert 'python -m pytest -m "not integration"' not in result.stdout
     assert "python -m pytest tests/integration" not in result.stdout
-    assert "docker compose --profile test up -d test-db" in result.stdout
+    assert (
+        "docker compose -p aptitude-tests -f docker-compose.test.yml up -d test-db" in result.stdout
+    )
     assert "for attempt in $(seq 1 90)" in result.stdout
     assert (
-        "docker compose --profile test exec -T test-db pg_isready -U postgres -d aptitude_test"
-        in result.stdout
+        "docker compose -p aptitude-tests -f docker-compose.test.yml "
+        "exec -T test-db pg_isready -U postgres -d aptitude_test" in result.stdout
     )
     assert "Timed out waiting for test database to accept connections" in result.stdout
-    assert "docker compose --profile test logs test-db" in result.stdout
-    assert "docker compose --profile test rm -f -s -v test-db" in result.stdout
-    assert "docker volume rm -f aptitude-test-postgres-data" in result.stdout
+    assert (
+        "docker compose -p aptitude-tests -f docker-compose.test.yml logs test-db" in result.stdout
+    )
+    assert "docker compose -p aptitude-tests -f docker-compose.test.yml down" in result.stdout
+    assert "down -v" not in result.stdout
+    assert "docker volume rm" not in result.stdout
 
 
 @pytest.mark.unit
@@ -126,3 +131,17 @@ def test_rotate_generates_service_token_rotation_values() -> None:
     )
 
     assert "run python scripts/generate_service_token.py" in result.stdout
+
+
+@pytest.mark.unit
+def test_normal_shutdown_never_removes_volumes() -> None:
+    result = subprocess.run(
+        ["make", "-n", "_stack-down"],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "docker compose down" in result.stdout
+    assert "down -v" not in result.stdout
+    assert "--volumes" not in result.stdout

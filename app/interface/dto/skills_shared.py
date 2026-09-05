@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from app.core.governance import TrustTier
@@ -72,8 +70,6 @@ class SkillMetadataResponse(BaseModel):
     name: str
     description: str | None
     tags: list[str]
-    inputs_schema: dict[str, Any] | None = None
-    outputs_schema: dict[str, Any] | None = None
     token_estimate: int | None = None
     maturity_score: float | None = None
     security_score: float | None = None

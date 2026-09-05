@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.governance import ArtifactOrigin, TrustTier
@@ -97,14 +95,6 @@ class SkillVersionMetadataRequest(BaseModel):
     tags: list[str] = Field(
         default_factory=list,
         description="Free-form tags used for categorization and discovery.",
-    )
-    inputs_schema: dict[str, Any] | None = Field(
-        default=None,
-        description="Structured input contract stored as JSON.",
-    )
-    outputs_schema: dict[str, Any] | None = Field(
-        default=None,
-        description="Structured output contract stored as JSON.",
     )
     token_estimate: int | None = Field(
         default=None,

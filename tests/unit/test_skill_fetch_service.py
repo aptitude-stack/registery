@@ -149,8 +149,6 @@ def _stored_version(
             name="Python Lint",
             description="Linting skill",
             tags=("python", "lint"),
-            inputs_schema={"type": "object"},
-            outputs_schema={"type": "object"},
             token_estimate=128,
             maturity_score=0.9,
             security_score=0.95,

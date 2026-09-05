@@ -19,8 +19,6 @@ def test_shared_normalization_aligns_search_documents_and_queries() -> None:
             name=" Python   Lint ",
             description="  Lint Python files  ",
             tags=("Lint", "python", "lint"),
-            inputs_schema=None,
-            outputs_schema=None,
             token_estimate=None,
             maturity_score=None,
             security_score=None,

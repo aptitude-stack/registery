@@ -57,8 +57,6 @@ def _request(
             "name": name,
             "description": description,
             "tags": tags or ["python", "lint"],
-            "inputs_schema": {"type": "object"},
-            "outputs_schema": {"type": "object"},
             "token_estimate": 128,
             "maturity_score": 0.9,
             "security_score": 0.95,

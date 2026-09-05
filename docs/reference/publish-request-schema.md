@@ -48,8 +48,6 @@ The request has two required parts:
     "name": "Python Lint",
     "description": "Linting skill",
     "tags": ["python", "lint"],
-    "inputs_schema": {"type": "object"},
-    "outputs_schema": {"type": "object"},
     "token_estimate": 128,
     "maturity_score": 0.9,
     "security_score": 0.95,
@@ -95,6 +93,7 @@ The uploaded `bundle` part must:
   - maximum artifact size: `5 MiB`
   - maximum archive file count: `200`
   - maximum archive path length: `240` bytes
+- archive members must be regular files or directories with safe relative POSIX paths
 
 ## Field Reference
 
@@ -115,8 +114,6 @@ The uploaded `bundle` part must:
 | `name` | Yes | `string` | none | Human-readable skill name. |
 | `description` | No | `string \| null` | `null` | Short summary. |
 | `tags` | No | `string[]` | `[]` | Trimmed, deduplicated, empty entries removed. |
-| `inputs_schema` | No | `object \| null` | `null` | Structured input contract. |
-| `outputs_schema` | No | `object \| null` | `null` | Structured output contract. |
 | `token_estimate` | No | `integer \| null` | `null` | Must be `>= 0`. |
 | `maturity_score` | No | `number \| null` | `null` | Must be in `[0, 1]`. |
 | `security_score` | No | `number \| null` | `null` | Must be in `[0, 1]`. |

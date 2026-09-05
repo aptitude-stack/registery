@@ -4,7 +4,30 @@ from __future__ import annotations
 
 import pytest
 
-from app.interface.validation import MARKER_PATTERN, SLUG_PATTERN, VERSION_CONSTRAINT_PATTERN
+from app.interface.validation import (
+    MARKER_PATTERN,
+    SEMVER_PATTERN,
+    SLUG_PATTERN,
+    VERSION_CONSTRAINT_PATTERN,
+)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("value", "is_valid"),
+    [
+        ("0.0.0", True),
+        ("1.2.3-codex.01", False),
+        ("1.2.3-01codex", True),
+        ("1.2.3+build.001", True),
+        ("1.02.3", False),
+        ("1.2.3\n", False),
+    ],
+)
+def test_semver_pattern_rejects_numeric_prerelease_leading_zero(
+    value: str, *, is_valid: bool
+) -> None:
+    assert (bool(__import__("re").fullmatch(SEMVER_PATTERN, value))) is is_valid
 
 
 @pytest.mark.unit
@@ -29,8 +52,20 @@ def test_slug_pattern_matches_expected_values(value: str, *, is_valid: bool) -> 
     [
         (">=1.0.0", True),
         (">=1.0.0, <2.0.0", True),
+        (">=\t1.0.0, <2.0.0", True),
+        (">=1.0.0\n", False),
+        (">=\n1.0.0", False),
+        (">=1.0.0,\r<2.0.0", False),
+        ("=1.0.0", True),
+        ("==1.0.0", True),
+        ("!=1.0.0", True),
+        ("<2.0.0", True),
+        ("<=2.0.0", True),
+        (">1.0.0", True),
         ("1.0.0", False),
         (">=1", False),
+        (">=1.2.3-01", False),
+        (">=1.2.3,~2.0.0", False),
     ],
 )
 def test_version_constraint_pattern_matches_expected_values(
