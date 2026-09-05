@@ -23,12 +23,6 @@ http:
             "name": "Invalid Postman Skill",
             "description": "Invalid publish payload for negative coverage",
             "tags": ["postman", "negative"],
-            "inputs_schema": {
-              "type": "object"
-            },
-            "outputs_schema": {
-              "type": "object"
-            },
             "token_estimate": 50,
             "maturity_score": 0.5,
             "security_score": 0.5

@@ -23,12 +23,6 @@ http:
             "name": "Duplicate Seed Skill",
             "description": "Seed version for duplicate publish coverage",
             "tags": ["postman", "negative", "duplicate"],
-            "inputs_schema": {
-              "type": "object"
-            },
-            "outputs_schema": {
-              "type": "object"
-            },
             "token_estimate": 75,
             "maturity_score": 0.7,
             "security_score": 0.8

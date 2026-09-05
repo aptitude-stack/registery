@@ -28,12 +28,6 @@ http:
                 "sanity",
                 "extension"
               ],
-              "inputs_schema": {
-                "type": "object"
-              },
-              "outputs_schema": {
-                "type": "object"
-              },
               "token_estimate": 120,
               "maturity_score": 0.82,
               "security_score": 0.91

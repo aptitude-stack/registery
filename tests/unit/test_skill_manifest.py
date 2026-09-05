@@ -177,6 +177,28 @@ def test_publish_request_rejects_unknown_fields() -> None:
 
 
 @pytest.mark.unit
+def test_publish_request_rejects_retired_schema_fields() -> None:
+    with pytest.raises(ValidationError):
+        SkillVersionCreateRequest.model_validate(
+            {
+                **_request(),
+                "metadata": {
+                    **_request()["metadata"],
+                    "inputs_schema": {"type": "object"},
+                    "outputs_schema": {"type": "object"},
+                },
+            }
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("version", ["1.2.3\n", "1.2.3-01"])
+def test_publish_request_rejects_non_strict_semver(version: str) -> None:
+    with pytest.raises(ValidationError):
+        SkillVersionCreateRequest.model_validate({**_request(), "version": version})
+
+
+@pytest.mark.unit
 def test_publish_request_rejects_rendered_summary_field() -> None:
     with pytest.raises(ValidationError):
         SkillVersionCreateRequest.model_validate(

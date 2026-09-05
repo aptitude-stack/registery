@@ -13,19 +13,19 @@ from .skill_bundle import (
     validate_skill_bundle,
 )
 
+_NUMBER = r"(?:0|[1-9][0-9]*)"
+_PRERELEASE = r"(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
 SEMVER_CORE = (
-    r"(0|[1-9]\d*)\."
-    r"(0|[1-9]\d*)\."
-    r"(0|[1-9]\d*)"
-    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
-    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    rf"{_NUMBER}\.{_NUMBER}\.{_NUMBER}"
+    rf"(?:-{_PRERELEASE}(?:\.{_PRERELEASE})*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
 )
 SEMVER_PATTERN = rf"^{SEMVER_CORE}$"
 SLUG_PATTERN = r"^[a-z0-9](?:[a-z0-9-]{0,127})$"
 GOVERNANCE_SLUG_PATTERN = r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$"
 VERSION_CONSTRAINT_PATTERN = re.compile(
-    rf"^\s*(?:==|=|!=|>=|<=|>|<)\s*{SEMVER_CORE}\s*"
-    rf"(?:,\s*(?:==|=|!=|>=|<=|>|<)\s*{SEMVER_CORE}\s*)*$"
+    rf"^[ \t]*(?:==|=|!=|>=|<=|>|<)[ \t]*{SEMVER_CORE}[ \t]*"
+    rf"(?:,[ \t]*(?:==|=|!=|>=|<=|>|<)[ \t]*{SEMVER_CORE}[ \t]*)*$"
 )
 MARKER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 

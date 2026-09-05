@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from app.core.governance import (
     CallerIdentity,
@@ -733,8 +732,6 @@ def _entry(
                 name=name,
                 description=description,
                 tags=tags,
-                inputs_schema=_inputs_schema(slug),
-                outputs_schema=_outputs_schema(slug),
                 token_estimate=token_estimate,
                 maturity_score=maturity_score,
                 security_score=security_score,
@@ -798,33 +795,6 @@ def _provenance(*, slug: str, version: str, publisher_identity: str) -> Provenan
         tree_path=f"skills/{slug}",
         publisher_identity=publisher_identity,
     )
-
-
-def _inputs_schema(slug: str) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "required": ["project_root"],
-        "properties": {
-            "project_root": {"type": "string"},
-            "paths": {"type": "array", "items": {"type": "string"}},
-            "test_targets": {"type": "array", "items": {"type": "string"}},
-            "mode": {"type": "string", "default": "standard"},
-            "skill_slug": {"type": "string", "const": slug},
-        },
-    }
-
-
-def _outputs_schema(slug: str) -> dict[str, Any]:
-    return {
-        "type": "object",
-        "properties": {
-            "skill_slug": {"type": "string", "const": slug},
-            "summary": {"type": "string"},
-            "artifacts": {"type": "array", "items": {"type": "string"}},
-            "metrics": {"type": "object"},
-            "status": {"type": "string"},
-        },
-    }
 
 
 def _markdown(

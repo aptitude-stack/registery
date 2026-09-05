@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import tarfile
+from io import BytesIO
+
 import pytest
+import zstandard
 
 from app.core.skills.bundle_archive import build_skill_bundle, build_skill_bundle_from_entries
 from app.interface.validation.skill_bundle import (
@@ -91,6 +95,37 @@ def test_validate_skill_bundle_rejects_overlong_member_paths() -> None:
     with pytest.raises(SkillBundleValidationError, match="maximum path length"):
         validate_skill_bundle(
             build_skill_bundle_from_entries({long_name: b"too-long"}),
+            filename="python-lint.tar.zst",
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "member_name",
+    ["../escape.txt", "/absolute.txt", "C:/drive.txt", "unsafe\\path.txt"],
+)
+def test_validate_skill_bundle_rejects_unsafe_member_paths(member_name: str) -> None:
+    with pytest.raises(SkillBundleValidationError, match="unsafe|absolute|drive"):
+        validate_skill_bundle(
+            build_skill_bundle_from_entries({member_name: b"unsafe"}),
+            filename="python-lint.tar.zst",
+            media_type=SKILL_ARTIFACT_MEDIA_TYPE,
+        )
+
+
+def test_validate_skill_bundle_rejects_non_file_directory_members() -> None:
+    tar_buffer = BytesIO()
+    with tarfile.open(fileobj=tar_buffer, mode="w") as archive:
+        info = tarfile.TarInfo("skill-bundle/link")
+        info.type = tarfile.SYMTYPE
+        info.linkname = "SKILL.md"
+        archive.addfile(info)
+    bundle = zstandard.ZstdCompressor().compress(tar_buffer.getvalue())
+
+    with pytest.raises(SkillBundleValidationError, match="regular file or directory"):
+        validate_skill_bundle(
+            bundle,
             filename="python-lint.tar.zst",
             media_type=SKILL_ARTIFACT_MEDIA_TYPE,
         )

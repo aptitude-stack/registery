@@ -425,8 +425,6 @@ def prepare_benchmark_rows(
                     name,
                     description,
                     tags,
-                    inputs_schema,
-                    outputs_schema,
                     token_estimate,
                     maturity_score,
                     security_score
@@ -435,8 +433,6 @@ def prepare_benchmark_rows(
                     :name,
                     :description,
                     :tags,
-                    CAST(:inputs_schema AS jsonb),
-                    CAST(:outputs_schema AS jsonb),
                     128,
                     0.9,
                     0.95
@@ -448,8 +444,6 @@ def prepare_benchmark_rows(
                 "name": skill.name,
                 "description": skill.description,
                 "tags": list(skill.tags),
-                "inputs_schema": json.dumps({"type": "object"}),
-                "outputs_schema": json.dumps({"type": "object"}),
             },
         ).scalar_one()
         skill_id = connection.execute(

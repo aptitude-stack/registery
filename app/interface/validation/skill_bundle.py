@@ -65,6 +65,8 @@ def validate_skill_bundle(
                 "Skill artifact exceeds the maximum path length of "
                 f"{MAX_SKILL_BUNDLE_PATH_LENGTH_BYTES} bytes."
             ) from exc
+        if "Skill artifact member" in message:
+            raise SkillBundleValidationError(message) from exc
         raise SkillBundleValidationError(
             "Skill artifact must be a valid .tar.zst archive."
         ) from exc

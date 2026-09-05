@@ -66,6 +66,7 @@ Current enforced bundle limits:
 - maximum upload size: `5 MiB`
 - maximum archive file count: `200`
 - maximum archive path length: `240` bytes
+- archive members must be regular files or directories with safe relative POSIX paths
 
 ## Exact Metadata
 

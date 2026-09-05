@@ -24,12 +24,6 @@ http:
               "name": "Postman Primary Skill",
               "description": "Static quality checks for Python services",
               "tags": ["python", "quality", "static-analysis"],
-              "inputs_schema": {
-                "type": "object"
-              },
-              "outputs_schema": {
-                "type": "object"
-              },
               "token_estimate": 260,
               "maturity_score": 0.92,
               "security_score": 0.97

@@ -44,6 +44,8 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
 
         skill_columns = {column["name"] for column in inspector.get_columns("skills")}
         metadata_columns = {column["name"] for column in inspector.get_columns("skill_metadata")}
+        assert "inputs_schema" not in metadata_columns
+        assert "outputs_schema" not in metadata_columns
         metadata_checks = {
             constraint["name"]: constraint["sqltext"]
             for constraint in inspector.get_check_constraints("skill_metadata")
@@ -153,6 +155,19 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
     finally:
         upgraded_engine.dispose()
 
+    command.downgrade(config, "0011_overall_score")
+    downgraded_migration_engine = create_engine(clean_integration_database)
+    try:
+        metadata_columns = {
+            column["name"]: column
+            for column in inspect(downgraded_migration_engine).get_columns("skill_metadata")
+        }
+        assert metadata_columns["inputs_schema"]["nullable"] is True
+        assert metadata_columns["outputs_schema"]["nullable"] is True
+    finally:
+        downgraded_migration_engine.dispose()
+
+    command.upgrade(config, "head")
     command.downgrade(config, "base")
 
     downgraded_engine = create_engine(clean_integration_database)
@@ -177,6 +192,137 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "skill_graph_edges" not in inspector.get_table_names()
     finally:
         downgraded_engine.dispose()
+
+
+@pytest.mark.integration
+def test_metadata_schema_removal_preserves_existing_checksums_and_bundles(
+    clean_integration_database: str,
+) -> None:
+    config = Config("alembic.ini")
+    config.set_main_option("script_location", "alembic")
+    config.set_main_option("sqlalchemy.url", clean_integration_database)
+    command.upgrade(config, "0011_overall_score")
+
+    engine = create_engine(clean_integration_database)
+    try:
+        with engine.begin() as connection:
+            skill_id = connection.execute(
+                text(
+                    """
+                    INSERT INTO skills (slug, namespace_fk)
+                    SELECT :slug, id FROM namespaces WHERE slug = 'public'
+                    RETURNING id
+                    """
+                ),
+                {"slug": "migration-schema-removal"},
+            ).scalar_one()
+            content_id = connection.execute(
+                text(
+                    """
+                    INSERT INTO skill_contents (
+                        payload, media_type, storage_size_bytes, checksum_digest
+                    )
+                    VALUES (:payload, 'application/zstd', :size_bytes, :checksum)
+                    RETURNING id
+                    """
+                ),
+                {
+                    "payload": b"existing-bundle-bytes",
+                    "size_bytes": len(b"existing-bundle-bytes"),
+                    "checksum": "1" * 64,
+                },
+            ).scalar_one()
+            metadata_id = connection.execute(
+                text(
+                    """
+                    INSERT INTO skill_metadata (
+                        name, description, tags, inputs_schema, outputs_schema
+                    )
+                    VALUES (
+                        'Migration fixture', 'Existing metadata', ARRAY['fixture']::text[],
+                        '{"type":"object"}'::jsonb, '{"type":"string"}'::jsonb
+                    )
+                    RETURNING id
+                    """
+                )
+            ).scalar_one()
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO skill_versions (
+                        skill_fk, version, content_fk, metadata_fk, checksum_digest
+                    )
+                    VALUES (:skill_fk, '1.2.3', :content_fk, :metadata_fk, :checksum)
+                    """
+                ),
+                {
+                    "skill_fk": skill_id,
+                    "content_fk": content_id,
+                    "metadata_fk": metadata_id,
+                    "checksum": "2" * 64,
+                },
+            )
+
+        command.upgrade(config, "head")
+        with engine.connect() as connection:
+            preserved = (
+                connection.execute(
+                    text(
+                        """
+                    SELECT
+                        version.checksum_digest AS version_checksum,
+                        content.payload,
+                        content.checksum_digest AS content_checksum
+                    FROM skill_versions AS version
+                    JOIN skill_contents AS content ON content.id = version.content_fk
+                    WHERE version.version = '1.2.3'
+                    """
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            metadata_columns = {
+                column["name"] for column in inspect(connection).get_columns("skill_metadata")
+            }
+
+        assert preserved == {
+            "version_checksum": "2" * 64,
+            "payload": b"existing-bundle-bytes",
+            "content_checksum": "1" * 64,
+        }
+        assert {"inputs_schema", "outputs_schema"}.isdisjoint(metadata_columns)
+
+        command.downgrade(config, "0011_overall_score")
+        with engine.connect() as connection:
+            restored = (
+                connection.execute(
+                    text(
+                        """
+                    SELECT
+                        metadata.inputs_schema,
+                        metadata.outputs_schema,
+                        version.checksum_digest AS version_checksum,
+                        content.payload,
+                        content.checksum_digest AS content_checksum
+                    FROM skill_versions AS version
+                    JOIN skill_metadata AS metadata ON metadata.id = version.metadata_fk
+                    JOIN skill_contents AS content ON content.id = version.content_fk
+                    WHERE version.version = '1.2.3'
+                    """
+                    )
+                )
+                .mappings()
+                .one()
+            )
+
+        assert restored["inputs_schema"] is None
+        assert restored["outputs_schema"] is None
+        assert restored["version_checksum"] == "2" * 64
+        assert restored["payload"] == b"existing-bundle-bytes"
+        assert restored["content_checksum"] == "1" * 64
+    finally:
+        engine.dispose()
 
 
 @pytest.mark.integration

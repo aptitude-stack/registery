@@ -6,6 +6,7 @@ import tarfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import PurePosixPath
 
 import zstandard
 
@@ -69,6 +70,13 @@ def inspect_skill_bundle(bundle_bytes: bytes) -> SkillBundleInspection:
                             f"{MAX_SKILL_BUNDLE_FILE_COUNT}."
                         )
 
+                    if not member.isdir() and not member.isfile():
+                        raise SkillBundleArchiveError(
+                            f"Skill artifact member '{member.name}' is not a regular "
+                            "file or directory."
+                        )
+                    _validate_member_path(member.name)
+
                     path_length_bytes = len(member.name.encode("utf-8"))
                     max_path_length_bytes = max(max_path_length_bytes, path_length_bytes)
                     if path_length_bytes > MAX_SKILL_BUNDLE_PATH_LENGTH_BYTES:
@@ -85,3 +93,23 @@ def inspect_skill_bundle(bundle_bytes: bytes) -> SkillBundleInspection:
         member_count=member_count,
         max_path_length_bytes=max_path_length_bytes,
     )
+
+
+def _validate_member_path(raw_name: str) -> None:
+    """Reject archive paths that could escape an extraction directory."""
+    if "\\" in raw_name:
+        raise SkillBundleArchiveError(
+            f"Skill artifact member '{raw_name}' uses an unsafe path separator."
+        )
+
+    member_path = PurePosixPath(raw_name)
+    if member_path.is_absolute():
+        raise SkillBundleArchiveError(f"Skill artifact member '{raw_name}' uses an absolute path.")
+    if not member_path.parts or any(part in {"", ".", ".."} for part in member_path.parts):
+        raise SkillBundleArchiveError(
+            f"Skill artifact member '{raw_name}' contains an unsafe path segment."
+        )
+    if ":" in member_path.parts[0]:
+        raise SkillBundleArchiveError(
+            f"Skill artifact member '{raw_name}' looks like a drive-qualified path."
+        )

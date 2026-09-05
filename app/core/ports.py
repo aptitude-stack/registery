@@ -82,8 +82,6 @@ class MetadataRecordInput:
     name: str
     description: str | None
     tags: tuple[str, ...]
-    inputs_schema: dict[str, Any] | None
-    outputs_schema: dict[str, Any] | None
     token_estimate: int | None
     maturity_score: float | None
     security_score: float | None

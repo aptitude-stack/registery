@@ -260,8 +260,6 @@ def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
             name=entity.metadata_row.name,
             description=entity.metadata_row.description,
             tags=tuple(entity.metadata_row.tags),
-            inputs_schema=entity.metadata_row.inputs_schema,
-            outputs_schema=entity.metadata_row.outputs_schema,
             token_estimate=entity.metadata_row.token_estimate,
             maturity_score=entity.metadata_row.maturity_score,
             security_score=entity.metadata_row.security_score,
