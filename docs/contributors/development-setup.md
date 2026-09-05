@@ -260,5 +260,7 @@ The `demo` profile remains opt-in. `make run-prod` stays bootstrap-only, while `
 Shut the stack down with:
 
 ```bash
-docker compose down -v
+docker compose down
 ```
+
+Development database storage uses the external volume `aptitude-local_aptitude-postgres-data`, which Compose shutdown preserves. `make run-dev` and `make run-prod` create it if missing; direct Compose startup requires provisioning it first. Tests use the separate `aptitude-tests` project in `docker-compose.test.yml` with disposable PostgreSQL data in tmpfs. `make _test-db-down` cleans up only that test project.

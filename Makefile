@@ -9,7 +9,7 @@ RUFF := $(UV) run --extra dev ruff
 MYPY := $(UV) run --extra dev python -m mypy
 
 COMPOSE := docker compose
-COMPOSE_TEST := $(COMPOSE) --profile test
+COMPOSE_TEST := $(COMPOSE) -p aptitude-tests -f docker-compose.test.yml
 
 DOCKER_IMAGE ?= y0ncha/aptitude-registry
 DOCKER_TAG ?= latest
@@ -26,7 +26,6 @@ TEST_POSTGRES_USER ?= postgres
 TEST_POSTGRES_PASSWORD ?= postgres
 TEST_POSTGRES_PORT ?= 5433
 TEST_DATABASE_URL ?= postgresql+psycopg://$(TEST_POSTGRES_USER):$(TEST_POSTGRES_PASSWORD)@127.0.0.1:$(TEST_POSTGRES_PORT)/$(TEST_POSTGRES_DB)
-TEST_DB_VOLUME ?= aptitude-test-postgres-data
 
 APP_BASE_URL ?= http://127.0.0.1:8000
 PRODUCTION_BASE_URL ?= https://api.aptitude-registry.dev
@@ -84,11 +83,11 @@ $(COMPOSE_TEST) exec -T test-db pg_isready -U $(TEST_POSTGRES_USER) -d $(TEST_PO
 endef
 
 define test_db_down_commands
-$(COMPOSE_TEST) rm -f -s -v test-db >/dev/null 2>&1 || true; \
-docker volume rm -f $(TEST_DB_VOLUME) >/dev/null 2>&1 || true
+$(COMPOSE_TEST) down
 endef
 
 define stack_bootstrap_commands
+docker volume create aptitude-local_aptitude-postgres-data >/dev/null; \
 $(call compose_with_env,$(1)) up -d db; \
 if [ "$(APP_IMAGE)" = "$(APP_IMAGE_DEFAULT)" ]; then \
 	$(call compose_with_env,$(1)) build server migrate$(if $(filter 1,$(2)), demo-seed); \
@@ -109,7 +108,7 @@ $(call compose_with_env,$(1)) rm -f -s migrate >/dev/null 2>&1 || true
 endef
 
 define stack_down_commands
-$(call compose_with_env,$(1)) down -v
+$(call compose_with_env,$(1)) down
 endef
 
 define smoke_wait_commands

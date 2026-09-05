@@ -23,29 +23,6 @@ services:
     volumes:
       - aptitude-postgres-data:/var/lib/postgresql/data
 
-  test-db:
-    profiles: ["test"]
-    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg15}
-    container_name: aptitude-test-postgres
-    environment:
-      POSTGRES_DB: ${TEST_POSTGRES_DB:-aptitude_test}
-      POSTGRES_USER: ${TEST_POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "${TEST_POSTGRES_PORT:-5433}:5432"
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${TEST_POSTGRES_USER:-postgres} -d ${TEST_POSTGRES_DB:-aptitude_test}",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 5s
-    volumes:
-      - aptitude-test-postgres-data:/var/lib/postgresql/data
-
   server:
     build:
       context: .
@@ -119,5 +96,5 @@ services:
 
 volumes:
   aptitude-postgres-data:
-  aptitude-test-postgres-data:
-    name: aptitude-test-postgres-data
+    external: true
+    name: aptitude-local_aptitude-postgres-data

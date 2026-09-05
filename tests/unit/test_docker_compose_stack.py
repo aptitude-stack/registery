@@ -47,3 +47,17 @@ def test_local_stack_keeps_otel_explicitly_disabled() -> None:
     assert 'OTEL_ENABLED: "false"' in server_section
     assert 'OTEL_SDK_DISABLED: "true"' in server_section
     assert "OTEL_EXPORTER_OTLP" not in compose
+
+
+def test_development_volume_is_external_and_tests_are_separate() -> None:
+    compose = (REPO_ROOT / "docker-compose.yml").read_text()
+    assert "  test-db:" not in compose
+    assert "external: true" in compose
+    assert "name: aptitude-local_aptitude-postgres-data" in compose
+    tests = (REPO_ROOT / "docker-compose.test.yml").read_text()
+    assert "name: aptitude-tests" in tests
+    assert "  test-db:" in tests
+    assert "tmpfs:" in tests
+    assert "volumes:" not in tests
+    assert "container_name:" not in tests
+    assert "  db:" not in tests and "  server:" not in tests

@@ -121,7 +121,7 @@ make run-prod
 Teardown:
 
 ```bash
-docker compose down -v
+docker compose down
 ```
 
 Other public commands:
@@ -152,3 +152,5 @@ For the full setup flow, verification commands, and troubleshooting entrypoints,
 - [`.agents/README.md`](.agents/README.md): agent-facing operating context
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/y0ncha/aptitude-server)
+
+Development database storage uses the external volume `aptitude-local_aptitude-postgres-data`, which Compose shutdown preserves. `make run-dev` and `make run-prod` create it if missing; direct Compose startup requires provisioning it first. Tests use the separate `aptitude-tests` project in `docker-compose.test.yml` with disposable PostgreSQL data in tmpfs. `make _test-db-down` cleans up only that test project.
