@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     BigInteger,
@@ -19,7 +19,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.persistence.models.base import Base
@@ -99,6 +99,7 @@ class SkillVersion(Base):
     maturity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     security_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assessment: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     checksum_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     lifecycle_status: Mapped[str] = mapped_column(
         Text,

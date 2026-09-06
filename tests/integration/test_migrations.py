@@ -101,6 +101,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "rendered_summary" not in content_columns
         assert "headers" not in metadata_columns
         assert "overall_score" in metadata_columns
+        assert "assessment" in metadata_columns
         assert "overall_score" in metadata_checks["ck_skill_versions_overall_score"]
 
         assert {"evidence_type", "subject", "digest", "uri", "payload"} <= trust_columns
@@ -162,6 +163,17 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert metadata_columns["outputs_schema"]["nullable"] is True
     finally:
         downgraded_migration_engine.dispose()
+
+    command.upgrade(config, "0013_db_structure_cleanup")
+    pre_assessment_engine = create_engine(clean_integration_database)
+    try:
+        version_columns = {
+            column["name"]
+            for column in inspect(pre_assessment_engine).get_columns("skill_versions")
+        }
+        assert "assessment" not in version_columns
+    finally:
+        pre_assessment_engine.dispose()
 
     command.upgrade(config, "head")
     command.downgrade(config, "base")

@@ -266,6 +266,7 @@ def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
             maturity_score=entity.maturity_score,
             security_score=entity.security_score,
             overall_score=entity.overall_score,
+            assessment=(None if entity.assessment is None else dict(entity.assessment)),
         ),
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),

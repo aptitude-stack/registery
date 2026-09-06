@@ -23,6 +23,7 @@ from app.interface.dto.skills_fetch import (
 from app.interface.dto.skills_shared import (
     ChecksumResponse,
     ProvenanceResponse,
+    SkillAssessment,
     SkillContentSummaryResponse,
     SkillMetadataResponse,
     TrustContextResponse,
@@ -124,6 +125,11 @@ def _metadata_response(
         token_estimate=metadata.token_estimate,
         maturity_score=metadata.maturity_score,
         security_score=metadata.security_score,
+        assessment=(
+            None
+            if metadata.assessment is None
+            else SkillAssessment.model_validate(metadata.assessment)
+        ),
     )
     if include_overall_score:
         response.overall_score = metadata.overall_score

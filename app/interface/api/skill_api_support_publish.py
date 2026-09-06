@@ -114,6 +114,11 @@ def to_create_command(
             maturity_score=request.metadata.maturity_score,
             security_score=request.metadata.security_score,
             overall_score=request.metadata.overall_score,
+            assessment=(
+                None
+                if request.metadata.assessment is None
+                else request.metadata.assessment.model_dump(mode="json")
+            ),
         ),
         governance=_governance_input(request.governance),
         relationships=SkillRelationshipsInput(

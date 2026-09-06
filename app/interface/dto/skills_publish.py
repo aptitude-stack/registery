@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.core.governance import ArtifactOrigin, TrustTier
 from app.core.skills.models import PublishIntent
 from app.interface.dto.skills_shared import (
+    SkillAssessment,
     normalize_optional_text,
     normalize_required_text,
     normalize_unique_tags,
@@ -118,6 +119,10 @@ class SkillVersionMetadataRequest(BaseModel):
         ge=0,
         le=1,
         description="Normalized overall score in the range [0, 1].",
+    )
+    assessment: SkillAssessment | None = Field(
+        default=None,
+        description="Sanitized quality and security assessment for this immutable version.",
     )
 
     model_config = ConfigDict(extra="forbid")
