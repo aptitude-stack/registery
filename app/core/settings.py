@@ -261,6 +261,8 @@ class Settings(BaseSettings):
     semantic_embedding_dimensions: int = Field(
         default=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
         alias="SEMANTIC_EMBEDDING_DIMENSIONS",
+        ge=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
+        le=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
     )
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     semantic_candidate_limit: int = Field(

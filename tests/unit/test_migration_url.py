@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from alembic.config import Config
 
+from alembic import command
 from app.persistence.migration_url import select_migration_database_url
 
 
@@ -77,3 +79,13 @@ def test_migration_url_rejects_neon_pooler_runtime_fallback() -> None:
                 "postgresql+psycopg://runtime:pw@ep-direct-pooler.us-east-1.aws.neon.tech/db"
             ),
         )
+
+
+@pytest.mark.unit
+def test_alembic_environment_rejects_explicit_pooler_before_connecting() -> None:
+    config = Config("alembic.ini")
+    config.set_main_option(
+        "sqlalchemy.url", "postgresql://user:fake@ep-test-pooler.eu.neon.tech/test"
+    )
+    with pytest.raises(ValueError, match="direct Neon host"):
+        command.upgrade(config, "head")

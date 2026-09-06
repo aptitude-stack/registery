@@ -5,14 +5,24 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Text, func, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
+    func,
+    select,
+    text,
+)
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from app.persistence.models.base import Base
+from app.persistence.models.skill_user_star import SkillUserStar
 
 if TYPE_CHECKING:
     from app.persistence.models.namespace import Namespace
-    from app.persistence.models.skill_user_star import SkillUserStar
     from app.persistence.models.skill_version import SkillVersion
 
 
@@ -20,6 +30,10 @@ class Skill(Base):
     """Represents a logical skill identity keyed by public slug."""
 
     __tablename__ = "skills"
+    __table_args__ = (
+        CheckConstraint("install_count >= 0", name="ck_skills_install_count"),
+        UniqueConstraint("id", "slug", name="uq_skills_id_slug"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     slug: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
@@ -35,11 +49,11 @@ class Skill(Base):
         default=0,
         server_default=text("0"),
     )
-    star_count: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        server_default=text("0"),
+    star_count: Mapped[int] = column_property(
+        select(func.count(SkillUserStar.id))
+        .where(SkillUserStar.skill_fk == id)
+        .correlate_except(SkillUserStar)
+        .scalar_subquery()
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

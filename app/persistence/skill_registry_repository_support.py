@@ -90,7 +90,7 @@ SEARCH_CANDIDATES_SQL = text(
             pack.rules AS policy_pack_rules,
             doc.published_at,
             doc.content_size_bytes,
-            doc.usage_count,
+            skill.install_count AS usage_count,
             CASE
                 WHEN :identity_query_text IS NOT NULL
                     AND doc.normalized_slug = :identity_query_text THEN TRUE
@@ -117,6 +117,8 @@ SEARCH_CANDIDATES_SQL = text(
                 ELSE 0
             END AS tag_overlap_count
         FROM skill_search_documents AS doc
+        JOIN skill_versions AS version ON version.id = doc.skill_version_fk
+        JOIN skills AS skill ON skill.id = version.skill_fk
         LEFT JOIN policy_packs AS pack
             ON pack.slug = doc.policy_pack_slug
         WHERE (
@@ -257,13 +259,13 @@ def to_skill_version_detail(entity: SkillVersion) -> SkillVersionDetail:
             size_bytes=entity.content.storage_size_bytes,
         ),
         metadata=SkillMetadata(
-            name=entity.metadata_row.name,
-            description=entity.metadata_row.description,
-            tags=tuple(entity.metadata_row.tags),
-            token_estimate=entity.metadata_row.token_estimate,
-            maturity_score=entity.metadata_row.maturity_score,
-            security_score=entity.metadata_row.security_score,
-            overall_score=entity.metadata_row.overall_score,
+            name=entity.name,
+            description=entity.description,
+            tags=tuple(entity.tags),
+            token_estimate=entity.token_estimate,
+            maturity_score=entity.maturity_score,
+            security_score=entity.security_score,
+            overall_score=entity.overall_score,
         ),
         lifecycle_status=cast(LifecycleStatus, entity.lifecycle_status),
         trust_tier=cast(TrustTier, entity.trust_tier),
@@ -408,7 +410,6 @@ def build_search_document(
         ),
         published_at=ensure_datetime(published_at),
         content_size_bytes=content_size_bytes,
-        usage_count=0,
     )
 
 

@@ -77,17 +77,11 @@ def record_skill_star_events(
     """Record a batch of star/unstar events and return aggregate star counts."""
     try:
         events = tuple(StarEvent(slug=event.slug, action=event.action) for event in request.events)
-        if request.user_subject is None:
-            counts = telemetry_service.record_star_events(
-                caller=caller,
-                events=events,
-            )
-        else:
-            counts = telemetry_service.record_user_star_events(
-                caller=caller,
-                user_subject=request.user_subject,
-                events=events,
-            )
+        counts = telemetry_service.record_user_star_events(
+            caller=caller,
+            user_subject=request.user_subject,
+            events=events,
+        )
     except EmptyStarEventBatchError as exc:
         return error_response(
             request=http_request,

@@ -58,8 +58,7 @@ def _set_rank_fixture(
                 text(
                     f"""
                     UPDATE skill_search_documents
-                    SET usage_count = :install_count,
-                        published_at = :published_at
+                    SET published_at = :published_at
                     FROM skill_versions
                     JOIN skills ON skills.id = skill_versions.skill_fk
                     WHERE skill_versions.id = skill_search_documents.skill_version_fk
@@ -109,8 +108,6 @@ def test_content_fetch_increments_aggregate_install_count(
     assert updated_metadata.json()["star_count"] == 0
     assert counts == {
         "skill_install_count": 1,
-        "min_usage_count": 1,
-        "max_usage_count": 1,
     }
 
 

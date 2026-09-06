@@ -315,6 +315,10 @@ enabled later the required check names should come from these four workflows.
 
 ## Migration Policy
 
+**Revision 0013 exception:** Do not use the automatic master-push migration or
+emergency commands below for this contraction. Disable that workflow before
+merging and use [the maintenance procedure](#revision-0013-maintenance-window-cutover).
+
 Production migration is owned by GitHub Actions, not the Render app startup
 command.
 
@@ -387,7 +391,7 @@ Runtime still uses the pooled Neon URL:
   `preDeployCommand` can stay as a redundant safety net because
   `alembic upgrade head` is idempotent, but CI remains the deployment gate.
 
-Emergency manual migration path:
+Emergency manual migration path (unavailable for the 0013 cutover):
 
 ```bash
 APP_SETTINGS_ENV_FILE=/path/to/prod.env UV_CACHE_DIR=.uv-cache uv run alembic upgrade head
@@ -518,3 +522,150 @@ Telemetry verification after a deploy with `OTEL_ENABLED=true`:
 - Do not move gateway enforcement, identity lifecycle, token-budget
   enforcement, resolver reranking, dependency solving, or runtime execution into
   this repository.
+
+## Revision 0013 maintenance-window cutover
+
+This procedure applies to `0013_db_structure_cleanup`. It is a destructive
+schema contraction, so the normal migrate-before-deploy pipeline is unsafe for
+this release. Local verification does not authorize hosted changes.
+
+### Rehearsal and preflight
+
+Use a dedicated Neon child of project `bitter-night-16887852`, production branch
+`br-calm-bonus-ambx0ki5`, database `aptitude`. Verify this target immediately before
+any hosted operation; the default `main` branch is not production. Use a direct
+`MIGRATION_DATABASE_URL` supplied through the existing secret mechanism, never a
+pooled URL or a credential written into shell history. Do not load local secret
+files to run the checker. Record the verified branch ID and its direct endpoint
+host together: PostgreSQL alone cannot identify the Neon project/branch. For
+rehearsal, use the child's endpoint and record its parent production branch.
+Confirm that the service supports maintenance mode before scheduling the window;
+Render provides it for paid web services. If unavailable, stop and obtain an
+approved traffic-pausing method before cutover. [Render maintenance mode](https://render.com/docs/maintenance-mode)
+
+The checker uses a read-only repeatable-read transaction and reports counts and
+canonical fingerprints, not artifact bodies or user identities. Capture the
+before report in a protected local operator directory and compare it after the
+migration:
+
+```bash
+uv run python scripts/check_db_structure.py --phase before > before.json
+uv run python - <<'PYTHON'
+from alembic import command
+from alembic.config import Config
+from scripts.check_db_structure import migration_database_url
+
+config = Config("alembic.ini")
+config.set_main_option("sqlalchemy.url", migration_database_url().replace("%", "%%"))
+command.upgrade(config, "0013_db_structure_cleanup")
+PYTHON
+uv run python scripts/check_db_structure.py --phase after --before-report before.json
+```
+
+Stop on any nonzero result. Shared metadata is supported. Orphan metadata,
+invalid canonical values, selector ambiguity, and inconsistent graph identifiers
+require investigation before migration. Anonymous star-count differences are
+reported but do not create artificial users: final counts derive from user rows.
+
+Rehearse the populated upgrade, API reads, and downgrade on the child branch;
+record timings and verify canonical fingerprints. Migrations use a 5-second lock
+timeout and 120-second statement timeout. Do not point `make test` or ordinary
+integration fixtures at this clone: they drop/recreate the public schema. Use
+only the migration, checker, and dedicated smoke steps there.
+
+### Production sequence (separate approval required)
+
+1. Record the current database revision, approved immutable application commit,
+   previous application commit, and existing deployment/schedule states.
+2. Disable `master-push-ci.yml` before merging this destructive migration; its
+   automatic production job must not race the controlled release.
+3. Enable maintenance mode on `aptitude-registry-api`. Suspend
+   `aptitude-registry-semantic-indexing-cron`, drain the
+   `aptitude-registry-semantic-indexing/index_semantic_embeddings` workflow,
+   and stop other manual publishers, indexers, or private-network writers.
+4. Complete the writer-drain evidence checks below. Render maintenance mode
+   blocks public traffic only; private clients and workers can still write.
+5. Create and retain a pre-cutover backup branch after writers are quiescent;
+   record its exact ID and capture the final preflight report.
+6. Apply revision 0013 once over the direct URL and verify the Alembic head and
+   before/after canonical fingerprints.
+7. Deploy the approved registry and workflow code while maintenance and schedules
+   remain paused. Verify the deployed commit and use internal read-only smoke
+   checks for health, readiness, metadata, resolution, and search. Do not run the
+   normal public readiness poll: maintenance intentionally returns HTTP 503.
+8. Reopen public traffic after internal checks pass, verify the public read
+   endpoints, and then restore worker schedules and the deployment workflow to
+   their recorded prior states. Content-download requests increment installs;
+   use the rehearsal clone for download/write behavior tests.
+
+Do not run old application or worker code against the contracted schema.
+Do not delete the backup branch as routine cleanup.
+
+### Required writer-drain evidence
+
+Record these states with timestamps before the final preflight and migration:
+
+- GitHub: `gh workflow list --all --json path,state` shows `disabled_manually` for
+  `.github/workflows/master-push-ci.yml`.
+  Inspect `gh run list --workflow master-push-ci.yml --json databaseId,status,conclusion`
+  and wait for every queued or in-progress release run to finish or be cancelled.
+- Render: service Settings shows maintenance enabled, and a public read probe
+  returns the maintenance response. The cron service is suspended; its Runs page
+  has no running run. Do not trigger a test cron run: that starts new work.
+  [Cron run history](https://render.com/docs/cronjobs)
+- Workflows: run `render workflows tasks runs list --task
+  aptitude-registry-semantic-indexing/index_semantic_embeddings --output json`.
+  Record run IDs and verify every queued,
+  running, or retrying run has reached a terminal state. Pause every external
+  trigger and manual caller as well as the cron. Inspect worker logs for the final
+  completion; a suspended trigger does not cancel already dispatched work.
+  [Workflow execution](https://render.com/docs/workflows)
+- Database: execute the following over the verified direct connection. Record the
+  database and role; require no returned client transaction rows other than known
+  operator reads. Investigate every active or idle-in-transaction app/worker
+  session. An empty snapshot is necessary but does not prove future writes are
+  disabled; retain the control-plane pause evidence above.
+
+```sql
+SELECT current_database(), current_user;
+SELECT pid, application_name, usename, client_addr, state, xact_start
+FROM pg_stat_activity
+WHERE datname = current_database()
+  AND pid <> pg_backend_pid()
+  AND backend_type = 'client backend'
+  AND (state <> 'idle' OR xact_start IS NOT NULL);
+```
+
+Keep all pauses active until the new application and worker revisions are
+verified. Recheck this evidence before downgrade as well.
+
+### Failure and rollback
+
+A failed migration rolls back its transaction; keep maintenance active and
+verify revision 0012 and its preflight before restoring traffic. If the new
+application fails verification after migration, keep writers paused, use the
+new release's migration code and the same explicitly verified direct endpoint:
+
+```bash
+uv run python - <<'PYTHON'
+from alembic import command
+from alembic.config import Config
+from scripts.check_db_structure import migration_database_url
+
+config = Config("alembic.ini")
+config.set_main_option("sqlalchemy.url", migration_database_url().replace("%", "%%"))
+command.downgrade(config, "0012_remove_metadata_schemas")
+PYTHON
+uv run python scripts/check_db_structure.py --phase before --before-report before.json
+```
+
+Then deploy the previous application/worker revision and verify the old schema
+and API before reopening.
+
+Downgrade reconstructs metadata rows per version and synchronizes their identity
+sequence. It restores counter/dimension/slug columns from their authoritative
+sources and recomputes diagnostic pair values. Metadata surrogate IDs and
+historical anonymous totals are not restored exactly; canonical version IDs,
+metadata values, bundles, checksums, governance, timestamps, and user rows are
+preserved. If downgrade fails, keep maintenance enabled and escalate recovery
+using the retained backup; never discard subsequent data automatically.

@@ -29,7 +29,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "trust_evidence" in inspector.get_table_names()
         assert "skill_versions" in inspector.get_table_names()
         assert "skill_contents" in inspector.get_table_names()
-        assert "skill_metadata" in inspector.get_table_names()
+        assert "skill_metadata" not in inspector.get_table_names()
         assert "skill_relationship_selectors" in inspector.get_table_names()
         assert "skill_search_documents" in inspector.get_table_names()
         assert "skill_search_embeddings" in inspector.get_table_names()
@@ -43,12 +43,12 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         user_star_columns = {column["name"] for column in inspector.get_columns("skill_user_stars")}
 
         skill_columns = {column["name"] for column in inspector.get_columns("skills")}
-        metadata_columns = {column["name"] for column in inspector.get_columns("skill_metadata")}
+        metadata_columns = {column["name"] for column in inspector.get_columns("skill_versions")}
         assert "inputs_schema" not in metadata_columns
         assert "outputs_schema" not in metadata_columns
         metadata_checks = {
             constraint["name"]: constraint["sqltext"]
-            for constraint in inspector.get_check_constraints("skill_metadata")
+            for constraint in inspector.get_check_constraints("skill_versions")
         }
         version_columns = {column["name"] for column in inspector.get_columns("skill_versions")}
         content_columns = {column["name"] for column in inspector.get_columns("skill_contents")}
@@ -77,7 +77,6 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert {
             "slug",
             "install_count",
-            "star_count",
             "namespace_fk",
             "created_at",
             "updated_at",
@@ -102,7 +101,7 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert "rendered_summary" not in content_columns
         assert "headers" not in metadata_columns
         assert "overall_score" in metadata_columns
-        assert "overall_score IS NULL" in metadata_checks["ck_skill_metadata_overall_score_range"]
+        assert "overall_score" in metadata_checks["ck_skill_versions_overall_score"]
 
         assert {"evidence_type", "subject", "digest", "uri", "payload"} <= trust_columns
 
@@ -118,7 +117,6 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert {
             "skill_version_fk",
             "embedding_model",
-            "embedding_dimensions",
             "source_checksum_digest",
             "embedding_vector",
             "index_status",
@@ -129,11 +127,9 @@ def test_migrations_upgrade_and_downgrade(clean_integration_database: str) -> No
         assert {
             "anchor_skill_fk",
             "related_skill_fk",
-            "observation_count",
             "distinct_run_count",
             "co_usage_rate",
             "lift_score",
-            "pmi_score",
             "window_days",
         } <= co_usage_columns
         assert {
@@ -263,7 +259,7 @@ def test_metadata_schema_removal_preserves_existing_checksums_and_bundles(
                 },
             )
 
-        command.upgrade(config, "head")
+        command.upgrade(config, "0012_remove_metadata_schemas")
         with engine.connect() as connection:
             preserved = (
                 connection.execute(

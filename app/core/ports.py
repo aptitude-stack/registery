@@ -303,21 +303,6 @@ class SkillFetchPort(SkillExactReadPort, Protocol):
 class SkillTelemetryPort(Protocol):
     """Persistence capability for aggregate skill telemetry counters."""
 
-    def apply_star_count_deltas(
-        self,
-        *,
-        deltas: tuple[tuple[str, int], ...],
-    ) -> tuple[SkillStarCount, ...]:
-        """Apply per-slug star count deltas atomically.
-
-        Each delta tuple is ``(slug, delta)`` where ``delta`` is the net change
-        to apply to ``skills.star_count``. The implementation must clamp the
-        resulting count at zero and return the post-update star counts for the
-        provided slugs in input order. If any slug does not exist the
-        implementation must raise the persistence-level
-        :class:`UnknownStarEventSkillsError` without committing any updates.
-        """
-
     def list_user_starred_skill_slugs(self, *, user_subject: str) -> tuple[str, ...]:
         """Return skill slugs starred by one authenticated user subject."""
 
@@ -329,9 +314,8 @@ class SkillTelemetryPort(Protocol):
     ) -> tuple[SkillStarCount, ...]:
         """Apply star events idempotently for one user subject.
 
-        Implementations should increment the aggregate count only when a new
-        ``(user_subject, skill)`` row is inserted, and decrement only when an
-        existing row is removed.
+        Return counts derived from the persisted user-star rows after each event;
+        repeated events must not add or remove more than one row.
         """
 
 

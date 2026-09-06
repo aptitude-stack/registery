@@ -195,17 +195,9 @@ def _query_install_counts(database_url: str, *, slug: str) -> dict[str, int]:
                 connection.execute(
                     text(
                         """
-                        SELECT
-                            skills.install_count AS skill_install_count,
-                            COALESCE(MIN(skill_search_documents.usage_count), 0) AS min_usage_count,
-                            COALESCE(MAX(skill_search_documents.usage_count), 0) AS max_usage_count
+                        SELECT skills.install_count AS skill_install_count
                         FROM skills
-                        LEFT JOIN skill_versions
-                            ON skill_versions.skill_fk = skills.id
-                        LEFT JOIN skill_search_documents
-                            ON skill_search_documents.skill_version_fk = skill_versions.id
                         WHERE skills.slug = :slug
-                        GROUP BY skills.install_count
                         """
                     ),
                     {"slug": slug},
@@ -215,8 +207,6 @@ def _query_install_counts(database_url: str, *, slug: str) -> dict[str, int]:
             )
             return {
                 "skill_install_count": int(row["skill_install_count"]),
-                "min_usage_count": int(row["min_usage_count"]),
-                "max_usage_count": int(row["max_usage_count"]),
             }
     finally:
         engine.dispose()

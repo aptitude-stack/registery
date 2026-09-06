@@ -30,7 +30,7 @@ def test_openai_embeddings_deploy_check_exercises_configured_model() -> None:
         _env_file=None,
         DATABASE_URL=DATABASE_URL,
         OPENAI_API_KEY="test-openai-key",
-        SEMANTIC_EMBEDDING_DIMENSIONS=3,
+        SEMANTIC_EMBEDDING_DIMENSIONS=1536,
         SEMANTIC_QUERY_TIMEOUT_MS=250,
     )
 
@@ -43,7 +43,7 @@ def test_openai_embeddings_deploy_check_exercises_configured_model() -> None:
         {
             "text": "aptitude registry semantic deployment check",
             "model": "text-embedding-3-small",
-            "dimensions": 3,
+            "dimensions": 1536,
             "timeout_ms": 5_000,
         }
     ]
@@ -103,7 +103,7 @@ def test_openai_embeddings_deploy_check_retries_transient_provider_errors() -> N
         _env_file=None,
         DATABASE_URL=DATABASE_URL,
         OPENAI_API_KEY="test-openai-key",
-        SEMANTIC_EMBEDDING_DIMENSIONS=3,
+        SEMANTIC_EMBEDDING_DIMENSIONS=1536,
     )
 
     result = run_check(settings=settings, provider_factory=lambda *, api_key: provider)

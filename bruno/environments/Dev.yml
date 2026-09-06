@@ -11,3 +11,6 @@ variables:
     value: admin-token.dev-admin-secret
   - name: adminToken
     value: admin-token.dev-admin-secret
+  # Supply a configured telemetry-scoped service token for the star requests.
+  - name: telemetryToken
+    value: ""
