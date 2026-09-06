@@ -163,6 +163,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     maturity_score=record.metadata.maturity_score,
                     security_score=record.metadata.security_score,
                     overall_score=record.metadata.overall_score,
+                    assessment=record.metadata.assessment,
                     checksum_digest=record.version_checksum_digest,
                     lifecycle_status="published",
                     lifecycle_changed_at=datetime.now(UTC),

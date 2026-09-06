@@ -48,6 +48,7 @@ def _request(
     conflicts_with: list[dict[str, object]] | None = None,
     overlaps_with: list[dict[str, object]] | None = None,
     overall_score: float | None = None,
+    assessment: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "intent": intent,
@@ -61,6 +62,7 @@ def _request(
             "maturity_score": 0.9,
             "security_score": 0.95,
             "overall_score": overall_score,
+            "assessment": assessment,
         },
         "governance": {
             "trust_tier": trust_tier,

@@ -165,6 +165,58 @@ def test_publish_and_exact_fetch_return_overall_score_without_search_projection(
 
 
 @pytest.mark.integration
+def test_publish_and_exact_fetch_round_trip_assessment_summary(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    slug = f"python-assessment-{uuid4().hex}"
+    assessment = {
+        "schema_version": 1,
+        "assessed_at": "2026-09-06T08:15:37Z",
+        "maturity": {
+            "validation_passed": True,
+            "validation_score": 0.9,
+            "upskill_score": 0.2,
+            "upskill_status": "scored",
+            "test_case_count": 5,
+            "models_tested": ["fixture-model"],
+            "models_omitted": 0,
+            "baseline_success_rate": 0.4,
+            "skilled_success_rate": 0.6,
+            "warnings": ["Add an error-handling example."],
+            "warnings_omitted": 0,
+        },
+        "security": {
+            "scanned": True,
+            "decision": "review_required",
+            "checks_run": ["PromptInjection", "Secrets"],
+            "checks_omitted": 0,
+            "findings": [
+                {
+                    "check": "PromptInjection",
+                    "severity": "medium",
+                    "explanation": "Review the instruction.",
+                }
+            ],
+            "findings_omitted": 0,
+        },
+    }
+
+    with TestClient(create_app()) as client:
+        published = _publish(
+            client,
+            slug,
+            _request("1.0.0", intent="create_skill", assessment=assessment),
+        )
+        exact = client.get(f"/skills/{slug}/1.0.0", headers=_headers("reader-token"))
+
+    assert published["metadata"]["assessment"] == assessment
+    assert exact.status_code == 200
+    assert exact.json()["metadata"]["assessment"] == assessment
+
+
+@pytest.mark.integration
 def test_top_installed_skills_returns_visible_current_defaults_in_rank_order(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,

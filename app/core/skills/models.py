@@ -22,6 +22,7 @@ PublishIntent = Literal["create_skill", "publish_version"]
 SkillGraphEdgeType = Literal["depends_on", "extends", "overlaps_with", "relates_to"]
 SkillGraphEdgeProvenance = Literal["authored", "co_usage"]
 StarEventAction = Literal["star", "unstar"]
+SkillAssessmentData = dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +63,7 @@ class SkillMetadataInput:
     maturity_score: float | None = None
     security_score: float | None = None
     overall_score: float | None = None
+    assessment: SkillAssessmentData | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +146,7 @@ class SkillMetadata:
     maturity_score: float | None
     security_score: float | None
     overall_score: float | None = None
+    assessment: SkillAssessmentData | None = None
 
 
 @dataclass(frozen=True, slots=True)

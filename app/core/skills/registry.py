@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import cast
+from typing import Any, cast
 
 from app.core.audit_events import (
     build_enterprise_audit_event,
@@ -153,6 +153,7 @@ class SkillRegistryService:
             maturity_score=command.metadata.maturity_score,
             security_score=command.metadata.security_score,
             overall_score=command.metadata.overall_score,
+            assessment=command.metadata.assessment,
         )
         governance_record = GovernanceRecordInput(
             trust_tier=normalized_governance.trust_tier,
@@ -579,7 +580,7 @@ def _version_checksum_digest(
     governance: GovernanceRecordInput,
     relationships: tuple[RelationshipSelectorRecordInput, ...],
 ) -> str:
-    payload = {
+    payload: dict[str, Any] = {
         "slug": slug,
         "version": version,
         "content_checksum_digest": content_checksum_digest,
@@ -608,6 +609,8 @@ def _version_checksum_digest(
         },
         "relationships": _version_checksum_relationships(relationships),
     }
+    if metadata.assessment is not None:
+        payload["metadata"]["assessment"] = metadata.assessment
     canonical_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return _sha256_hexdigest(canonical_json.encode("utf-8"))
 

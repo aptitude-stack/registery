@@ -23,6 +23,7 @@ from app.core.skills.models import (
     NamespaceRecord,
     OrganizationRecord,
     PolicyPackRecord,
+    SkillAssessmentData,
     SkillContentRecord,
     SkillGraphEdge,
     SkillGraphEdgeType,
@@ -86,6 +87,7 @@ class MetadataRecordInput:
     maturity_score: float | None
     security_score: float | None
     overall_score: float | None = None
+    assessment: SkillAssessmentData | None = None
 
 
 @dataclass(frozen=True, slots=True)
