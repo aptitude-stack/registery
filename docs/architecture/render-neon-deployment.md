@@ -17,17 +17,18 @@ flowchart LR
     Render --> MigrationDB["Neon direct URL<br/>MIGRATION_DATABASE_URL"]
     RuntimeDB --> Neon["Neon Postgres<br/>production branch"]
     MigrationDB --> Neon
-    Vercel["Vercel"] --> DNSMgmt["DNS management only"]
+    Vercel["Vercel website"] --> Site["aptitude-registry.dev"]
+    Vercel --> DNSMgmt["DNS management"]
     DNSMgmt --> DNS
 ```
 
 - Render owns the persistent FastAPI web service.
 - Neon owns the production PostgreSQL database.
-- Vercel may manage DNS for `aptitude-registry.dev`, but must not deploy a
-  frontend, docs app, or Python Function for this project yet.
+- Vercel hosts the website at `aptitude-registry.dev` and manages its DNS; it
+  does not host the API or a Python Function.
 - Production API host: `https://api.aptitude-registry.dev`.
 - Render fallback host: `https://aptitude-registry-api.onrender.com`.
-- Root domain: leave unused, parked, or redirect later when a website exists.
+- Root domain: the Vercel website; keep API traffic on the `api` subdomain.
 
 Deployable backend entrypoint:
 
@@ -42,15 +43,21 @@ Deployable backend entrypoint:
 
 ## Current Live Deployment
 
-Status verified from public endpoints on 2026-05-02.
+Provider state verified on 2026-09-06. This update records the live provider
+state and the approved cutover procedure; it does not claim that the 0013
+production migration or deployment is complete.
 
 | Resource | Value |
 | --- | --- |
+| Render workspace | `Aptitude` / `tea-d7pidjgk1i2s73fr8kg0` |
 | Render service | `aptitude-registry-api` / `srv-d7pqsd7avr4c73bfb8t0` |
 | Render primary URL | `https://aptitude-registry-api.onrender.com` |
 | Production API URL | `https://api.aptitude-registry.dev` |
 | Render region | `virginia`, matching the Neon `aws-us-east-1` project |
-| Render branch tracking | Service metadata tracks `master`; target Blueprint state is `autoDeployTrigger: off` |
+| Render plan | `Free` |
+| Render branch tracking | Service metadata tracks `master`; `autoDeployTrigger` is `off` |
+| Previous live application commit | `611ce49938a86c9a06a71545c460e5bbb33bfdd2` |
+| Render resource inventory | API service only; no Render Cron service; `render workflows list -o json` returned `null`; jobs list returned `[]` |
 | Neon organization | `Aptitude` / `org-wild-pond-20247201`, managed directly in Neon Console |
 | Neon project | `aptitude-registry` / `bitter-night-16887852` |
 | Neon branch | `production` / `br-calm-bonus-ambx0ki5` |
@@ -58,7 +65,7 @@ Status verified from public endpoints on 2026-05-02.
 | Neon role | `aptitude_app` |
 | Neon PostgreSQL version | `17` |
 | DNS status | `api.aptitude-registry.dev` resolves by CNAME to `aptitude-registry-api.onrender.com` |
-| HTTPS status | `/healthz`, `/readyz`, and `/docs` return `200` on both the custom API domain and Render fallback host |
+| Previously recorded HTTPS status | `/healthz`, `/readyz`, and `/docs` returned `200` on both API hosts on 2026-05-02; repeat these checks after the cutover |
 
 The registry database runs in a standalone Neon Console-managed organization.
 The earlier Vercel-managed Neon project was deleted during cutover and is no
@@ -82,19 +89,19 @@ Recommended settings:
 | --- | --- |
 | Service name | `aptitude-registry-api` |
 | Runtime | `Python 3` |
-| Instance type | `Starter` for production runtime capacity; deployment safety is owned by GitHub Actions, not Render pre-deploy |
+| Instance type | `Free` (verified live); the 0013 window uses full service suspension because paid-plan maintenance mode is unavailable |
 | Branch | `master` |
 | Region | Match Neon as closely as possible; current live service uses `virginia` for Neon `aws-us-east-1` |
 | Python version env | `PYTHON_VERSION=3.12.13` |
-| Build command | `uv sync --frozen --no-dev --extra otel` |
-| Pre-deploy command | Target Blueprint state is disabled; production migration is owned by GitHub Actions before the deploy hook fires |
+| Build command | `uv sync --frozen --no-dev` (live provider; the Blueprint target declares the `workflow` extra) |
+| Pre-deploy command | Empty in the live provider state; production migration is owned by GitHub Actions before the deploy hook fires |
 | Start command | `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers` |
 | Health check path | `/healthz` |
 
-The `--extra otel` flag installs the OpenTelemetry SDK, OTLP/HTTP exporters,
-and FastAPI/SQLAlchemy/psycopg/logging instrumentation packages used to ship
-traces, logs, and metrics to Grafana Cloud. Without it the app boots in a
-no-op telemetry mode, and `OTEL_ENABLED=true` fails at import time.
+The live provider build uses the base project dependencies. The checked-in
+Blueprint declares the `workflow` extra for the intended indexing target; that
+target is not present in the verified live inventory. Use the `otel` extra when
+enabling the optional Grafana Cloud rollout described below.
 
 Required Render environment variables:
 
@@ -219,19 +226,17 @@ APP_SETTINGS_ENV_FILE=/path/to/prod.env uv run python scripts/index_semantic_emb
 
 Production indexing target:
 
-Production indexing is repository-owned where Render Blueprint support permits
-it. The desired target is a bounded Render Workflow task,
+The intended target is a bounded Render Workflow task,
 `aptitude-registry-semantic-indexing/index_semantic_embeddings`, triggered by a
-Cron job that runs `scripts/trigger_semantic_embedding_workflow.py`.
-
-Current Render limits matter: Workflows are beta, do not provide built-in
-scheduling, and are not yet supported as a Blueprint service type. Keep the
-Workflow service configured manually in Render with build command
-`uv sync --frozen --no-dev --extra workflow` and start command
-`uv run python workflows/semantic_embeddings.py`. The checked-in `render.yaml`
-owns the Cron trigger and preserves the
-`semantic-indexing-managed-outside-blueprint` marker as intentional drift
-documentation, not a missing service definition.
+Cron job that runs `scripts/trigger_semantic_embedding_workflow.py`. The
+checked-in `render.yaml` declares that target and preserves the
+`semantic-indexing-managed-outside-blueprint` marker, but the live Render
+inventory verified on 2026-09-06 contains no Cron service, no Workflow listing,
+and no jobs. Do not describe scheduled semantic indexing as deployed. If these
+resources are provisioned later, configure the task with
+`uv sync --frozen --no-dev --extra workflow` and
+`uv run python workflows/semantic_embeddings.py`, then record the live resource
+IDs here.
 
 Configure `DATABASE_URL`, `RENDER_API_KEY`, and the semantic settings above for
 the indexing path. Add `OPENAI_API_KEY` to enable indexing; if it is missing,
@@ -263,8 +268,8 @@ Value: aptitude-registry-api.onrender.com
 TTL: auto/default
 ```
 
-Do not configure a root-domain app deployment in Vercel. Vercel is DNS-only for
-this project until a real website or docs app exists.
+Do not configure the API or a Python Function as a Vercel deployment. Vercel
+hosts the website; the API remains the Render web service.
 
 ## OpenTelemetry Rollout
 
@@ -289,7 +294,8 @@ Rollout sequence:
 2. Confirm the Grafana Cloud OTLP gateway URL for the stack region.
 3. In Render, add the OTel variables and mark `OTEL_EXPORTER_OTLP_HEADERS`
    encrypted.
-4. Keep the Build Command at `uv sync --frozen --no-dev --extra otel`.
+4. Change the Build Command to `uv sync --frozen --no-dev --extra otel` for
+   this optional rollout; the current live build uses the base command.
 5. Trigger a manual Render deploy.
 6. Verify traces, logs, and metrics arrive in Grafana Cloud within about 60
    seconds of the first non-probe request.
@@ -344,11 +350,8 @@ The GitHub Deployment record is created after Alembic head verification, so
 failed schema promotion does not create a misleading production deployment
 attempt.
 
-Live provider caveat verified on 2026-05-08: the Render service already has
-`autoDeployTrigger: off` and PR previews disabled, but the service JSON still
-reports a legacy `preDeployCommand` of `uv run alembic upgrade head`. The Render
-CLI did not clear that field when passed an empty `--pre-deploy-command`. Until
-the Dashboard or API clears it, treat that hook as a redundant safety net only;
+Live provider state verified on 2026-09-06: the Render service is on the Free
+plan, has `autoDeployTrigger: off`, and reports an empty `preDeployCommand`.
 GitHub Actions remains the authoritative migration and promotion gate.
 
 Render documents deploy hooks as secret URLs that can be called from CI/CD
@@ -413,9 +416,9 @@ separate canonical history surface.
   [`.env.example`](../../.env.example),
   [`../reference/runtime-profiles.md`](../reference/runtime-profiles.md),
   [`../reference/service-token-governance.md`](../reference/service-token-governance.md).
-- The tracked Vercel Python Function deployment surface was removed because
-  Vercel is no longer the app host: `api/index.py`, `server.py`,
-  `vercel.json`, and `.vercelignore` no longer define a deployment path.
+- The tracked Vercel Python Function deployment surface was removed because the
+  API is Render-hosted: `api/index.py`, `server.py`, and `.vercelignore` no
+  longer define an API deployment path. Vercel hosts the website separately.
 - Direct runtime dependencies on deployment/tooling packages that are not
   needed by the Render-hosted app process were removed from
   [`pyproject.toml`](../../pyproject.toml) and [`uv.lock`](../../uv.lock).
@@ -539,9 +542,11 @@ pooled URL or a credential written into shell history. Do not load local secret
 files to run the checker. Record the verified branch ID and its direct endpoint
 host together: PostgreSQL alone cannot identify the Neon project/branch. For
 rehearsal, use the child's endpoint and record its parent production branch.
-Confirm that the service supports maintenance mode before scheduling the window;
-Render provides it for paid web services. If unavailable, stop and obtain an
-approved traffic-pausing method before cutover. [Render maintenance mode](https://render.com/docs/maintenance-mode)
+The live Render service is on the Free plan, so it does not provide paid-plan
+maintenance mode. Use the approved full-service suspension for the outage
+window; a paid-plan maintenance mode is an alternative only after its live
+availability is verified. Record the suspension and resume states explicitly.
+[Render maintenance mode](https://render.com/docs/maintenance-mode)
 
 The checker uses a read-only repeatable-read transaction and reports counts and
 canonical fingerprints, not artifact bodies or user identities. Capture the
@@ -578,25 +583,37 @@ only the migration, checker, and dedicated smoke steps there.
 1. Record the current database revision, approved immutable application commit,
    previous application commit, and existing deployment/schedule states.
 2. Disable `master-push-ci.yml` before merging this destructive migration; its
-   automatic production job must not race the controlled release.
-3. Enable maintenance mode on `aptitude-registry-api`. Suspend
-   `aptitude-registry-semantic-indexing-cron`, drain the
-   `aptitude-registry-semantic-indexing/index_semantic_embeddings` workflow,
-   and stop other manual publishers, indexers, or private-network writers.
-4. Complete the writer-drain evidence checks below. Render maintenance mode
-   blocks public traffic only; private clients and workers can still write.
+   automatic production job must not race the controlled release. The workflow
+   is push-triggered only and has no `workflow_dispatch`, so re-enabling it does
+   not replay the merge; use the controlled Render deploy action for the
+   approved commit after the migration.
+3. Suspend `aptitude-registry-api` for the outage window. The live Free plan
+   does not provide paid-plan maintenance mode. The verified live inventory
+   currently has no Cron service, Workflow listing, or jobs; if any of those
+   resources exist at cutover time, suspend or drain them and record the state.
+   Stop other manual publishers, indexers, or private-network writers.
+4. Complete the writer-drain evidence checks below. Service suspension blocks
+   the web process, but it does not prove that private clients or external
+   workers cannot write; retain the database activity check.
 5. Create and retain a pre-cutover backup branch after writers are quiescent;
    record its exact ID and capture the final preflight report.
 6. Apply revision 0013 once over the direct URL and verify the Alembic head and
    before/after canonical fingerprints.
-7. Deploy the approved registry and workflow code while maintenance and schedules
-   remain paused. Verify the deployed commit and use internal read-only smoke
-   checks for health, readiness, metadata, resolution, and search. Do not run the
-   normal public readiness poll: maintenance intentionally returns HTTP 503.
-8. Reopen public traffic after internal checks pass, verify the public read
-   endpoints, and then restore worker schedules and the deployment workflow to
-   their recorded prior states. Content-download requests increment installs;
-   use the rehearsal clone for download/write behavior tests.
+7. Use the provider-supported deploy operation for the approved registry commit
+   while the service remains suspended. Do not assume that a suspended Free-plan
+   service can stage a deployment until that behavior is confirmed at cutover.
+   Before any resumption, verify Render reports the approved commit; if provider
+   metadata is insufficient, apply a temporary startup guard such as
+   `test "$RENDER_GIT_COMMIT" = "<approved-sha>" && exec uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT --no-proxy-headers`.
+   Evaluate that guard during the cutover, never reopen the previous live commit
+   against the contracted schema, and use internal read-only smoke checks for
+   health, readiness, metadata, resolution, and search before reopening traffic.
+8. Resume the web service only after the new commit and internal checks pass,
+   verify the public read endpoints, and restore only worker schedules or the
+   deployment workflow that were actually present before the window. The
+   current live inventory has no worker schedule to restore. Content-download
+   requests increment installs; use the rehearsal clone for download/write
+   behavior tests.
 
 Do not run old application or worker code against the contracted schema.
 Do not delete the backup branch as routine cleanup.
@@ -609,16 +626,18 @@ Record these states with timestamps before the final preflight and migration:
   `.github/workflows/master-push-ci.yml`.
   Inspect `gh run list --workflow master-push-ci.yml --json databaseId,status,conclusion`
   and wait for every queued or in-progress release run to finish or be cancelled.
-- Render: service Settings shows maintenance enabled, and a public read probe
-  returns the maintenance response. The cron service is suspended; its Runs page
-  has no running run. Do not trigger a test cron run: that starts new work.
+- Render: record the API service as suspended for the outage window. The live
+  inventory currently contains no Cron service, no Workflow listing, and no
+  jobs; recheck this before cutover and suspend or drain any resource that
+  appears. Do not trigger a test cron run: that starts new work.
   [Cron run history](https://render.com/docs/cronjobs)
-- Workflows: run `render workflows tasks runs list --task
+- Workflows: if the live inventory shows a Workflow task or job, run `render
+  workflows tasks runs list --task
   aptitude-registry-semantic-indexing/index_semantic_embeddings --output json`.
-  Record run IDs and verify every queued,
-  running, or retrying run has reached a terminal state. Pause every external
-  trigger and manual caller as well as the cron. Inspect worker logs for the final
-  completion; a suspended trigger does not cancel already dispatched work.
+  Record run IDs and verify every queued, running, or retrying run has reached a
+  terminal state. The 2026-09-06 inventory returned no Workflow listing and no
+  jobs. Pause every external trigger and manual caller; a suspended trigger
+  does not cancel already dispatched work.
   [Workflow execution](https://render.com/docs/workflows)
 - Database: execute the following over the verified direct connection. Record the
   database and role; require no returned client transaction rows other than known
@@ -641,7 +660,7 @@ verified. Recheck this evidence before downgrade as well.
 
 ### Failure and rollback
 
-A failed migration rolls back its transaction; keep maintenance active and
+A failed migration rolls back its transaction; keep the service suspended and
 verify revision 0012 and its preflight before restoring traffic. If the new
 application fails verification after migration, keep writers paused, use the
 new release's migration code and the same explicitly verified direct endpoint:
@@ -667,5 +686,5 @@ sequence. It restores counter/dimension/slug columns from their authoritative
 sources and recomputes diagnostic pair values. Metadata surrogate IDs and
 historical anonymous totals are not restored exactly; canonical version IDs,
 metadata values, bundles, checksums, governance, timestamps, and user rows are
-preserved. If downgrade fails, keep maintenance enabled and escalate recovery
+preserved. If downgrade fails, keep the service suspended and escalate recovery
 using the retained backup; never discard subsequent data automatically.
