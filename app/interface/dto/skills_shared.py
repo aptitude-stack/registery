@@ -111,9 +111,7 @@ class AssessmentMaturity(BaseModel):
     )
     @classmethod
     def validate_numeric_scores(cls, value: object) -> object:
-        if value is not None and (
-            isinstance(value, bool) or not isinstance(value, (int, float))
-        ):
+        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
             raise ValueError("Assessment scores must be numbers or null.")
         return value
 
