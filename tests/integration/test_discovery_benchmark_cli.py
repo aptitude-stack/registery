@@ -8,7 +8,11 @@ import subprocess
 import sys
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+
+from app.main import create_app
+from tests.integration.skill_endpoint_helpers import _publish, _request
 
 
 @pytest.mark.integration
@@ -20,6 +24,8 @@ def test_discovery_benchmark_cli_reports_recall_latency_and_cleans_up(
     monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
     monkeypatch.setenv("SEMANTIC_DISCOVERY_MODE", "off")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with TestClient(create_app()) as client:
+        _publish(client, "benchmark-survivor", _request("1.0.0"))
     env = os.environ.copy()
 
     result = subprocess.run(
@@ -74,7 +80,15 @@ def test_discovery_benchmark_cli_reports_recall_latency_and_cleans_up(
                 text("SELECT COUNT(*) FROM skills WHERE slug LIKE :pattern"),
                 {"pattern": f"{prefix}%"},
             ).scalar_one()
+            survivor_count = connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM skill_versions v JOIN skills s ON s.id = v.skill_fk "
+                    "JOIN skill_contents c ON c.id = v.content_fk "
+                    "WHERE s.slug = 'benchmark-survivor'"
+                )
+            ).scalar_one()
     finally:
         engine.dispose()
 
     assert remaining == 0
+    assert survivor_count == 1

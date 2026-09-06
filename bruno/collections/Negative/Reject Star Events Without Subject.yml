@@ -1,0 +1,25 @@
+info:
+  name: Reject Star Events Without Subject
+  type: http
+  seq: 9000
+
+http:
+  method: POST
+  url: "{{baseUrl}}/catalog/star-events"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{telemetryToken}}
+  body:
+    type: json
+    data: |-
+      {"events": [{"slug": "bruno-star-test", "action": "star"}]}
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Subject is required", function () {
+          expect(res.getStatus()).to.equal(422);
+        });

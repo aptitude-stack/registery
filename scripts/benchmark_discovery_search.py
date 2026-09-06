@@ -414,36 +414,8 @@ def prepare_benchmark_rows(
             ),
             {
                 "payload": f"# {skill.name}\n".encode(),
-                "storage_size_bytes": len(skill.name) + 3,
+                "storage_size_bytes": len(f"# {skill.name}\n".encode()),
                 "checksum_digest": _digest(f"content:{skill.slug}"),
-            },
-        ).scalar_one()
-        metadata_id = connection.execute(
-            text(
-                """
-                INSERT INTO skill_metadata (
-                    name,
-                    description,
-                    tags,
-                    token_estimate,
-                    maturity_score,
-                    security_score
-                )
-                VALUES (
-                    :name,
-                    :description,
-                    :tags,
-                    128,
-                    0.9,
-                    0.95
-                )
-                RETURNING id
-                """
-            ),
-            {
-                "name": skill.name,
-                "description": skill.description,
-                "tags": list(skill.tags),
             },
         ).scalar_one()
         skill_id = connection.execute(
@@ -463,7 +435,7 @@ def prepare_benchmark_rows(
                     skill_fk,
                     version,
                     content_fk,
-                    metadata_fk,
+                    name, description, tags, token_estimate, maturity_score, security_score,
                     checksum_digest,
                     lifecycle_status,
                     trust_tier,
@@ -477,7 +449,7 @@ def prepare_benchmark_rows(
                     :skill_fk,
                     '1.0.0',
                     :content_fk,
-                    :metadata_fk,
+                    :name, :description, :tags, 128, 0.9, 0.95,
                     :checksum_digest,
                     'published',
                     'internal',
@@ -493,7 +465,9 @@ def prepare_benchmark_rows(
             {
                 "skill_fk": skill_id,
                 "content_fk": content_id,
-                "metadata_fk": metadata_id,
+                "name": skill.name,
+                "description": skill.description,
+                "tags": list(skill.tags),
                 "checksum_digest": _digest(f"version:{skill.slug}"),
             },
         ).scalar_one()
@@ -518,8 +492,7 @@ def prepare_benchmark_rows(
                     promotion_channel,
                     search_vector,
                     published_at,
-                    content_size_bytes,
-                    usage_count
+                    content_size_bytes
                 )
                 VALUES (
                     :skill_version_fk,
@@ -539,8 +512,7 @@ def prepare_benchmark_rows(
                     'prod',
                     to_tsvector('simple'::regconfig, :search_source),
                     CURRENT_TIMESTAMP,
-                    :content_size_bytes,
-                    0
+                    :content_size_bytes
                 )
                 """
             ),
@@ -554,7 +526,7 @@ def prepare_benchmark_rows(
                 "tags": list(skill.tags),
                 "normalized_tags": list(skill.tags),
                 "search_source": " ".join((skill.slug, skill.name, skill.description, *skill.tags)),
-                "content_size_bytes": len(skill.name) + 3,
+                "content_size_bytes": len(f"# {skill.name}\n".encode()),
             },
         )
         source_text = f"{skill.description} {' '.join(skill.tags)}"
@@ -564,7 +536,6 @@ def prepare_benchmark_rows(
                 INSERT INTO skill_search_embeddings (
                     skill_version_fk,
                     embedding_model,
-                    embedding_dimensions,
                     source_checksum_digest,
                     embedding_vector,
                     index_status,
@@ -573,7 +544,6 @@ def prepare_benchmark_rows(
                 VALUES (
                     :skill_version_fk,
                     :embedding_model,
-                    :embedding_dimensions,
                     :source_checksum_digest,
                     CAST(:embedding_vector AS halfvec({embedding_dimensions})),
                     'indexed',
@@ -584,7 +554,6 @@ def prepare_benchmark_rows(
             {
                 "skill_version_fk": version_id,
                 "embedding_model": embedding_model,
-                "embedding_dimensions": embedding_dimensions,
                 "source_checksum_digest": build_source_checksum_digest(source_text),
                 "embedding_vector": serialize_embedding_vector(skill.vector),
             },
@@ -601,7 +570,7 @@ def cleanup_benchmark_rows(*, connection: Connection, slug_prefix: str) -> int:
         connection.execute(
             text(
                 """
-                SELECT skill_versions.content_fk, skill_versions.metadata_fk
+                SELECT skill_versions.content_fk
                 FROM skill_versions
                 JOIN skills ON skills.id = skill_versions.skill_fk
                 WHERE skills.slug LIKE :pattern
@@ -613,7 +582,6 @@ def cleanup_benchmark_rows(*, connection: Connection, slug_prefix: str) -> int:
         .all()
     )
     content_ids = [int(row["content_fk"]) for row in rows]
-    metadata_ids = [int(row["metadata_fk"]) for row in rows]
     deleted = int(
         connection.execute(
             text("DELETE FROM skills WHERE slug LIKE :pattern"),
@@ -621,14 +589,12 @@ def cleanup_benchmark_rows(*, connection: Connection, slug_prefix: str) -> int:
         ).rowcount
         or 0
     )
-    if metadata_ids:
-        connection.execute(
-            text("DELETE FROM skill_metadata WHERE id = ANY(:metadata_ids)"),
-            {"metadata_ids": metadata_ids},
-        )
     if content_ids:
         connection.execute(
-            text("DELETE FROM skill_contents WHERE id = ANY(:content_ids)"),
+            text(
+                "DELETE FROM skill_contents WHERE id = ANY(:content_ids) "
+                "AND NOT EXISTS (SELECT 1 FROM skill_versions WHERE content_fk = skill_contents.id)"
+            ),
             {"content_ids": content_ids},
         )
     return deleted
@@ -846,7 +812,6 @@ def _semantic_slugs(
                 JOIN skill_search_documents AS doc
                     ON doc.skill_version_fk = emb.skill_version_fk
                 WHERE emb.embedding_model = :embedding_model
-                  AND emb.embedding_dimensions = :embedding_dimensions
                   AND emb.index_status = 'indexed'
                   AND emb.embedding_vector IS NOT NULL
                   AND doc.slug LIKE :slug_pattern
@@ -865,7 +830,6 @@ def _semantic_slugs(
             ),
             {
                 "embedding_model": embedding_model,
-                "embedding_dimensions": embedding_dimensions,
                 "slug_pattern": f"{slug_prefix}%",
                 "required_tags": [BENCHMARK_TAG],
                 "trust_tiers": list(ALL_TRUST_TIERS),

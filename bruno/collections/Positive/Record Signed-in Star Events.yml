@@ -1,0 +1,34 @@
+info:
+  name: Record Signed-in Star Events
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{baseUrl}}/catalog/star-events"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{telemetryToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "user_subject": "bruno-test-user",
+        "events": [
+          {"slug": "{{sanity_primary_slug}}", "action": "star"},
+          {"slug": "{{sanity_primary_slug}}", "action": "unstar"}
+        ]
+      }
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        test("Signed-in toggles return ordered counts", function () {
+          expect(res.getStatus()).to.equal(200);
+          const results = res.getBody().counts;
+          expect(results).to.have.length(2);
+          expect(results[0].star_count).to.equal(results[1].star_count + 1);
+        });

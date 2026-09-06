@@ -95,3 +95,10 @@ Events include:
 - `enterprise.version_visibility_denied`
 
 Audit state is the source of truth for post-publish governance history. `version_checksum.digest` is not recomputed for review, promotion, trust-tier, policy-pack, ownership, or trust-evidence changes.
+
+## Persistence alignment
+
+Revision 0013 keeps namespace ownership, policy-pack deletion behavior, trust
+evidence, and workflow authorization unchanged. Published metadata lives on its
+version; mutable governance changes still refresh searchable governance fields
+transactionally and do not recompute historical publication checksums.

@@ -16,6 +16,7 @@ class SkillSearchDocument(Base):
 
     __tablename__ = "skill_search_documents"
     __table_args__ = (
+        CheckConstraint("content_size_bytes >= 0", name="ck_skill_search_documents_content_size"),
         CheckConstraint(
             "lifecycle_status IN ('published', 'deprecated', 'archived')",
             name="ck_skill_search_documents_lifecycle_status",
@@ -108,12 +109,6 @@ class SkillSearchDocument(Base):
     )
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     content_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    usage_count: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-        default=0,
-        server_default=text("0"),
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

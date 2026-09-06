@@ -259,12 +259,11 @@ Rules:
 
 ## Star Telemetry
 
-`POST /catalog/star-events` records an aggregate batch of star/unstar toggle
-events. When `user_subject` is present, the registry stores a per-user star
-relation and updates `star_count` idempotently. When `user_subject` is omitted,
-the endpoint preserves the legacy aggregate-only delta behavior. The endpoint is
-intended for trusted server-side aggregation (for example, a website route
-handler) and not direct end-user traffic.
+`POST /catalog/star-events` records per-user star/unstar toggle events. A nonblank
+`user_subject` is required; omission or null returns `422`. The website derives
+this subject from its verified session and forwards it using a trusted telemetry
+credential. The registry endpoint is intended for trusted server-side callers,
+not direct end-user traffic. Counts are computed from persisted user-star rows.
 
 Request:
 
@@ -294,12 +293,10 @@ Rules:
 
 - Requires the `telemetry` scope on the bearer token.
 - `events` must contain between `1` and `100` entries.
-- With `user_subject`, `star` inserts one `(user_subject, skill)` relation and
-  increments only when the relation did not already exist. `unstar` deletes that
-  relation and decrements only when it existed.
-- Without `user_subject`, duplicate slugs in one batch coalesce into a net delta
-  and update once.
-- `star_count` is clamped at zero; surplus `unstar` events do not push it negative.
+- `star` inserts one `(user_subject, skill)` relation if absent; `unstar` removes
+  it if present. Repeated toggles are idempotent.
+- Return one count per event in input order, computed after that event.
+- No independently writable aggregate count or anonymous delta path exists.
 - The full batch is rejected with `404` `STAR_EVENT_UNKNOWN_SKILL` when any
   slug does not exist; no partial updates are committed.
 - The endpoint does not enforce namespace grants. A telemetry token typically

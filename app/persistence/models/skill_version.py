@@ -9,14 +9,17 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.persistence.models.base import Base
@@ -25,7 +28,6 @@ if TYPE_CHECKING:
     from app.persistence.models.policy_pack import PolicyPack
     from app.persistence.models.skill import Skill
     from app.persistence.models.skill_content import SkillContent
-    from app.persistence.models.skill_metadata import SkillMetadata
     from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 
 
@@ -61,7 +63,17 @@ class SkillVersion(Base):
             "published_at",
             "id",
         ),
-        Index("ix_skill_versions_skill_fk_version", "skill_fk", "version"),
+        UniqueConstraint("id", "skill_fk", name="uq_skill_versions_id_skill_fk"),
+        CheckConstraint("token_estimate >= 0", name="ck_skill_versions_token_estimate"),
+        CheckConstraint(
+            "maturity_score >= 0 AND maturity_score <= 1", name="ck_skill_versions_maturity_score"
+        ),
+        CheckConstraint(
+            "security_score >= 0 AND security_score <= 1", name="ck_skill_versions_security_score"
+        ),
+        CheckConstraint(
+            "overall_score >= 0 AND overall_score <= 1", name="ck_skill_versions_overall_score"
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -78,12 +90,15 @@ class SkillVersion(Base):
         nullable=False,
         index=True,
     )
-    metadata_fk: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("skill_metadata.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'::text[]"), default=list
     )
+    token_estimate: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    maturity_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    security_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     checksum_digest: Mapped[str] = mapped_column(String(64), nullable=False)
     lifecycle_status: Mapped[str] = mapped_column(
         Text,
@@ -142,7 +157,6 @@ class SkillVersion(Base):
         foreign_keys=[skill_fk],
     )
     content: Mapped[SkillContent] = relationship()
-    metadata_row: Mapped[SkillMetadata] = relationship()
     policy_pack: Mapped[PolicyPack | None] = relationship(back_populates="versions")
     relationship_selectors: Mapped[list[SkillRelationshipSelector]] = relationship(
         cascade="all, delete-orphan",

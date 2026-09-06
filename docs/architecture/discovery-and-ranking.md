@@ -76,10 +76,11 @@ contains:
 - `trust_tier`
 - `published_at`
 - `content_size_bytes`
-- `usage_count`
 - `search_vector`
 
-This keeps discovery fast and body-free.
+Search reads `skills.install_count AS usage_count` through the version/skill join,
+so publishing a new version immediately uses the same authoritative popularity.
+This keeps discovery body-free without synchronizing mutable count copies.
 
 Semantic expansion, when enabled, reads a second derived table:
 `skill_search_embeddings`. Those rows are keyed by immutable skill version and

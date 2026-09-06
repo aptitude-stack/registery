@@ -13,7 +13,6 @@ from sqlalchemy import (
     Text,
     bindparam,
     delete,
-    func,
     select,
     text,
     tuple_,
@@ -88,7 +87,6 @@ from app.persistence.models.policy_pack import PolicyPack
 from app.persistence.models.skill import Skill
 from app.persistence.models.skill_content import SkillContent
 from app.persistence.models.skill_graph_edge import SkillGraphEdge as SkillGraphEdgeModel
-from app.persistence.models.skill_metadata import SkillMetadata
 from app.persistence.models.skill_relationship_selector import SkillRelationshipSelector
 from app.persistence.models.skill_search_document import SkillSearchDocument
 from app.persistence.models.skill_user_star import SkillUserStar
@@ -122,7 +120,8 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
     ) -> None:
         self._session_factory = session_factory
         self._semantic_embedding_index_key = semantic_embedding_index_key
-        self._semantic_embedding_dimensions = semantic_embedding_dimensions
+        if semantic_embedding_dimensions != DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS:
+            raise ValueError("Embedding storage requires 1536 dimensions.")
 
     def skill_exists(self, *, slug: str) -> bool:
         with self._session_factory() as session:
@@ -153,7 +152,10 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     namespace_slug=record.governance.namespace,
                 )
                 content = self._get_or_create_content(session=session, record=record)
-                metadata = SkillMetadata(
+                skill_version = SkillVersion(
+                    skill_fk=skill.id,
+                    version=record.version,
+                    content_fk=content.id,
                     name=record.metadata.name,
                     description=record.metadata.description,
                     tags=list(record.metadata.tags),
@@ -161,15 +163,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     maturity_score=record.metadata.maturity_score,
                     security_score=record.metadata.security_score,
                     overall_score=record.metadata.overall_score,
-                )
-                session.add(metadata)
-                session.flush()
-
-                skill_version = SkillVersion(
-                    skill_fk=skill.id,
-                    version=record.version,
-                    content_fk=content.id,
-                    metadata_fk=metadata.id,
                     checksum_digest=record.version_checksum_digest,
                     lifecycle_status="published",
                     lifecycle_changed_at=datetime.now(UTC),
@@ -288,7 +281,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         version: str,
     ) -> SkillContentRecord | None:
         with self._session_factory() as session:
-            entity = self._get_version_entity(session=session, slug=slug, version=version)
+            entity = self._get_version_entity(
+                session=session, slug=slug, version=version, include_payload=True
+            )
             if entity is None:
                 return None
             return to_skill_content_record(entity)
@@ -319,7 +314,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     joinedload(SkillVersion.skill),
                     joinedload(SkillVersion.skill).joinedload(Skill.namespace),
                     joinedload(SkillVersion.content),
-                    joinedload(SkillVersion.metadata_row),
                     joinedload(SkillVersion.policy_pack),
                 )
                 .where(SkillVersion.lifecycle_status.in_(("published", "deprecated")))
@@ -477,6 +471,8 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         *,
         request: SearchSemanticCandidatesRequest,
     ) -> tuple[StoredSkillSearchCandidate, ...]:
+        if request.embedding_dimensions != DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS:
+            raise ValueError("Embedding storage requires 1536 dimensions.")
         published_after = None
         if request.fresh_within_days is not None:
             published_after = datetime.now(UTC) - timedelta(days=request.fresh_within_days)
@@ -504,7 +500,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                         pack.rules AS policy_pack_rules,
                         doc.published_at,
                         doc.content_size_bytes,
-                        doc.usage_count,
+                        skill.install_count AS usage_count,
                         FALSE AS exact_slug_match,
                         FALSE AS exact_name_match,
                         0.0 AS lexical_score,
@@ -521,10 +517,11 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     FROM skill_search_embeddings AS emb
                     JOIN skill_search_documents AS doc
                         ON doc.skill_version_fk = emb.skill_version_fk
+                    JOIN skill_versions AS version ON version.id = doc.skill_version_fk
+                    JOIN skills AS skill ON skill.id = version.skill_fk
                     LEFT JOIN policy_packs AS pack
                         ON pack.slug = doc.policy_pack_slug
                     WHERE emb.embedding_model = :embedding_model
-                      AND emb.embedding_dimensions = :embedding_dimensions
                       AND emb.index_status = 'indexed'
                       AND emb.embedding_vector IS NOT NULL
                       AND (
@@ -556,7 +553,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             ).bindparams(
                 bindparam("query_embedding", type_=Text()),
                 bindparam("embedding_model", type_=Text()),
-                bindparam("embedding_dimensions", type_=Integer()),
                 bindparam("required_tags", type_=ARRAY(Text())),
                 bindparam("required_tag_count", type_=Integer()),
                 bindparam("published_after", type_=DateTime(timezone=True)),
@@ -575,7 +571,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 {
                     "query_embedding": query_embedding,
                     "embedding_model": request.embedding_model,
-                    "embedding_dimensions": request.embedding_dimensions,
                     "required_tags": list(request.required_tags),
                     "required_tag_count": len(request.required_tags),
                     "published_after": published_after,
@@ -598,7 +593,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         embedding_model: str,
         embedding_dimensions: int,
     ) -> int:
-        """Create missing Plan 18 pending embedding rows from search documents."""
+        """Create missing pending embedding rows from search documents."""
+        if embedding_dimensions != DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS:
+            raise ValueError("Embedding storage requires 1536 dimensions.")
         inserted_count = 0
         with self._session_factory() as session:
             rows = (
@@ -649,14 +646,12 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                             INSERT INTO skill_search_embeddings (
                                 skill_version_fk,
                                 embedding_model,
-                                embedding_dimensions,
                                 source_checksum_digest,
                                 index_status
                             )
                             VALUES (
                                 :skill_version_fk,
                                 :embedding_model,
-                                :embedding_dimensions,
                                 :source_checksum_digest,
                                 'pending'
                             )
@@ -665,7 +660,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                         {
                             "skill_version_fk": int(row["skill_version_fk"]),
                             "embedding_model": embedding_model,
-                            "embedding_dimensions": embedding_dimensions,
                             "source_checksum_digest": source_checksum,
                         },
                     )
@@ -676,8 +670,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                         text(
                             """
                             UPDATE skill_search_embeddings
-                            SET embedding_dimensions = :embedding_dimensions,
-                                source_checksum_digest = :source_checksum_digest,
+                            SET source_checksum_digest = :source_checksum_digest,
                                 embedding_vector = NULL,
                                 index_status = 'stale',
                                 indexed_at = NULL,
@@ -690,7 +683,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                         {
                             "skill_version_fk": int(row["skill_version_fk"]),
                             "embedding_model": embedding_model,
-                            "embedding_dimensions": embedding_dimensions,
                             "source_checksum_digest": source_checksum,
                         },
                     )
@@ -714,7 +706,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                             SELECT
                                 emb.skill_version_fk,
                                 emb.embedding_model,
-                                emb.embedding_dimensions,
                                 emb.source_checksum_digest,
                                 doc.slug,
                                 doc.name,
@@ -749,7 +740,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                             RETURNING
                                 emb.skill_version_fk,
                                 emb.embedding_model,
-                                emb.embedding_dimensions,
                                 emb.source_checksum_digest,
                                 candidate.slug,
                                 candidate.name,
@@ -785,7 +775,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 self._mark_skill_embedding_stale(
                     skill_version_fk=int(row["skill_version_fk"]),
                     embedding_model=str(row["embedding_model"]),
-                    embedding_dimensions=int(row["embedding_dimensions"]),
                     source_checksum_digest=source_checksum,
                 )
                 continue
@@ -793,7 +782,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 SkillEmbeddingWorkItem(
                     skill_version_fk=int(row["skill_version_fk"]),
                     embedding_model=str(row["embedding_model"]),
-                    embedding_dimensions=int(row["embedding_dimensions"]),
+                    embedding_dimensions=DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS,
                     source_checksum_digest=source_checksum,
                     source_text=source_text,
                 )
@@ -802,6 +791,8 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
 
     def index_skill_embedding(self, *, record: SkillEmbeddingIndexRecord) -> None:
         """Persist one validated vector and mark the derived row indexed."""
+        if record.embedding_dimensions != DEFAULT_SEMANTIC_EMBEDDING_DIMENSIONS:
+            raise ValueError("Embedding storage requires 1536 dimensions.")
         embedding_vector = serialize_embedding_vector(
             validate_embedding_vector(
                 record.embedding_vector,
@@ -814,8 +805,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 text(
                     f"""
                     UPDATE skill_search_embeddings
-                    SET embedding_dimensions = :embedding_dimensions,
-                        source_checksum_digest = :source_checksum_digest,
+                    SET source_checksum_digest = :source_checksum_digest,
                         embedding_vector = CAST(:embedding_vector AS {vector_type}),
                         index_status = 'indexed',
                         indexed_at = CURRENT_TIMESTAMP,
@@ -828,7 +818,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 {
                     "skill_version_fk": record.skill_version_fk,
                     "embedding_model": record.embedding_model,
-                    "embedding_dimensions": record.embedding_dimensions,
                     "source_checksum_digest": record.source_checksum_digest,
                     "embedding_vector": embedding_vector,
                 },
@@ -954,15 +943,14 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             session.execute(
                 text(
                     """
-                    INSERT INTO skill_usage_observations (run_fk, skill_fk, skill_slug)
-                    VALUES (:run_fk, :skill_fk, :skill_slug)
+                    INSERT INTO skill_usage_observations (run_fk, skill_fk)
+                    VALUES (:run_fk, :skill_fk)
                     """
                 ),
                 [
                     {
                         "run_fk": run_id,
                         "skill_fk": skill_ids[slug],
-                        "skill_slug": slug,
                     }
                     for slug in record.skill_slugs
                 ],
@@ -999,58 +987,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 session.rollback()
                 return
 
-            skill_id, install_count = skill_row
-            session.execute(
-                update(SkillSearchDocument)
-                .where(
-                    SkillSearchDocument.skill_version_fk.in_(
-                        select(SkillVersion.id).where(SkillVersion.skill_fk == skill_id)
-                    )
-                )
-                .values(usage_count=install_count)
-            )
             session.commit()
-
-    def apply_star_count_deltas(
-        self,
-        *,
-        deltas: tuple[tuple[str, int], ...],
-    ) -> tuple[SkillStarCount, ...]:
-        if not deltas:
-            return ()
-
-        slugs = tuple(slug for slug, _ in deltas)
-        with self._session_factory() as session:
-            existing = (
-                session.execute(select(Skill.slug).where(Skill.slug.in_(slugs))).scalars().all()
-            )
-            existing_set = set(existing)
-            missing = tuple(slug for slug in slugs if slug not in existing_set)
-            if missing:
-                # Deduplicate while preserving order so the error stays stable.
-                seen: set[str] = set()
-                unique_missing: list[str] = []
-                for slug in missing:
-                    if slug in seen:
-                        continue
-                    seen.add(slug)
-                    unique_missing.append(slug)
-                raise UnknownStarEventSkillsError(slugs=tuple(unique_missing))
-
-            updated: dict[str, int] = {}
-            for slug, delta in deltas:
-                row = session.execute(
-                    update(Skill)
-                    .where(Skill.slug == slug)
-                    .values(star_count=func.greatest(0, Skill.star_count + delta))
-                    .returning(Skill.star_count)
-                ).one_or_none()
-                if row is None:
-                    raise UnknownStarEventSkillsError(slugs=(slug,))
-                updated[slug] = int(row[0])
-            session.commit()
-
-        return tuple(SkillStarCount(slug=slug, star_count=updated[slug]) for slug in slugs)
 
     def list_user_starred_skill_slugs(self, *, user_subject: str) -> tuple[str, ...]:
         with self._session_factory() as session:
@@ -1074,7 +1011,12 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         slugs = tuple(event.slug for event in events)
         with self._session_factory() as session:
             skills = (
-                session.execute(select(Skill).where(Skill.slug.in_(slugs)).with_for_update())
+                session.execute(
+                    select(Skill)
+                    .where(Skill.slug.in_(slugs))
+                    .order_by(Skill.id)
+                    .with_for_update(of=Skill)
+                )
                 .scalars()
                 .all()
             )
@@ -1106,16 +1048,14 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                             skill_fk=skill.id,
                         )
                     )
-                    skill.star_count += 1
                 elif event.action == "unstar" and existing_star_id is not None:
                     session.execute(
                         delete(SkillUserStar).where(SkillUserStar.id == existing_star_id)
                     )
-                    skill.star_count = max(0, skill.star_count - 1)
 
-                session.add(skill)
                 session.flush()
-                results.append(SkillStarCount(slug=event.slug, star_count=int(skill.star_count)))
+                count = session.scalar(select(Skill.star_count).where(Skill.id == skill.id))
+                results.append(SkillStarCount(slug=event.slug, star_count=int(count or 0)))
             session.commit()
 
         return tuple(results)
@@ -1452,6 +1392,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         session: Session,
         slug: str,
         version: str,
+        include_payload: bool = False,
     ) -> SkillVersion | None:
         statement = (
             select(SkillVersion)
@@ -1459,8 +1400,11 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             .options(
                 joinedload(SkillVersion.skill),
                 joinedload(SkillVersion.skill).joinedload(Skill.namespace),
-                joinedload(SkillVersion.content),
-                joinedload(SkillVersion.metadata_row),
+                (
+                    joinedload(SkillVersion.content).undefer(SkillContent.payload)
+                    if include_payload
+                    else joinedload(SkillVersion.content)
+                ),
                 joinedload(SkillVersion.policy_pack),
                 selectinload(SkillVersion.relationship_selectors),
             )
@@ -1610,11 +1554,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 INSERT INTO skill_co_usage_pairs (
                     anchor_skill_fk,
                     related_skill_fk,
-                    observation_count,
                     distinct_run_count,
                     co_usage_rate,
                     lift_score,
-                    pmi_score,
                     last_observed_at,
                     window_days
                 )
@@ -1622,10 +1564,8 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                     anchor_skill_fk,
                     related_skill_fk,
                     run_count::bigint,
-                    run_count::bigint,
                     ROUND(co_usage_rate, 6),
                     ROUND(lift_score, 6),
-                    ROUND(LN(GREATEST(lift_score, 0.000001)), 6),
                     last_observed_at,
                     :window_days
                 FROM scored_pairs
@@ -1649,11 +1589,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             SELECT
                 LEAST(anchor_skill_fk, related_skill_fk) AS source_skill_fk,
                 GREATEST(anchor_skill_fk, related_skill_fk) AS target_skill_fk,
-                MAX(observation_count) AS observation_count,
                 MAX(distinct_run_count) AS distinct_run_count,
                 MAX(co_usage_rate) AS co_usage_rate,
                 MAX(lift_score) AS lift_score,
-                MAX(pmi_score) AS pmi_score,
                 MAX(last_observed_at) AS last_observed_at,
                 MAX(window_days) AS window_days
             FROM skill_co_usage_pairs
@@ -1718,11 +1656,9 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                         TRUE,
                         LEAST(1.0, pair.co_usage_rate)::numeric(10, 6),
                         jsonb_build_object(
-                            'observation_count', pair.observation_count,
                             'distinct_run_count', pair.distinct_run_count,
                             'co_usage_rate', pair.co_usage_rate,
                             'lift_score', pair.lift_score,
-                            'pmi_score', pair.pmi_score,
                             'window_days', pair.window_days,
                             'last_observed_at', pair.last_observed_at
                         )
@@ -1771,20 +1707,17 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 INSERT INTO skill_search_embeddings (
                     skill_version_fk,
                     embedding_model,
-                    embedding_dimensions,
                     source_checksum_digest,
                     index_status
                 )
                 VALUES (
                     :skill_version_fk,
                     :embedding_model,
-                    :embedding_dimensions,
                     :source_checksum_digest,
                     'pending'
                 )
                 ON CONFLICT (skill_version_fk, embedding_model)
                 DO UPDATE SET
-                    embedding_dimensions = EXCLUDED.embedding_dimensions,
                     source_checksum_digest = EXCLUDED.source_checksum_digest,
                     index_status = 'stale',
                     updated_at = CURRENT_TIMESTAMP
@@ -1793,7 +1726,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
             {
                 "skill_version_fk": skill_version_id,
                 "embedding_model": self._semantic_embedding_index_key,
-                "embedding_dimensions": self._semantic_embedding_dimensions,
                 "source_checksum_digest": build_source_checksum_digest(source),
             },
         )
@@ -1803,7 +1735,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
         *,
         skill_version_fk: int,
         embedding_model: str,
-        embedding_dimensions: int,
         source_checksum_digest: str,
     ) -> None:
         with self._session_factory() as session:
@@ -1811,8 +1742,7 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 text(
                     """
                     UPDATE skill_search_embeddings
-                    SET embedding_dimensions = :embedding_dimensions,
-                        source_checksum_digest = :source_checksum_digest,
+                    SET source_checksum_digest = :source_checksum_digest,
                         embedding_vector = NULL,
                         index_status = 'stale',
                         indexed_at = NULL,
@@ -1825,7 +1755,6 @@ class SQLAlchemySkillCatalogRepository(SkillCatalogRepository):
                 {
                     "skill_version_fk": skill_version_fk,
                     "embedding_model": embedding_model,
-                    "embedding_dimensions": embedding_dimensions,
                     "source_checksum_digest": source_checksum_digest,
                 },
             )

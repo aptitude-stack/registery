@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, Integer, Text, func
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,11 +29,20 @@ class SkillRelationshipSelector(Base):
             "edge_type IN ('depends_on', 'extends', 'conflicts_with', 'overlaps_with')",
             name="ck_skill_relationship_selectors_edge_type",
         ),
-        Index(
-            "ix_skill_relationship_selectors_source_edge_type_ordinal",
+        UniqueConstraint(
             "source_skill_version_fk",
             "edge_type",
             "ordinal",
+            name="uq_skill_relationship_selectors_position",
+        ),
+        CheckConstraint("ordinal >= 0", name="ck_skill_relationship_selectors_ordinal"),
+        CheckConstraint(
+            """(edge_type = 'depends_on'
+                AND ((target_version IS NOT NULL) <> (version_constraint IS NOT NULL)))
+            OR (edge_type <> 'depends_on' AND target_version IS NOT NULL
+                AND version_constraint IS NULL AND optional IS NULL AND cardinality(markers) = 0)
+            """,
+            name="ck_skill_relationship_selectors_shape",
         ),
     )
 

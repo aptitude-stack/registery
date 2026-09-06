@@ -24,7 +24,6 @@ from app.persistence.models import (
     audit_event,  # noqa: F401
     skill,  # noqa: F401
     skill_content,  # noqa: F401
-    skill_metadata,  # noqa: F401
     skill_relationship_selector,  # noqa: F401
     skill_search_document,  # noqa: F401
     skill_version,  # noqa: F401
@@ -50,7 +49,11 @@ def get_database_url() -> str:
     """
     configured_url = config.get_main_option("sqlalchemy.url")
     if configured_url:
-        return configured_url
+        return select_migration_database_url(
+            configured_url=configured_url,
+            migration_database_url=None,
+            database_url=configured_url,
+        )
 
     # Ensure settings reflect current environment variables for migration runs.
     reset_settings_cache()

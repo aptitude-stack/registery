@@ -1,23 +1,23 @@
 # Database Schema
 
-> Status: canonical PostgreSQL schema baseline for the live registry.
-> Use [`api-contract.md`](api-contract.md) for the live HTTP contract.
+> Status: canonical PostgreSQL schema for this application revision.
+> Use [`api-contract.md`](api-contract.md) for the HTTP contract; verify deployed revision separately.
 
 ## Purpose
 
 This document describes the canonical PostgreSQL baseline for the registry data model.
 
-It reflects the current runtime shape created by [`alembic/versions/0001_initial_schema.py`](../../alembic/versions/0001_initial_schema.py) and evolved through [`alembic/versions/0006_embedding_processing_status.py`](../../alembic/versions/0006_embedding_processing_status.py):
+It reflects the current runtime shape created by [`alembic/versions/0001_initial_schema.py`](../../alembic/versions/0001_initial_schema.py) and evolved through [`alembic/versions/0013_db_structure_cleanup.py`](../../alembic/versions/0013_db_structure_cleanup.py):
 
 - PostgreSQL is the only authoritative store.
 - versions are immutable.
 - discovery queries stay body-free.
 - exact content is stored as digest-deduplicated opaque artifacts.
-- identity, versioning, content, metadata, selectors, enterprise workflow state, search projection, and audit records are modeled separately.
+- identity, versions with metadata, content, selectors, enterprise workflow state, search projections, and audit records have distinct ownership.
 
 ## Canonical Baseline
 
-The live schema is centered on immutable version rows, digest-backed bundle rows, authored selector rows, and a derived search projection.
+The schema is centered on immutable version rows, digest-backed bundle rows, authored selector rows, and a derived search projection.
 
 - `organizations` and `namespaces` define enterprise ownership boundaries.
 - `skills` stores the logical identity row, namespace ownership, and mutable install aggregate.
@@ -63,7 +63,6 @@ erDiagram
     organizations ||--o{ namespaces : owns
     namespaces ||--o{ skills : contains
     skill_contents ||--o{ skill_versions : backs
-    skill_metadata ||--o{ skill_versions : describes
     policy_packs ||--o{ skill_versions : constrains
     skill_versions ||--o{ skill_relationship_selectors : preserves
     skill_versions ||--o{ trust_evidence : records
@@ -144,7 +143,6 @@ Immutable version rows binding identity, content, metadata, publish-time trust/p
 | `skill_fk` | `bigint` | `NOT NULL`, FK -> `skills.id` | Parent skill identity. |
 | `version` | `text` | `NOT NULL` | Semantic version string. |
 | `content_fk` | `bigint` | `NOT NULL`, FK -> `skill_contents.id` | Immutable artifact row. |
-| `metadata_fk` | `bigint` | `NOT NULL`, FK -> `skill_metadata.id` | Immutable metadata row. |
 | `checksum_digest` | `varchar(64)` | `NOT NULL` | Version-level digest returned in exact metadata reads. |
 | `lifecycle_status` | `text` | `NOT NULL`, default `published` | `published`, `deprecated`, or `archived`. |
 | `lifecycle_changed_at` | `timestamptz` | `NOT NULL`, server default | Most recent lifecycle transition time. |
@@ -190,13 +188,12 @@ Storage notes:
 - exact content fetches read this table directly
 - list/search/rank queries should not join this table unless explicitly needed
 
-### `skill_metadata`
+### Version-owned metadata
 
-Structured, queryable metadata for discovery and exact reads.
+These columns live directly on `skill_versions`; the HTTP response retains its nested `metadata` object.
 
 | Column | Type | Constraints | Purpose |
 | --- | --- | --- | --- |
-| `id` | `bigint` | PK | Internal metadata key. |
 | `name` | `text` | `NOT NULL` | Display name. |
 | `description` | `text` | nullable | Canonical author-owned short description used for discovery and exact metadata reads. |
 | `tags` | `text[]` | `NOT NULL`, default empty array | Primary categorical filters. |
@@ -204,6 +201,14 @@ Structured, queryable metadata for discovery and exact reads.
 | `maturity_score` | `float` | nullable | Quality or stability ranking input. |
 | `security_score` | `float` | nullable | Security or trust ranking input. |
 | `overall_score` | `float` | nullable, check `0 <= overall_score <= 1` when present | Optional normalized overall score returned by exact metadata reads; not a discovery/search ranking input. |
+
+### `skill_user_stars`
+
+One row per `(user_subject, skill_fk)`, enforced by a unique constraint; the
+surrogate `id` remains its primary key. `skill_fk` references `skills.id` with
+cascade deletion and has a lookup index. `created_at` records the star time.
+The public `star_count` is computed from these rows, not stored in `skills`.
+Repeated toggles by the same user are idempotent; batches retain event order.
 
 ### `policy_packs`
 
@@ -262,7 +267,8 @@ Rules:
 
 Derived read model for fast advisory search.
 
-This table is derived from `skills`, `skill_versions`, `skill_metadata`, and `skill_contents`.
+This table is derived from `skills`, `skill_versions`, and `skill_contents`.
+Search joins versions and skills to return `skills.install_count AS usage_count`; this mutable counter is not copied into search rows.
 
 | Column | Type | Purpose |
 | --- | --- | --- |
@@ -285,7 +291,6 @@ This table is derived from `skills`, `skill_versions`, `skill_metadata`, and `sk
 | `search_vector` | `tsvector` | Full-text index target. |
 | `published_at` | `timestamptz` | Freshness ranking input. |
 | `content_size_bytes` | `bigint` | Ranking/filtering input based on stored bundle size. |
-| `usage_count` | `bigint` | Ranking tie-break input. |
 | `created_at` | `timestamptz` | Projection insert timestamp. |
 
 Rule:
@@ -304,7 +309,6 @@ Derived semantic-search read model for lexical-primary discovery expansion.
 | --- | --- | --- |
 | `skill_version_fk` | `bigint` | PK and FK to `skill_versions.id`. |
 | `embedding_model` | `text` | PK component for model-specific rebuilds. |
-| `embedding_dimensions` | `integer` | Fixed at `1536` for the first semantic index. |
 | `source_checksum_digest` | `text` | Detects stale description/tag embedding sources. |
 | `embedding_vector` | `halfvec(1536)` | Optional pgvector embedding, indexed only when ready. |
 | `index_status` | `text` | `pending`, `processing`, `indexed`, `failed`, or `stale`. |
@@ -370,7 +374,8 @@ Discovery path:
 - optionally expand candidates through `skill_search_embeddings`
 - optionally apply capped co-usage boosts from `skill_co_usage_pairs`
 - apply namespace, lifecycle, review-state, promotion-channel, trust-tier, and policy-pack visibility filters
-- rely on canonical `skills`, `skill_versions`, `skill_metadata`, and `skill_contents` only through the derived projection refresh path
+- join canonical `skills` through `skill_versions` for the authoritative install count
+- keep other searchable fields in the derived projection
 - do not hit `skill_contents.payload`
 
 Resolution path:
@@ -386,7 +391,34 @@ Exact fetch path:
 - load `skill_contents.payload`
 - return checksum metadata from `skill_versions.checksum_digest` and `skill_contents.checksum_digest`
 
-## Migration Direction
+## Cleanup invariants (revision 0013)
+
+- Version metadata scores are nullable within `[0, 1]`; token estimates and
+  install counts are nonnegative.
+- Artifact size equals `octet_length(payload)`. Payload is deferred and protected
+  against accidental lazy loading; only content downloads explicitly load bytes.
+- Selector `(source_skill_version_fk, edge_type, ordinal)` is unique and ordinal
+  is nonnegative. Dependencies have exactly one version or range; other edges
+  have an exact version and no dependency-only optional/marker hints.
+- Graph composite foreign keys enforce source-version ownership and resolved
+  target ID/slug agreement. Unresolved authored targets can still have a null ID.
+- Co-usage graph rows have no source version and use one ordered identity pair;
+  authored graph rows have a source version and an authored edge type.
+- Embedding dimensions are fixed by `halfvec(1536)` and runtime validation, not
+  stored per row. Indexed rows require a vector and successful indexing time.
+- Observation runs and observations retain their identity keys and natural
+  uniqueness. Observations store only the skill FK, not another copy of its slug.
+- Co-usage pairs retain `distinct_run_count`, rate, lift, observation time, and
+  window; duplicate counts and derived PMI are not stored or copied into evidence.
+- Co-usage counts/lift are nonnegative, rates are within `[0, 1]`, windows positive.
+- The exact duplicate version lookup index is removed; composite unique keys
+  required by graph foreign keys are retained intentionally.
+
+Revision 0013 requires a maintenance window and preserves historical migrations,
+artifact bytes, version checksums, canonical IDs, timestamps, and user-star rows.
+See the deployment architecture for preflight, backup, cutover, and rollback.
+
+## Historical Migration Direction
 
 The canonical bundle transition is captured by [`alembic/versions/0003_skill_bundle_storage.py`](../../alembic/versions/0003_skill_bundle_storage.py):
 

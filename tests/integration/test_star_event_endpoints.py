@@ -40,6 +40,24 @@ def _set_telemetry_token(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize("subject", [{}, {"user_subject": None}, {"user_subject": " "}])
+def test_star_events_reject_missing_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    migrated_registry_database: str,
+    subject: dict,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", migrated_registry_database)
+    _set_telemetry_token(monkeypatch)
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/catalog/star-events",
+            json={**subject, "events": [{"slug": "test", "action": "star"}]},
+            headers=_telemetry_headers(),
+        )
+    assert response.status_code == 422
+
+
+@pytest.mark.integration
 def test_star_events_apply_deltas_and_clamp_at_zero(
     monkeypatch: pytest.MonkeyPatch,
     migrated_registry_database: str,
@@ -65,21 +83,23 @@ def test_star_events_apply_deltas_and_clamp_at_zero(
         first = client.post(
             "/catalog/star-events",
             json={
+                "user_subject": "test@example.com",
                 "events": [
                     {"slug": slug_lint, "action": "star"},
                     {"slug": slug_test, "action": "star"},
                     {"slug": slug_lint, "action": "star"},
-                ]
+                ],
             },
             headers=_telemetry_headers(),
         )
         clamping = client.post(
             "/catalog/star-events",
             json={
+                "user_subject": "test@example.com",
                 "events": [
                     {"slug": slug_test, "action": "unstar"},
                     {"slug": slug_test, "action": "unstar"},
-                ]
+                ],
             },
             headers=_telemetry_headers(),
         )
@@ -96,14 +116,14 @@ def test_star_events_apply_deltas_and_clamp_at_zero(
     body = first.json()
     assert body["accepted"] == 3
     counts = {entry["slug"]: entry["star_count"] for entry in body["counts"]}
-    assert counts == {slug_lint: 2, slug_test: 1}
+    assert counts == {slug_lint: 1, slug_test: 1}
 
     assert clamping.status_code == 200, clamping.text
     clamped = {entry["slug"]: entry["star_count"] for entry in clamping.json()["counts"]}
     assert clamped == {slug_test: 0}
 
     assert metadata_lint.status_code == 200
-    assert metadata_lint.json()["star_count"] == 2
+    assert metadata_lint.json()["star_count"] == 1
     assert metadata_test.status_code == 200
     assert metadata_test.json()["star_count"] == 0
 
@@ -205,10 +225,11 @@ def test_star_events_reject_unknown_slug_without_committing(
         response = client.post(
             "/catalog/star-events",
             json={
+                "user_subject": "test@example.com",
                 "events": [
                     {"slug": slug, "action": "star"},
                     {"slug": missing, "action": "star"},
-                ]
+                ],
             },
             headers=_telemetry_headers(),
         )
@@ -244,16 +265,16 @@ def test_star_events_require_telemetry_scope(
 
         unauthenticated = client.post(
             "/catalog/star-events",
-            json={"events": [{"slug": slug, "action": "star"}]},
+            json={"user_subject": "test@example.com", "events": [{"slug": slug, "action": "star"}]},
         )
         wrong_scope = client.post(
             "/catalog/star-events",
-            json={"events": [{"slug": slug, "action": "star"}]},
+            json={"user_subject": "test@example.com", "events": [{"slug": slug, "action": "star"}]},
             headers=_headers("reader-token"),
         )
         admin_allowed = client.post(
             "/catalog/star-events",
-            json={"events": [{"slug": slug, "action": "star"}]},
+            json={"user_subject": "test@example.com", "events": [{"slug": slug, "action": "star"}]},
             headers=_headers("admin-token"),
         )
 
@@ -276,17 +297,23 @@ def test_star_events_validate_request_shape(
     with TestClient(create_app()) as client:
         empty_batch = client.post(
             "/catalog/star-events",
-            json={"events": []},
+            json={"user_subject": "test@example.com", "events": []},
             headers=_telemetry_headers(),
         )
         bad_action = client.post(
             "/catalog/star-events",
-            json={"events": [{"slug": "python-lint", "action": "favorite"}]},
+            json={
+                "user_subject": "test@example.com",
+                "events": [{"slug": "python-lint", "action": "favorite"}],
+            },
             headers=_telemetry_headers(),
         )
         bad_slug = client.post(
             "/catalog/star-events",
-            json={"events": [{"slug": "***bad***", "action": "star"}]},
+            json={
+                "user_subject": "test@example.com",
+                "events": [{"slug": "***bad***", "action": "star"}],
+            },
             headers=_telemetry_headers(),
         )
 

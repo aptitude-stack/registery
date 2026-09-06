@@ -1,4 +1,4 @@
-"""Public DTOs for aggregate skill telemetry endpoints."""
+"""Public DTOs for per-user star telemetry endpoints."""
 
 from __future__ import annotations
 
@@ -31,8 +31,7 @@ class StarEventBatchRequest(BaseModel):
         list[StarEventRequest],
         Field(min_length=1, max_length=MAX_STAR_EVENT_BATCH_SIZE),
     ]
-    user_subject: UserSubject | None = Field(
-        default=None,
+    user_subject: UserSubject = Field(
         description="Trusted authenticated user subject for idempotent per-user stars.",
     )
 
